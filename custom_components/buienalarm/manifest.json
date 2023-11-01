@@ -1,0 +1,15 @@
+{
+    "domain": "buienalarm",
+    "name": "Buienalarm",
+    "documentation": "https://github.com/yourusername/buienalarm-custom-component",
+    "iot_class": "cloud_polling",
+    "dependencies": [],
+    "codeowners": ["@HiDiHo01"],
+    "requirements": [],
+    "after_dependencies": [],
+    "config_flow": true,
+    "zeroconf": [],
+    "quality_scale": "silver",
+    "version": "2023.10.15",
+    "issue_tracker": "https://github.com/yourusername/buienalarm-custom-component/issues"
+}

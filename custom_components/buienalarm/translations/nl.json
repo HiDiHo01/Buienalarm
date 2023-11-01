@@ -1,0 +1,121 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "title": "Buienalarm",
+                "description": "Instellingen:",
+                "data": {
+                    "name": "Plaats / Naam",
+                    "place": "Plaats",
+                    "latitude": "Breedtegraad",
+                    "longitude": "Lengtegraad",
+                    "notification_limit": "Limiet voor meldingen (mm/u)",
+                    "refresh_interval": "Data vernieuw interval (sec)"
+                }
+            }
+        },
+        "error": {
+            "general": "Onbekende fout bij het ophalen van weergegevens, probeer het later opnieuw",
+            "invalid_coordinates": "Coördinaten ongeldig"
+        },
+        "abort": {
+            "single_instance_allowed": "Al geconfigureerd. Slechts \u00e9\u00e9n configuratie mogelijk."
+        },
+        "base": {
+            "invalid_coordinates": "Coördinaten ongeldig"
+        }
+    },
+    "options": {
+        "step": {
+            "user": {
+                "title": "Instellingen",
+                "description": "Opties voor Buienalarm:",
+                "data": {
+                    "name": "Naam",
+                    "place": "Plaats",
+                    "latitude": "Breedtegraad",
+                    "longitude": "Lengtegraad",
+                    "notification_limit": "Limiet voor meldingen (mm/u)",
+                    "refresh_interval": "Data vernieuw interval (sec)"
+                },
+                "data_description": {
+                    "name": "Naam",
+                    "place": "Plaats",
+                    "latitude": "Breedtegraad",
+                    "longitude": "Lengtegraad",
+                    "notification_limit": "Limiet voor meldingen (mm/u)",
+                    "refresh_interval": "Zet de vernieuw interval minimaal op 300 seconden."
+                }
+            },
+            "init": {
+                "title": "Instellingen",
+                "description": "Opties voor Buienalarm:",
+                "data": {
+                    "name": "Naam",
+                    "place": "Plaats",
+                    "latitude": "Breedtegraad",
+                    "longitude": "Lengtegraad",
+                    "notification_limit": "Limiet voor meldingen (mm/u)",
+                    "refresh_interval": "Data vernieuw interval (sec)"
+                },
+                "data_description": {
+                    "name": "Naam",
+                    "place": "Plaats",
+                    "latitude": "Breedtegraad",
+                    "longitude": "Lengtegraad",
+                    "notification_limit": "Limiet voor meldingen (mm/u)",
+                    "refresh_interval": "Zet de vernieuw interval minimaal op 300 seconden."
+                }
+            }
+        }
+    },
+    "entity_component": {
+        "binary_sensor.knmi_zon": {
+            "name": "Zon",
+            "state": {
+                "True": "Boven de horizon",
+                "False": "Onder de horizon",
+                "on": "Boven de horizon",
+                "off": "Onder de horizon",
+                "above_horizon": "Boven de horizon",
+                "below_horizon": "Onder de horizon"
+            }
+        },
+        "knmi_zon": {
+            "name": "Zon",
+            "state": {
+                "on": "Boven de horizon",
+                "off": "Onder de horizon",
+                "above_horizon": "Boven de horizon",
+                "below_horizon": "Onder de horizon"
+            }
+        },
+        "_": {
+            "state": {
+                "on": "Boven de horizon",
+                "off": "Onder de horizon",
+                "above_horizon": "Boven de horizon",
+                "below_horizon": "Onder de horizon"
+            }
+        },
+        "sun": {
+            "name": "Zon",
+            "state": {
+                "on": "Boven de horizon",
+                "off": "Onder de horizon",
+                "above_horizon": "Boven de horizon",
+                "below_horizon": "Onder de horizon"
+            }
+        },
+        "Zon": {
+            "name": "Zon",
+            "state": {
+                "on": "Boven de horizon",
+                "off": "Onder de horizon",
+                "above_horizon": "Boven de horizon",
+                "below_horizon": "Onder de horizon"
+            }
+        }
+    },
+    "title": "Buienalarm Nederland"
+}

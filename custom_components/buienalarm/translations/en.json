@@ -1,0 +1,47 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "title": "KNMI Weather",
+                "description": "To get your free API key, visit: https://weerlive.nl/api/toegang/account.php",
+                "data": {
+                    "api_key": "API key",
+                    "latitude": "Latitude",
+                    "longitude": "Longitude",
+                    "name": "Place / Name",
+                    "refresh_interval": "Refresh interval (sec)"
+                }
+            }
+        },
+        "error": {
+            "api_key": "The given API key is incorrect."
+        },
+        "abort": {
+            "single_instance_allowed": "Only a single instance is allowed."
+        }
+    },
+    "options": {
+        "step": {
+            "user": {
+                "data": {
+                    "binary_sensor": "Binary sensor enabled",
+                    "sensor": "Sensor enabled",
+                    "weather": "Weather enabled",
+                    "refresh_interval": "Refresh interval (sec)"
+                }
+            }
+        }
+    },
+    "entity_component": {
+        "binary_sensor.knmi_zon": {
+            "name": "Sun",
+            "state": {
+                "on": "Above the horizon",
+                "off": "Below the horizon",
+                "above_horizon": "Above the horizon",
+                "below_horizon": "Below the horizon"
+            }
+        }
+    },
+    "title": "KNMI Weer"
+}
