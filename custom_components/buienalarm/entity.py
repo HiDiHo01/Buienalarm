@@ -6,6 +6,7 @@ import re
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional, Union
 
+from dateutil.tz import tzlocal
 from homeassistant.helpers.device_registry import DeviceEntryType
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -36,7 +37,7 @@ class BuienalarmEntity(CoordinatorEntity):
         # _LOGGER.debug("Data received: %s", data)
         _LOGGER.debug("Data received for sensor: %s", self.name)
         if data is None:
-            _LOGGER.error("Data for sensor is None")
+            _LOGGER.error("No Data for sensors")
             return None
 
         if key == 'nowcastmessage':
@@ -88,15 +89,7 @@ class BuienalarmEntity(CoordinatorEntity):
         }
 
     @property
-    def old_extra_state_attributes(self) -> dict[str, Union[list[dict[str, Union[str, int]]], str]]:
-        """Return the state attributes."""
-        return {
-            "precipitation_data": self.data_points_as_list,
-            "attribution": ATTRIBUTION,
-        }
-
-    @property
-    def extra_state_attributes(self) -> dict:
+    def extra_state_attributes(self) -> dict[str, Union[list[dict[str, Union[str, int]]], str]]:
         """Return the state attributes for the specific sensor."""
         if self.sensor_key == 'precipitationrate_total':
             return {
@@ -116,7 +109,7 @@ class BuienalarmEntity(CoordinatorEntity):
                 "precipitationrate": data_point.get('precipitationrate'),
                 "precipitationtype": data_point.get('precipitationtype'),
                 "timestamp": data_point.get('timestamp'),
-                "time": data_point.get('time')
+                "time": dt.as_local(datetime.fromisoformat(data_point.get('time'))),
             })
         return data_points
 
@@ -193,15 +186,19 @@ class BuienalarmEntity(CoordinatorEntity):
             return mycastmessage
         return None
 
-    # Define a function to format timestamps to a user-friendly string
-    def format_time(self, timestamp: Union[None, datetime]) -> str:
+    def format_time(self, timestamp: datetime) -> str:
+        """ Function to format timestamps to a user-friendly string """
         if timestamp is None:
             return "Unknown time"
 
         # Convert rain_start_time to local time
-        timestamp_utc = timestamp.strftime("%Y-%m-%d %H:%M:%S") + "+0000"
-        timestamp_utc = datetime.strptime(timestamp_utc, "%Y-%m-%d %H:%M:%S%z")
-        timestamp_local = timestamp_utc.replace(tzinfo=timezone.utc).astimezone()
+        #timestamp_utc = timestamp.strftime("%Y-%m-%d %H:%M:%S") + "+0000"
+        #timestamp_utc = datetime.strptime(timestamp_utc, "%Y-%m-%d %H:%M:%S%z")
+        #timestamp_local = timestamp_utc.replace(tzinfo=timezone.utc).astimezone()
+
+        #timestamp_local = dt.as_local(datetime.fromisoformat(timestamp))
+        #timestamp_local = dt.as_local(dt.as_utc(timestamp_utc))
+        timestamp_local = timestamp.replace(tzinfo=timezone.utc).astimezone()
 
         timestamp_str = timestamp_local.strftime("%H:%M")
         if timestamp_str.startswith('0'):
@@ -210,7 +207,7 @@ class BuienalarmEntity(CoordinatorEntity):
 
     def get_mycastmessage(self) -> Optional[str]:
         """Generate a user-friendly message for the precipitation forecast."""
-        rain_data: Optional[dict[str, Union[None, float, datetime]]] = self.coordinator.data.get('data')
+        rain_data: Optional[dict[str, Union[None, int, float, datetime]]] = self.coordinator.data.get('data')
 
         if rain_data is None:
             return "Geen data"
@@ -652,9 +649,9 @@ class BuienalarmEntity(CoordinatorEntity):
             # Check if there's precipitation at this data point and it's later than the current time
             if data_point_timestamp >= current_time_utc:
                 if precipitation_rate > 0:
+                    rain_stopped = False
                     if rain_start_time_utc is None:
                         rain_start_time_utc = data_point_timestamp
-                    rain_stopped = False
                     if rain_stop_time_utc is None:
                         rain_duration += 5
                         rain_stopped = False
@@ -663,6 +660,17 @@ class BuienalarmEntity(CoordinatorEntity):
                 # Check if there's a gap in precipitation
                 elif rain_start_time_utc is not None and rain_stop_time_utc is None:
                     rain_stop_time_utc = data_point_timestamp
-                    #rain_stopped = True
+                    rain_stopped = True
+
+        # Calculate rain duration if precipitation has started
+        if rain_start_time_utc is not None:
+            if rain_stop_time_utc is not None:
+                rain_duration = (rain_stop_time_utc - rain_start_time_utc).total_seconds() / 60
+            else:
+                # Rain has started but no explicit stop time, use end of data time
+                end_of_data_timestamp = precipitation_data[-1].get("timestamp")
+                end_of_data_time = datetime.fromtimestamp(end_of_data_timestamp)
+                rain_duration = (end_of_data_time - rain_start_time_utc).total_seconds() / 60
+            rain_duration = int(rain_duration)
 
         return rain_start_time_utc, rain_stop_time_utc, rain_restart_time_utc, rain_duration, rain_stopped
