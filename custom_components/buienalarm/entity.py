@@ -8,17 +8,14 @@ from typing import Any, Optional, Union
 
 from dateutil.tz import tzlocal
 from homeassistant.helpers.device_registry import DeviceEntryType
-from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt
 
-from .const import API_CONF_URL, ATTRIBUTION, DOMAIN, NAME, VERSION
+from .const import API_CONF_URL, ATTRIBUTION, DOMAIN, NAME
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
 _LOGGER.debug("Start entity.py")
-
-NO_PRECIPITATION = "Geen neerslag"
 
 
 class BuienalarmEntity(CoordinatorEntity):
@@ -26,7 +23,6 @@ class BuienalarmEntity(CoordinatorEntity):
 
     def __init__(self, coordinator, config_entry, sensor_key):
         super().__init__(coordinator)
-        self.coordinator = coordinator
         self.config_entry = config_entry
         self.sensor_key = sensor_key
 
@@ -97,7 +93,7 @@ class BuienalarmEntity(CoordinatorEntity):
                 "attribution": ATTRIBUTION,
             }
         else:
-            return {}
+            return self.attribution
 
     @property
     def data_points_as_list(self) -> list[dict[str, Union[str, int, float]]]:
@@ -149,56 +145,25 @@ class BuienalarmEntity(CoordinatorEntity):
                 return nowcastmessage_data
             return None
 
-    def _get_mycastmessage(self) -> Optional[str]:
-        rain_data = self.coordinator.data.get('data')
-        date_string = '2023-10-22T05:55:00Z'
-        rain_start_time, rain_stop_time, rain_duration, rain_stopped = self.get_rain_start_time_and_duration(rain_data)
-        if rain_start_time:
-            date_string = rain_start_time
-        datetime_object = datetime.fromisoformat(date_string)
-        local_datetime_object = dt.as_local(datetime_object)
-        datetime_object_str = local_datetime_object.strftime('%H:%M')
-        return datetime_object_str[1:] if datetime_object_str.startswith('0') else datetime_object_str
-        return datetime_object_str
-        if rain_data is not None:
-            rain_start_time, rain_stop_time, rain_duration, rain_stopped = self.get_rain_start_time_and_duration(rain_data)
-            mycastmessage = "Geen neerslag"
-            if rain_start_time:
-                dt.as_utc(rain_start_time)
-                utctime = rain_start_time.strftime("%Y-%m-%d %H:%M:%S") + "+0000"
-                utc_dt = datetime.strptime(utctime, "%Y-%m-%d %H:%M:%S%z")
-                local_dt = utc_dt.replace(tzinfo=timezone.utc).astimezone()
-                return local_dt
-                rain_start_time = dt.as_local(dt.utc_from_timestamp(int(rain_start_time.timestamp())))
-                return rain_start_time
-                rain_start_time_str = rain_start_time.strftime('%H:%M')
-                if rain_start_time_str.startswith('0'):
-                    rain_start_time_str = rain_start_time_str[1:]  # Remove leading zero
-                if rain_stop_time is not None:
-                    rain_stop_time = dt.as_local(dt.utc_from_timestamp(int(rain_stop_time.timestamp())))
-                    rain_stop_time_str = rain_stop_time.strftime('%H:%M')
-                    if rain_stop_time_str.startswith('0'):
-                        rain_stop_time_str = rain_stop_time_str[1:]  # Remove leading zero
-                    if rain_stopped:
-                        mycastmessage = f"Neerslag begint om {rain_start_time_str} en duurt {rain_duration} minuten en stopt om {rain_stop_time_str}."
-                    else:
-                        mycastmessage = f"Neerslag begint om {rain_start_time_str} en duurt nog {rain_duration} minuten."
-            return mycastmessage
-        return None
+    def timestamp_to_local(self, timestamp):
+        return dt.as_local(dt.utc_from_timestamp(timestamp))
 
     def format_time(self, timestamp: datetime) -> str:
         """ Function to format timestamps to a user-friendly string """
         if timestamp is None:
             return "Unknown time"
 
-        # Convert rain_start_time to local time
-        #timestamp_utc = timestamp.strftime("%Y-%m-%d %H:%M:%S") + "+0000"
-        #timestamp_utc = datetime.strptime(timestamp_utc, "%Y-%m-%d %H:%M:%S%z")
-        #timestamp_local = timestamp_utc.replace(tzinfo=timezone.utc).astimezone()
+        # Convert timestamp to systems local time
+        timestamp_local = timestamp.replace(tzinfo=timezone.utc).astimezone(tzlocal())
 
-        #timestamp_local = dt.as_local(datetime.fromisoformat(timestamp))
-        #timestamp_local = dt.as_local(dt.as_utc(timestamp_utc))
-        timestamp_local = timestamp.replace(tzinfo=timezone.utc).astimezone()
+        # Get the configured timezone from Home Assistant
+        # hass_timezone = self.hass.config.time_zone
+
+        # Get the Home Assistant's configured timezone
+        # hass_time_zone = dt.get_time_zone(self.hass)
+
+        # Then, you can use it to convert your timestamp
+        # timestamp_local = timestamp.replace(tzinfo=timezone.utc).astimezone(hass_time_zone)
 
         timestamp_str = timestamp_local.strftime("%H:%M")
         if timestamp_str.startswith('0'):
@@ -231,252 +196,28 @@ class BuienalarmEntity(CoordinatorEntity):
         _LOGGER.debug("Neerslag start om: %s", self.format_time(rain_start_time))
         _LOGGER.debug("Neerslag stopt om: %s", self.format_time(rain_stop_time))
         _LOGGER.debug("Neerslag duurt: %s minuten", rain_duration)
+        _LOGGER.debug("Neerslag gestopt: %s", rain_stopped)
 
         # current_precipitation_rate, current_precipitation_type = self.get_current_precipitation()
         current_precipitation_rate = self.get_current_precipitation()
 
         if current_precipitation_rate > 0:
-            if not rain_stopped:
-                precipitation_message = f"Neerslag duurt nog {rain_duration} minuten en stopt om {self.format_time(rain_stop_time)}"
-                if rain_restart_time is not None:
-                    precipitation_message += f" en begint weer om {self.format_time(rain_restart_time)}"
-                return precipitation_message
-            else:
-                return f"Neerslag begint om {self.format_time(rain_start_time)} en duurt {rain_duration} minuten en stopt om {self.format_time(rain_stop_time)}"
+            message_parts = [f"Neerslag duurt nog {rain_duration} minuten"]
+            if rain_stop_time:
+                message_parts.append(f"en stopt rond {self.format_time(rain_stop_time)}")
+            if rain_restart_time:
+                message_parts.append(f"en begint weer om {self.format_time(rain_restart_time)}")
+            return " ".join(message_parts)
         else:
             expected_rain_start = rain_start_time  # - timedelta(minutes=rain_duration)
 
             if expected_rain_start > datetime.utcnow():
                 if rain_stop_time is None:
-                    return f"Neerslag begint om {self.format_time(rain_start_time)}"
+                    return f"Neerslag voor langere tijd begint om {self.format_time(rain_start_time)}"
                 return f"Neerslag begint om {self.format_time(expected_rain_start)} en duurt {rain_duration} minuten"
             else:
                 expected_rain_start_str = self.format_time(rain_start_time)
                 return f"Er wordt regen verwacht om {expected_rain_start_str} en duurt {rain_duration} minuten"
-
-        return NO_PRECIPITATION
-
-    def oldget_mycastmessage(self) -> Optional[str]:
-        rain_data = self.coordinator.data.get('data')
-        if rain_data is not None:
-            rain_start_time, rain_stop_time, rain_duration, rain_stopped = self.get_rain_start_time_and_duration(rain_data)
-            if rain_start_time is None:
-                # return "Ongeldige start tijd"
-                _LOGGER.debug("rain_start_time is None")
-            else:
-                _LOGGER.debug("Neerslag start om: %s", rain_start_time)
-            if rain_stop_time is None:
-                # return "Ongeldige stop tijd"
-                _LOGGER.debug("rain_stop_time is None")
-            else:
-                _LOGGER.debug("Neerslag stopt om: %s", rain_stop_time)
-            if rain_duration is None:
-                # return "Ongeldige rain_duration tijd"
-                _LOGGER.debug("rain_duration is None")
-            else:
-                _LOGGER.debug("Neerslag duurt: %s minuten", rain_duration)
-            if rain_stopped is None:
-                # return "Ongeldige rain_duration tijd"
-                _LOGGER.debug("rain_stopped is None")
-            else:
-                _LOGGER.debug("Neerslag gestopt: %s", rain_stopped)
-            # Check if it's currently raining
-            if self.get_current_precipitation() > 0:
-                # It's currently raining, return an appropriate message
-                if rain_start_time:
-
-                    # Convert rain_start_time to local time
-                    rain_start_time_utc = rain_start_time.strftime("%Y-%m-%d %H:%M:%S") + "+0000"
-                    rain_start_time_utc = datetime.strptime(rain_start_time_utc, "%Y-%m-%d %H:%M:%S%z")
-                    rain_start_time_local = rain_start_time_utc.replace(tzinfo=timezone.utc).astimezone()
-                    if rain_stop_time:
-                        rain_stop_time_utc = rain_stop_time.strftime("%Y-%m-%d %H:%M:%S") + "+0000"
-                        rain_stop_time_utc = datetime.strptime(rain_stop_time_utc, "%Y-%m-%d %H:%M:%S%z")
-                        rain_stop_time_local = rain_stop_time_utc.replace(tzinfo=timezone.utc).astimezone()
-                        rain_stop_time_str = rain_stop_time_local.strftime('%H:%M')
-                        if rain_stop_time_str.startswith('0'):
-                            rain_stop_time_str = rain_stop_time_str[1:]  # Remove leading zero
-
-                    # Strip leading 0 if there is one
-                    rain_start_time_str = rain_start_time_local.strftime('%H:%M')
-                    if rain_start_time_str.startswith('0'):
-                        rain_start_time_str = rain_start_time_str[1:]  # Remove leading zero
-
-                    if not rain_stopped:
-                        mycastmessage = f"Neerslag begon om {rain_start_time_str} en duurt {rain_duration} minuten"
-                    else:
-                        mycastmessage = f"Neerslag begint om {rain_start_time_str} en duurt {rain_duration} minuten en stopt om {rain_stop_time_str}"
-                    return mycastmessage
-            else:
-                # It's not currently raining, but rain is expected
-                if rain_start_time:
-                    # Calculate when rain is expected to start
-                    expected_rain_start = rain_start_time - timedelta(minutes=rain_duration)
-                    if expected_rain_start > datetime.utcnow():
-                        # expected_rain_start = dt.as_local(expected_rain_start)  # Convert expected_rain_start to local timezone
-
-                        expected_rain_start_utc = expected_rain_start.strftime("%Y-%m-%d %H:%M:%S") + "+0000"
-                        expected_rain_start_utc = datetime.strptime(expected_rain_start_utc, "%Y-%m-%d %H:%M:%S%z")
-                        expected_rain_start_local = expected_rain_start_utc.replace(tzinfo=timezone.utc).astimezone()
-
-                        expected_rain_start_str = expected_rain_start_local.strftime('%H:%M')
-                        if expected_rain_start_str.startswith('0'):
-                            expected_rain_start_str = expected_rain_start_str[1:]  # Remove leading zero
-                        # Calculate the expected rain start time and format it
-                        if self.get_total_precipitation_rate() == 0:
-                            return "Geen neerslag"
-                        else:
-                            return f"Neerslag begint om {expected_rain_start_str} en duurt {rain_duration} minuten"
-                    else:
-                        # The expected rain start time has passed
-                        if self.get_total_precipitation_rate() == 0:
-                            # No rain expected
-                            return "Geen neerslag"
-                        else:
-                            # More rain expected
-                            expected_rain_start_utc = rain_start_time.strftime("%Y-%m-%d %H:%M:%S") + "+0000"
-                            expected_rain_start_utc = datetime.strptime(expected_rain_start_utc, "%Y-%m-%d %H:%M:%S%z")
-                            expected_rain_start_local = expected_rain_start_utc.replace(tzinfo=timezone.utc).astimezone()
-
-                            expected_rain_start_local_str = expected_rain_start_local.strftime('%H:%M')
-                            if expected_rain_start_local_str.startswith('0'):
-                                expected_rain_start_local_str = expected_rain_start_local_str[1:]  # Remove leading zero
-                            return f"Er wordt regen verwacht om {expected_rain_start_local_str} en duurt {rain_duration}"
-            return "Geen neerslag"
-        else:
-            return "Geen data"
-
-    def new_get_mycastmessage(self) -> Optional[str]:
-        """ Method creates message from rain data"""
-
-        rain_data = self.coordinator.data.get('data')
-
-        if rain_data is None:
-            return "Geen neerslag"
-
-        rain_start_time, rain_stop_time, rain_duration, rain_stopped = self.get_rain_start_time_and_duration(rain_data)
-
-        # Function to convert a UTC timestamp to local time and format the time without leading zeros
-        def format_time(utc_timestamp: datetime) -> str:
-            if utc_timestamp is None:
-                return "Unknown time"
-
-            #utc_timestamp_str = str(utc_timestamp)
-            #time_utc = datetime.fromisoformat(utc_timestamp_str)
-            time_local = dt.as_local(utc_timestamp)
-            time_str = time_local.strftime('%H:%M')
-            return time_str[1:] if time_str.startswith('0') else time_str
-
-        if self.get_current_precipitation() > 0 and rain_start_time:
-            # It's currently raining, return an appropriate message
-            #if rain_start_time:
-                # rain_start_time_utc = datetime.fromisoformat(rain_start_time)
-                # rain_start_time_local = dt.as_local(rain_start_time_utc)
-
-                # rain_start_time_utc = rain_start_time.replace(tzinfo=timezone.utc)
-                # rain_start_time_local = rain_start_time_utc.astimezone()
-            rain_start_time_str = format_time(rain_start_time)
-
-            if rain_stopped:
-                return f"1Neerslag begint om {rain_start_time_str} en duurt {rain_duration} minuten en stopt om {format_time(rain_stop_time)}."
-            else:
-                return f"2Neerslag begint om {rain_start_time_str} en duurt nog {rain_duration} minuten."
-
-        # Handle case where rain_start_time is None
-        if rain_start_time is None:
-            return "Geen neerslag"
-
-        # It's not currently raining, but rain is expected
-        expected_rain_start = rain_start_time - timedelta(minutes=rain_duration)
-        #expected_rain_start_utc = datetime.fromisoformat(expected_rain_start)
-        #expected_rain_start_local = dt.as_local(expected_rain_start_utc)
-
-        if expected_rain_start > datetime.utcnow():
-
-            # expected_rain_start_utc = expected_rain_start.replace(tzinfo=timezone.utc)
-            # expected_rain_start_local = expected_rain_start_utc.astimezone()
-
-            if self.get_total_precipitation_rate() == 0:
-                return "Geen neerslag"
-            else:
-                return f"3Neerslag begint om {format_time(expected_rain_start)} en duurt {rain_duration} minuten"
-
-        else:
-            # The expected rain start time has passed
-            if self.get_total_precipitation_rate() == 0:
-                return "Geen neerslag"
-            else:
-                #expected_rain_start_utc = datetime.fromisoformat(expected_rain_start)
-                #expected_rain_start_local = dt.as_local(expected_rain_start_utc)
-                # expected_rain_start_utc = expected_rain_start.replace(tzinfo=timezone.utc)
-                # expected_rain_start_local = expected_rain_start_utc.astimezone()
-                if rain_stopped:
-                    if rain_stop_time:
-                        stop_time_str = format_time(rain_stop_time)
-                        return f"4Neerslag begint om {rain_start_time_str} en duurt {rain_duration} minuten en stopt om {stop_time_str}."
-                    else:
-                        return f"5Neerslag begint om {rain_start_time_str} en duurt nog {rain_duration} minuten."
-                return f"6Neerslag begint om {format_time(expected_rain_start)} en duurt {rain_duration} minuten."
-
-    def _get_total_precipitation_rate(self) -> float:
-        """ Get total precipitation rate rounded to one decimal place """
-        # Duration for total precipitation rate is 2 hours - time passed
-        data = self.coordinator.data
-        total_precipitation_rate = 0
-
-        # Only data in the future
-        filtered_data = [
-            data_point for data_point in data["data"]
-            if datetime.utcfromtimestamp(data_point.get("timestamp")) > datetime.utcnow()
-        ]
-
-        if not filtered_data:
-            return 0  # No data in the future
-
-        total_precipitation_rates = [
-            data_point.get("precipitationrate", 0) for data_point in filtered_data
-        ]
-
-        # Calculate the total time period in seconds
-        first_data_point = filtered_data[0]
-        last_data_point = filtered_data[-1]
-        total_time_period = last_data_point["timestamp"] - first_data_point["timestamp"]
-
-        # Convert the total time period to hours
-        total_time_period_hours = total_time_period / 3600  # 1 hour = 3600 seconds
-
-        if total_time_period_hours == 0:
-            return 0
-
-        # Calculate the total precipitation rate by dividing the sum by the total time period
-        total_precipitation_rate = sum(total_precipitation_rates) / total_time_period_hours
-
-        # Round the result to one decimal place
-        total_precipitation_rate = round(total_precipitation_rate, 1)
-
-        return total_precipitation_rate
-
-    def _get_total_precipitation_rate_for_next_hour(self) -> float:
-        """ Calcutate the total precipitation rate in mm/h for the upcoming hour """
-        data = self.coordinator.data
-        current_time = datetime.utcnow()
-        total_precipitation_rate = 0
-
-        # Calculate the time for next hour from the current time
-        next_hour = current_time + timedelta(hours=1)
-
-        for data_point in data["data"]:
-            # Each data point is 5 minutes, and the precipitation rate value is in mm/hour
-            entry_timestamp = datetime.utcfromtimestamp(data_point.get("timestamp"))
-
-            # Count total precipitation rate only when time > now
-            if entry_timestamp > datetime.utcnow():
-
-                # Check if the entry falls within the next hour
-                if current_time <= entry_timestamp <= next_hour:
-                    total_precipitation_rate += data_point.get("precipitationrate", 0)
-
-        return round(total_precipitation_rate, 1)
 
     def filter_data_by_time(self, data: list[dict[str, any]], start_time: datetime, end_time: datetime) -> list[dict[str, any]]:
         return [
@@ -487,7 +228,7 @@ class BuienalarmEntity(CoordinatorEntity):
     def calculate_total_precipitation_rate(
         self, data: dict[str, any], start_time: datetime, end_time: datetime
     ) -> float:
-        filtered_data = self.filter_data_by_time(data["data"], start_time, end_time)
+        filtered_data = self.filter_data_by_time(data, start_time, end_time)
 
         if not filtered_data:
             return 0
@@ -505,69 +246,59 @@ class BuienalarmEntity(CoordinatorEntity):
 
     def get_total_precipitation_rate(self) -> float:
         """ Get total precipitation rate rounded to one decimal place for the next 2 hours """
-        data: dict[str, Any] = self.coordinator.data
+        data: dict[str, Any] = self.coordinator.data.get('data', [])
         current_time: datetime = datetime.utcnow()
         end_time: datetime = current_time + timedelta(hours=2)
         return self.calculate_total_precipitation_rate(data, current_time, end_time)
 
     def get_total_precipitation_rate_for_next_hour(self) -> float:
         """ Calculate the total precipitation rate in mm/h for the upcoming hour """
-        data: dict[str, Any] = self.coordinator.data
+        data: dict[str, Any] = self.coordinator.data.get('data', [])
         current_time: datetime = datetime.utcnow()
         end_time: datetime = current_time + timedelta(hours=1)
         return self.calculate_total_precipitation_rate(data, current_time, end_time)
 
-    def old_get_current_precipitation(self) -> float:
-        data = self.coordinator.data
-        current_time = datetime.utcnow()
-        current_precipitation_rate = 0
-
-        for data_point in data["data"]:
-            if datetime.utcfromtimestamp(data_point.get("timestamp")) > datetime.utcnow():
-                data_point_timestamp = datetime.fromtimestamp(data_point.get("timestamp"))
-                five_minutes_later = data_point_timestamp + timedelta(minutes=5)
-                if data_point_timestamp < current_time < five_minutes_later:
-                    current_precipitation_rate = data_point.get("precipitationrate", 0)
-        return current_precipitation_rate
-
     def get_current_precipitation(self) -> float:
         """Get the current precipitation rate."""
-        data: dict[str, Any] = self.coordinator.data
+        data: dict[str, Any] = self.coordinator.data.get('data', [])
         current_time: datetime = datetime.utcnow()
-        current_precipitation_rate: float = 0
+        current_precipitation_rate: float = 0.0
         current_precipitation_type: str = '-'
 
-        for data_point in data["data"]:
+        for data_point in data:
             data_point_timestamp = datetime.utcfromtimestamp(data_point.get("timestamp"))
 
-            # Check if the data point is within the last 5 minutes
+            # Check if the current time is within the data point and the next 5 minutes
             if data_point_timestamp < current_time < data_point_timestamp + timedelta(minutes=5):
-                current_precipitation_rate = data_point.get("precipitationrate", 0)
-                current_precipitation_type = data_point.get("precipitationtype", "-")
+                current_precipitation_rate = float(data_point.get("precipitationrate", 0))
+                current_precipitation_type = str(data_point.get("precipitationtype", "-"))
 
         return current_precipitation_rate  # , current_precipitation_type
 
+    PRECIPITATION_CATEGORIES = [
+        (15, "Heel zware regen"),
+        (7.5, "Zware regen"),
+        (2, "Matige regen"),
+        (1, "Lichte regen"),
+        (0, "Motregen"),
+    ]
+
+    NO_PRECIPITATION = "Geen neerslag"
+
     def get_current_precipitation_rate_desc(self) -> str:
         """Get the description of the current precipitation rate."""
-        data: dict[str, Any] = self.coordinator.data
+        data: dict[str, Any] = self.coordinator.data.get('data', [])
         current_time: datetime = datetime.utcnow()
-        current_precipitation_rate_desc: str = NO_PRECIPITATION
+        current_precipitation_rate_desc: str = self.NO_PRECIPITATION
 
-        precipitation_categories = [
-            (10, "Zware regen"),
-            (2.5, "Matige regen"),
-            (1, "Lichte regen"),
-            (0, "Motregen"),
-        ]
-
-        for entry in data["data"]:
+        for entry in data:
             entry_timestamp = datetime.utcfromtimestamp(entry.get("timestamp"))
             five_minutes_later = entry_timestamp + timedelta(minutes=5)
 
             if entry_timestamp < current_time < five_minutes_later:
                 current_precipitation_rate = entry.get("precipitationrate", 0)
 
-                for threshold, category in precipitation_categories:
+                for threshold, category in self.PRECIPITATION_CATEGORIES:
                     if current_precipitation_rate > threshold:
                         current_precipitation_rate_desc = category
                         break
@@ -578,7 +309,7 @@ class BuienalarmEntity(CoordinatorEntity):
         """Get the type of current precipitation (rain, snow, etc.)."""
         precipitation_data = self.coordinator.data["data"]
         current_time = datetime.utcnow()
-        current_type = NO_PRECIPITATION
+        current_type = self.NO_PRECIPITATION
 
         for data_point in precipitation_data:
             data_point_timestamp = datetime.utcfromtimestamp(data_point.get("timestamp"))
@@ -669,7 +400,7 @@ class BuienalarmEntity(CoordinatorEntity):
             else:
                 # Rain has started but no explicit stop time, use end of data time
                 end_of_data_timestamp = precipitation_data[-1].get("timestamp")
-                end_of_data_time = datetime.fromtimestamp(end_of_data_timestamp)
+                end_of_data_time = datetime.utcfromtimestamp(end_of_data_timestamp)
                 rain_duration = (end_of_data_time - rain_start_time_utc).total_seconds() / 60
             rain_duration = int(rain_duration)
 
