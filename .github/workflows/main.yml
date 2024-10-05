@@ -26,13 +26,9 @@ jobs:
           curl -sSL https://install.python-poetry.org | python3 -
           echo "$HOME/.local/bin" >> $GITHUB_PATH
           
-      - name: Change directory to the project root
-        # Adjust 'Buienalarm' to the correct directory where your pyproject.toml file is located
-        run: cd Buienalarm
-
       - name: Lock dependencies
         run: poetry lock --no-update
-        working-directory: ./  # Ensure this points to the directory containing pyproject.toml
+        working-directory: ./
         
       - name: Install dependencies
         run: poetry install --no-interaction --no-ansi
