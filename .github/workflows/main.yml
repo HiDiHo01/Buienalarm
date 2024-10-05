@@ -1,0 +1,58 @@
+name: Home Assistant Buienalarm Custom Integration CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          echo "${{ github.workspace }}/.local/bin" >> $GITHUB_PATH
+
+      - name: Install dependencies
+        run: |
+          poetry lock --no-update  # Ensure the lock file is up-to-date
+          poetry install --no-interaction --no-ansi
+
+      - name: Run tests
+        run: |
+          poetry run pytest
+
+      - name: Lint code
+        run: |
+          poetry run flake8  # Adjust this step based on your linter of choice
+
+      - name: Check configuration
+        run: |
+          poetry run ha core check
+
+      - name: Format code
+        run: |
+          poetry run black .  # Adjust this step if you want to run black or other formatters
+
+      - name: Package integration
+        run: |
+          poetry build  # Create a package for your integration
+
+      - name: Upload Package
+        uses: actions/upload-artifact@v2
+        with:
+          name: integration-package
+          path: dist/*.whl  # Adjust this if your package output is different
