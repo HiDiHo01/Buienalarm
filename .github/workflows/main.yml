@@ -26,6 +26,9 @@ jobs:
           curl -sSL https://install.python-poetry.org | python3 -
           echo "${{ github.workspace }}/.local/bin" >> $GITHUB_PATH
 
+      - name: Change Directory
+        run: cd Buienalarm  # Change to the directory containing pyproject.toml
+
       - name: Install dependencies
         run: |
           poetry lock --no-update  # Ensure the lock file is up-to-date
