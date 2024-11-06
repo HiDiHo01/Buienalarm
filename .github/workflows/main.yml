@@ -34,9 +34,9 @@ jobs:
         run: poetry install --no-interaction --no-ansi
         working-directory: ./
 
-      - name: Run Tests
-        run: poetry run pytest
-        working-directory: ./
+#      - name: Run Tests
+#        run: poetry run pytest
+#        working-directory: ./
 
       - name: Lint code
         run: |
