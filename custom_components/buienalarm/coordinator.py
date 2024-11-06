@@ -90,16 +90,6 @@ class BuienalarmDataUpdateCoordinator(DataUpdateCoordinator):
             # self.data = data
             # await self.async_request_refresh()
             return data
-            async with self.api.get(url) as response:
-                response.raise_for_status()
-                _LOGGER.debug(f"Response status: {response.status}")
-                if response.status == 200:
-                    #data = await response.json()
-                    data = await self.api.async_get_data()
-                    _LOGGER.info(f"Data: {data}")
-                    return data
-                else:
-                    raise Exception(f"Fout bij het ophalen van gegevens: {response.status}")
         except (ClientResponseError, asyncio.TimeoutError) as error:
             _LOGGER.error(f"Error fetching Buienalarm data: {error}")
             raise UpdateFailed(error)
