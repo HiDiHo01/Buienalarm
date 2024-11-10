@@ -81,4 +81,3 @@ Contributions are welcome! If you find bugs or have feature requests, please ope
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](https://github.com/HiDiHo01/Buienalarm/blob/main/LICENSE) file for details.
-```
