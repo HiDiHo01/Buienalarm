@@ -19,7 +19,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.13'  # Use a version compatible with Home Assistant
+          python-version: '3.12'  # Use a version compatible with Home Assistant
 
       - name: Install Poetry
         run: |
