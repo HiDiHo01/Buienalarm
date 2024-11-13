@@ -38,7 +38,7 @@ jobs:
       - name: Check configuration
         run: poetry run hass --script check_config
         env:
-          HASS_CONFIG: .  # Set this to your Home Assistant config directory
+          HASS_CONFIG: ./config  # Set this to your Home Assistant config directory
 
       - name: Format code
         run: poetry run black .
