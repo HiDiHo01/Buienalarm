@@ -1,0 +1,5 @@
+homeassistant:
+  name: Home Assistant
+  latitude: 32.87336
+  longitude: 117.22743
+  country: US
