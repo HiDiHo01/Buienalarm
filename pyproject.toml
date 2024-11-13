@@ -3,14 +3,17 @@ name = "Buienalarm"
 version = "0.1.0"
 description = "Buienalarm Nederland."
 authors = ["HiDiHo <hidiho@gmail.com>"]
-license = "MIT"              # Choose a license (MIT, Apache-2.0, etc.)
-readme = "README.md"         # Path to your README file
+license = "MIT"
+readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.12"            # Specify the Python version
+python = ">=3.11,<3.14"
+homeassistant = ">=2024.11.1"
 
 [tool.poetry.dev-dependencies]
-pytest = "^7.4.0"          # Add development dependencies as needed
+pytest = "^7.4.0"
+black = "^23.9.1"
+pylint = "^3.0.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
