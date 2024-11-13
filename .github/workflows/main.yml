@@ -19,39 +19,32 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.13'
+          python-version: '3.13'  # Use a version compatible with Home Assistant
 
       - name: Install Poetry
         run: |
           curl -sSL https://install.python-poetry.org | python3 -
           echo "$HOME/.local/bin" >> $GITHUB_PATH
-          
-      - name: Lock dependencies
-        run: poetry lock --no-update
-        working-directory: ./
-        
+
       - name: Install dependencies
         run: poetry install --no-interaction --no-ansi
-        working-directory: ./
 
-#      - name: Run Tests
-#        run: poetry run pytest
-#        working-directory: ./
+      - name: Install Home Assistant
+        run: poetry add homeassistant
 
       - name: Check configuration
-        run: |
-          poetry run ha core check
+        run: poetry run hass --script check_config
+        env:
+          HASS_CONFIG: .  # Set this to your Home Assistant config directory
 
       - name: Format code
-        run: |
-          poetry run black .  # Adjust this step if you want to run black or other formatters
+        run: poetry run black .
 
       - name: Package integration
-        run: |
-          poetry build  # Create a package for your integration
+        run: poetry build
 
       - name: Upload Package
         uses: actions/upload-artifact@v3
         with:
           name: integration-package
-          path: dist/*.whl  # Adjust this if your package output is different
+          path: dist/*.whl
