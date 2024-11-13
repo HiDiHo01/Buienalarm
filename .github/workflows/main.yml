@@ -36,7 +36,7 @@ jobs:
         run: poetry add homeassistant
 
       - name: Check configuration
-        run: poetry run homeassistant --script check_config
+        run: poetry run hass --script check_config
         env:
           HASS_CONFIG: .  # Set this to your Home Assistant config directory
 
