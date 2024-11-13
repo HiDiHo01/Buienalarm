@@ -5,6 +5,9 @@ description = "Buienalarm Nederland."
 authors = ["HiDiHo <hidiho@gmail.com>"]
 license = "MIT"
 readme = "README.md"
+packages = [
+    { include = "custom_components/buienalarm" }
+]
 
 [tool.poetry.dependencies]
 python = ">=3.12,<3.14"
