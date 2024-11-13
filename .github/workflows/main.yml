@@ -37,13 +37,13 @@ jobs:
 
       - name: Set up configuration
         run: |
-          mkdir -p config
-          echo "homeassistant: { name: 'Test' }" > config/configuration.yaml
+          mkdir -p ./config
+          echo "homeassistant: { name: 'Test' }" > ./config/configuration.yaml
 
       - name: Check configuration
         run: poetry run hass --script check_config
         env:
-          HASS_CONFIG: ./config  # Set this to your Home Assistant config directory
+          HASS_CONFIG: ./config/configuration.yaml  # Set this to your Home Assistant config directory
 
       - name: Format code
         run: poetry run black .
