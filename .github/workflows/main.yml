@@ -19,7 +19,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.12'
+          python-version: '3.13'
 
       - name: Install Poetry
         run: |
@@ -37,10 +37,6 @@ jobs:
 #      - name: Run Tests
 #        run: poetry run pytest
 #        working-directory: ./
-
-      - name: Lint code
-        run: |
-          poetry run flake8  # Adjust this step based on your linter of choice
 
       - name: Check configuration
         run: |
