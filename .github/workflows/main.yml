@@ -27,13 +27,16 @@ jobs:
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Install dependencies
-        run: poetry install --no-interaction --no-ansi
+        run: |
+          poetry lock --no-update
+          poetry env use 3.12  # Ensure Poetry uses Python 3.12
+          poetry install --no-interaction --no-ansi
 
       - name: Install Home Assistant
         run: poetry add homeassistant
 
       - name: Check configuration
-        run: poetry run hass --script check_config
+        run: poetry run homeassistant --script check_config
         env:
           HASS_CONFIG: .  # Set this to your Home Assistant config directory
 
