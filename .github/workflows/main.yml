@@ -41,9 +41,9 @@ jobs:
           echo "homeassistant: { name: 'Test' }" > ./config/configuration.yaml
 
       - name: Check configuration
-        run: poetry run hass --script check_config
+        run: poetry run hass --script check_config --config ./config
         env:
-          HASS_CONFIG: ./config  # Set this to your Home Assistant config directory
+          HASS_CONFIG: ./config
 
       - name: Format code
         run: poetry run black .
