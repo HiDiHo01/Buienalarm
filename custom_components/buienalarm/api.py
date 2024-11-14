@@ -158,7 +158,7 @@ class BuienalarmApiClient:
         _LOGGER.debug("async_fetch_daily_forecast_data BuienalarmApiClient data")
         try:
             url = API_ENDPOINT.format(self.latitude, self.longitude)
-            _LOGGER.debug("8latitude = %s, longitude = %s", self.latitude, self.longitude)
+            _LOGGER.debug("Fetching data from API endpoint with provided coordinates")
             async with async_timeout.timeout(API_TIMEOUT):
                 response = await self.session.get(url)
                 response.raise_for_status()
