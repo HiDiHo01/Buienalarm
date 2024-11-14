@@ -133,8 +133,7 @@ class BuienalarmApiClient:
     async def _handle_error_logging(self, exception, url=None):
         if url:
             _LOGGER.error(
-                "Error fetching information from %s - %s",
-                url,
+                "Error fetching information from the API - %s",
                 exception,
             )
         else:
