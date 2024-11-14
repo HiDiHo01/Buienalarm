@@ -1,12 +1,11 @@
 """Constants for Buienalarm."""
 # const.py
 
-import logging
 from datetime import timedelta
 from typing import Any, Final
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
-from homeassistant.const import UnitOfLength, UnitOfVolumetricFlux
+from homeassistant.const import UnitOfTime, UnitOfVolumetricFlux
 
 # API
 API_ENDPOINT: Final[str] = "https://cdn.buienalarm.nl/api/4.0/nowcast/timeseries/{}/{}"
@@ -25,30 +24,27 @@ CONF_ATTRIBUTION: Final[str] = "Data provided by Buienalarm"
 
 # Defaults
 DEFAULT_NAME: Final[str] = NAME
-_LOGGER: logging.Logger = logging.getLogger(__name__)
 
 # API and Data Refresh
-SCAN_INTERVAL = timedelta(minutes=5)
+SCAN_INTERVAL: Final[timedelta] = timedelta(minutes=5)
 DATA_REFRESH_INTERVAL: Final[int] = 300
 
 # Platforms.
-#BINARY_SENSOR: Final[str] = "binary_sensor"
+# BINARY_SENSOR: Final[str] = "binary_sensor"
 SENSOR: Final[str] = "sensor"
-#PLATFORMS: Final[list[str]] = [BINARY_SENSOR, SENSOR]
+# PLATFORMS: Final[list[str]] = [BINARY_SENSOR, SENSOR]
 PLATFORMS: Final[list[str]] = [SENSOR]
 
 # Icon templates (not in use)
 ICON_TEMPLATE: Final[str] = "mdi:weather-{}"
 
 # Sensors
-SENSORS: Final[list] = [
+SENSORS: Final[list[dict[str, Any]]] = [
     {
         "name": "Buienalarm",
         "icon": "mdi:weather-pouring",
         "key": "nowcastmessage",
-        "attributes": [
-            {"attr_name": "attribute_name", "attr_value": "attribute_value"},
-        ],
+        "attributes": [],
         "unit_of_measurement": None,
         "device_class": None,
         "state_class": None,
@@ -78,6 +74,15 @@ SENSORS: Final[list] = [
         "attributes": [],
         "unit_of_measurement": None,
         "device_class": None,
+        "state_class": None,
+    },
+    {
+        "name": "Duur neerslag",
+        "icon": "mdi:clock-outline",
+        "key": "precipitation_duration",
+        "attributes": [],
+        "unit_of_measurement": UnitOfTime.MINUTES,
+        "device_class": SensorDeviceClass.DURATION,
         "state_class": None,
     },
     {
