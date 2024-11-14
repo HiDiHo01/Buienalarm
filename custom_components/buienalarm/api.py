@@ -33,7 +33,7 @@ class BuienalarmApiClient:
         self.session = session
         self.hass = hass
         self.notification_id = None
-        _LOGGER.debug("7latitude = %s, longitude = %s", self.latitude, self.longitude)
+        _LOGGER.debug("BuienalarmApiClient initialized with provided coordinates.")
 
     async def old_fetch_data(self):
         """Fetch Buienalarm data."""
