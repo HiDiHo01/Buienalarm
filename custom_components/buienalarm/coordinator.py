@@ -164,7 +164,7 @@ async def old_create_buienalarm_coordinator(
     device_info: DeviceInfo,
 ) -> DataUpdateCoordinator:
     """Create and configure the Buienalarm coordinator."""
-    _LOGGER.debug("Received latitude: %s, longitude: %s", latitude, longitude)
+    _LOGGER.debug("Received latitude and longitude data")
     # Define the update interval (e.g., 15 minutes)
     update_interval = timedelta(minutes=5)
 
