@@ -91,8 +91,7 @@ class BuienalarmApiClient:
                     raise ApiError("Invalid data type or structure in JSON response")
         except asyncio.TimeoutError as exception:
             _LOGGER.error(
-                "Timeout error fetching information from %s - %s",
-                url,
+                "Timeout error fetching information from the API - %s",
                 exception,
             )
         except (aiohttp.ClientError, socket.gaierror) as exception:
