@@ -2,7 +2,7 @@
     "config": {
         "step": {
             "user": {
-                "title": "KNMI Weather",
+                "title": "Buienalarm",
                 "description": "To get your free API key, visit: https://weerlive.nl/api/toegang/account.php",
                 "data": {
                     "api_key": "API key",
@@ -32,16 +32,5 @@
             }
         }
     },
-    "entity_component": {
-        "binary_sensor.knmi_zon": {
-            "name": "Sun",
-            "state": {
-                "on": "Above the horizon",
-                "off": "Below the horizon",
-                "above_horizon": "Above the horizon",
-                "below_horizon": "Below the horizon"
-            }
-        }
-    },
-    "title": "KNMI Weer"
+    "title": "Buienalarm"
 }
