@@ -17,9 +17,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5  # Update naar v5
         with:
-          python-version: '3.12'  # Use a version compatible with Home Assistant
+          python-version: '3.13'
 
       - name: Install Poetry
         run: |
@@ -28,8 +28,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          poetry lock --no-update
-          poetry env use 3.12  # Ensure Poetry uses Python 3.12
+          poetry lock
+          poetry env use 3.13  # Ensure Poetry uses Python 3.12
           poetry install --no-interaction --no-ansi
 
       - name: Install Home Assistant
@@ -52,7 +52,7 @@ jobs:
         run: poetry build
 
       - name: Upload Package
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4  # Update van v3 naar v4
         with:
           name: integration-package
           path: dist/*.whl

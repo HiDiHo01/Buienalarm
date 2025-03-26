@@ -11,11 +11,11 @@ packages = [
 
 [tool.poetry.dependencies]
 python = ">=3.12,<3.14"
-homeassistant = "^2024.11.1"
+homeassistant = "^2025.3.4"
 
-[tool.poetry.dev-dependencies]
-pytest = "^7.4.0"
-black = "^24.10.0"
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.5"
+black = "^25.1.0"
 pylint = "^3.0.0"
 
 [build-system]
