@@ -52,8 +52,7 @@ jobs:
         run: poetry build
 
       - name: Upload Package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4  # Update van v3 naar v4
         with:
           name: integration-package
           path: dist/*.whl
-
