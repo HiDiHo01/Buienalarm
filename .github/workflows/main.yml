@@ -29,7 +29,7 @@ jobs:
       - name: Install dependencies
         run: |
           poetry lock --no-update
-          poetry env use 3.12  # Ensure Poetry uses Python 3.12
+          poetry env use 3.13  # Ensure Poetry uses Python 3.12
           poetry install --no-interaction --no-ansi
 
       - name: Install Home Assistant
