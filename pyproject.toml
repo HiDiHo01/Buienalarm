@@ -10,7 +10,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.12,<3.14"
+python = ">=3.13,<3.14"
 homeassistant = "^2025.3.4"
 
 [tool.poetry.group.dev.dependencies]
