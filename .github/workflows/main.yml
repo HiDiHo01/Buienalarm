@@ -52,7 +52,7 @@ jobs:
         run: poetry build
 
       - name: Upload Package
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: integration-package
           path: dist/*.whl
