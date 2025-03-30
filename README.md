@@ -1,3 +1,4 @@
+[![Dependabot Updates](https://github.com/HiDiHo01/Buienalarm/actions/workflows/dependabot/dependabot-updates/badge.svg?branch=main)](https://github.com/HiDiHo01/Buienalarm/actions/workflows/dependabot/dependabot-updates)
 # Buienalarm Home Assistant Component
 
 This is a custom component for Home Assistant that integrates with Buienalarm to provide accurate and up-to-date precipitation forecasts.
