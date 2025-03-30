@@ -1,5 +1,10 @@
 {
   "name": "Buienalarm",
   "homeassistant": "2025.3.4",
-  "render_readme": true
+  "render_readme": true,
+	"content_in_root": false,
+	"country": "NL",
+	"domains": ["buienalarm"],
+	"zip_release": true,
+	"filename": "buienalarm.zip"
 }
