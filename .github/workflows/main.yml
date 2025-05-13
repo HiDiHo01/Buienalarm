@@ -1,4 +1,7 @@
 name: Home Assistant Buienalarm Custom Integration CI
+permissions:
+  contents: read
+  packages: write
 
 on:
   push:
