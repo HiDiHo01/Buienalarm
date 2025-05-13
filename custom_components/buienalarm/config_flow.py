@@ -35,8 +35,8 @@ class ConfigFlow(config_entries.ConfigFlow):
 
         if user_input is not None:
             # place = user_input[CONF_PLACE]
-            latitude = user_input[CONF_LATITUDE]
-            longitude = user_input[CONF_LONGITUDE]
+            latitude = str(user_input[CONF_LATITUDE]).replace(",", ".")
+            longitude = str(user_input[CONF_LONGITUDE]).replace(",", ".")
             # notification_limit = user_input["notification_limit"]
             # refresh_interval = user_input["refresh_interval"]
             # Validate user input (e.g., check if latitude and longitude are valid)
@@ -73,8 +73,8 @@ class ConfigFlow(config_entries.ConfigFlow):
         data_schema = vol.Schema(
             {
                 vol.Required(CONF_PLACE): str,
-                vol.Required(CONF_LATITUDE, default=DEFAULT_LATITUDE): float,
-                vol.Required(CONF_LONGITUDE, default=DEFAULT_LONGITUDE): float,
+                vol.Required(CONF_LATITUDE, default=float(DEFAULT_LATITUDE)): float,
+                vol.Required(CONF_LONGITUDE, default=float(DEFAULT_LONGITUDE)): float,
                 vol.Optional(
                     "notification_limit",
                     default=DEFAULT_NOTIFICATION_LIMIT,  # Default to 0 mm/h (notify on every value))
@@ -112,7 +112,8 @@ def is_valid_latitude(latitude):
     # Implement validation logic for latitude
     try:
         # Convert the latitude to a float
-        latitude_float = float(latitude)
+        # latitude_float = float(latitude)
+        latitude_float = float(str(latitude).replace(",", "."))
 
         # Check if the latitude is within the valid range (-90 to 90 degrees)
         if -90.0 <= latitude_float <= 90.0:
@@ -128,7 +129,8 @@ def is_valid_longitude(longitude):
     # Implement validation logic for longitude
     try:
         # Convert the longitude to a float
-        longitude_float = float(longitude)
+        # longitude_float = float(longitude)
+        longitude_float = float(str(longitude).replace(",", "."))
 
         # Check if the longitude is within the valid range (-180 to 180 degrees)
         if -180.0 <= longitude_float <= 180.0:
