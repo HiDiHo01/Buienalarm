@@ -6,30 +6,32 @@ import voluptuous as vol
 from homeassistant import config_entries, exceptions
 from homeassistant.const import CONF_LATITUDE, CONF_LONGITUDE, CONF_NAME
 from homeassistant.core import callback
+from homeassistant.data_entry_flow import FlowResult
 
 from .const import DOMAIN
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
 CONF_PLACE = "place"
-DEFAULT_LATITUDE: float = ""
-DEFAULT_LONGITUDE: float = ""
-DEFAULT_DATA_REFRESH_INTERVAL = 300
-DEFAULT_NOTIFICATION_LIMIT = 0  # show notification on all values
+DEFAULT_LATITUDE: float = "52.7875"
+DEFAULT_LONGITUDE: float = "4.79861"
+DEFAULT_DATA_REFRESH_INTERVAL: int = 300
+DEFAULT_NOTIFICATION_LIMIT: int = 0  # show notification on all values
 HINT = "https://www.coordinatenbepalen.nl"
 
 
-class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+@config_entries.HANDLERS.register(DOMAIN)
+class ConfigFlow(config_entries.ConfigFlow):
     """Config flow for Buienalarm."""
     VERSION = 1
     CONNECTION_CLASS = config_entries.CONN_CLASS_CLOUD_POLL
 
     async def async_step_user(
         self,
-        user_input: dict = None,
+        user_input: dict[str, any] | None = None
     ) -> config_entries.FlowResult:
         """Handle the initial step when the user initiates a config flow."""
-        errors = {}
+        errors: dict[str, str] = {}
 
         if user_input is not None:
             # place = user_input[CONF_PLACE]
@@ -50,13 +52,13 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return self.async_create_entry(
                     title="Buienalarm",
                     data=user_input,
-                    #data={
+                    # data={
                     #    CONF_PLACE: place,
                     #    CONF_LATITUDE: latitude,
                     #    CONF_LONGITUDE: longitude,
                     #    "notification_limit": notification_limit,
                     #    "refresh_interval": refresh_interval,
-                    #},
+                    # },
                 )
 
         # Create a description for the refresh_interval field
@@ -71,18 +73,18 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         data_schema = vol.Schema(
             {
                 vol.Required(CONF_PLACE): str,
-                vol.Required(CONF_LATITUDE, default=DEFAULT_LATITUDE): str,
-                vol.Required(CONF_LONGITUDE, default=DEFAULT_LONGITUDE): str,
+                vol.Required(CONF_LATITUDE, default=DEFAULT_LATITUDE): float,
+                vol.Required(CONF_LONGITUDE, default=DEFAULT_LONGITUDE): float,
                 vol.Optional(
-                        "notification_limit",
-                        default=DEFAULT_NOTIFICATION_LIMIT,  # Default to 0 mm/h (notify on every value))
-                        description="Enter the notification limit in mm/h",
-                    ): int,
+                    "notification_limit",
+                    default=DEFAULT_NOTIFICATION_LIMIT,  # Default to 0 mm/h (notify on every value))
+                    description="Enter the notification limit in mm/h",
+                ): int,
                 vol.Optional(
-                        "refresh_interval",
-                        default=DEFAULT_DATA_REFRESH_INTERVAL,  # Default to 300 seconds (5 minutes)
-                        description="Enter the refresh interval in seconds",
-                    ): int,
+                    "refresh_interval",
+                    default=DEFAULT_DATA_REFRESH_INTERVAL,  # Default to 300 seconds (5 minutes)
+                    description="Enter the refresh interval in seconds",
+                ): int,
             }
         )
 
@@ -141,17 +143,19 @@ def is_valid_longitude(longitude):
 class BuienalarmOptionsFlowHandler(config_entries.OptionsFlow):
     """Handle a Buienalarm options flow."""
 
-    def __init__(self, config_entry):
-        """Initialize Buienalarm options flow."""
-        self.config_entry = config_entry
+    def __init__(self, entry: config_entries.ConfigEntry) -> None:
+        super().__init__()
+        self._entry_id = entry.entry_id
+        self._entry = entry
 
-    async def async_step_init(self, user_input=None):
+    async def async_step_init(self, user_input: dict | None = None) -> FlowResult:
         """Initialize the options flow."""
         if user_input is not None:
             # Handle user input and update options here
             # For example, you can update options like this:
             # self.config_entry.options[CONF_NAME] = user_input[CONF_NAME]
-            return self.async_create_entry(title="", data={})
+            # return self.async_create_entry(title="", data={})
+            return self.async_create_entry(title="", data=user_input)
 
         # Present options to the user
         return self.async_show_form(
@@ -164,18 +168,18 @@ class BuienalarmOptionsFlowHandler(config_entries.OptionsFlow):
         return vol.Schema({
             vol.Required(CONF_NAME, default="Buienalarm", description="Configuration name"): str,
             vol.Required(CONF_PLACE, default=self.hass.config.location_name, description="Configuration place"): str,
-            vol.Required(CONF_LATITUDE, default=DEFAULT_LATITUDE): str,
-            vol.Required(CONF_LONGITUDE, default=DEFAULT_LONGITUDE): str,
+            vol.Required(CONF_LATITUDE, default=DEFAULT_LATITUDE): float,
+            vol.Required(CONF_LONGITUDE, default=DEFAULT_LONGITUDE): float,
             vol.Optional(
-                    "notification_limit",
-                    default=DEFAULT_NOTIFICATION_LIMIT,  # Default to 0 mm/h (notify on every value))
-                    description="Enter the notification limit in mm/h",
-                ): int,
+                "notification_limit",
+                default=DEFAULT_NOTIFICATION_LIMIT,  # Default to 0 mm/h (notify on every value))
+                description="Enter the notification limit in mm/h",
+            ): int,
             vol.Optional(
-                    "refresh_interval",
-                    default=DEFAULT_DATA_REFRESH_INTERVAL,  # Default to 300 seconds (5 minutes)
-                    description="Enter the refresh interval in seconds",
-                ): int,
+                "refresh_interval",
+                default=DEFAULT_DATA_REFRESH_INTERVAL,  # Default to 300 seconds (5 minutes)
+                description="Enter the refresh interval in seconds",
+            ): int,
         })
 
 
@@ -184,7 +188,7 @@ def is_valid_coordinates(latitude, longitude):
         latitude = float(latitude)
         longitude = float(longitude)
         return -90.0 <= latitude <= 90.0 and -180.0 <= longitude <= 180.0
-    except ValueError:
+    except (ValueError, TypeError):
         return False
 
 

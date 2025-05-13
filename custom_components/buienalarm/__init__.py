@@ -10,8 +10,7 @@ from homeassistant.helpers.device_registry import DeviceEntryType
 from homeassistant.helpers.entity import DeviceInfo
 
 from .api import BuienalarmApiClient
-from .const import (API_CONF_URL, DOMAIN, NAME, PLATFORMS, SCAN_INTERVAL,
-                    VERSION)
+from .const import API_CONF_URL, DOMAIN, NAME, PLATFORMS, SCAN_INTERVAL, VERSION
 from .coordinator import BuienalarmDataUpdateCoordinator
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
@@ -29,19 +28,28 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _LOGGER.debug("__init__ async_setup_entry")
 
     # Check for duplicate entries
-    existing_entries = hass.config_entries.async_entries(DOMAIN)
-    for existing_entry in existing_entries:
-        if entry.data == existing_entry.data:
-            _LOGGER.debug("__init__ duplicate found")
-            # return False  # Duplicate entry found, do not set up
+    # existing_entries = hass.config_entries.async_entries(DOMAIN)
+    # for existing_entry in existing_entries:
+    #     if entry.data == existing_entry.data:
+    #         _LOGGER.debug("__init__ duplicate found")
+    # return False  # Duplicate entry found, do not set up
 
-    if hass.data.get(DOMAIN) is None:
-        hass.data.setdefault(DOMAIN, {})
+    # Check for duplicate entries
+    # if any(entry.data == e.data for e in hass.config_entries.async_entries(DOMAIN)):
+    #     _LOGGER.warning("Duplicate entry found for %s: %s", entry.title, entry.data)
+    #     return False
 
-    latitude = entry.data.get(CONF_LATITUDE)
-    longitude = entry.data.get(CONF_LONGITUDE)
-    #refresh_interval = entry.data.get("refresh_interval")
-    #refresh_interval = entry.options.get("refresh_interval")
+    hass.data.setdefault(DOMAIN, {})
+
+    try:
+        latitude = entry.data[CONF_LATITUDE]
+        longitude = entry.data[CONF_LONGITUDE]
+    except KeyError as e:
+        _LOGGER.error("Missing required configuration: %s", e)
+        return False
+
+    # refresh_interval = entry.data.get("refresh_interval")
+    # refresh_interval = entry.options.get("refresh_interval")
 
     # Check if the config entry exists and print its options
     if entry.options:
@@ -62,16 +70,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         sw_version=VERSION,
     )
 
-    hass.data[DOMAIN][entry.entry_id] = coordinator = BuienalarmDataUpdateCoordinator(
-        hass=hass, client=client, device_info=device_info, config_entry=entry,
+    coordinator = BuienalarmDataUpdateCoordinator(
+        hass=hass,
+        client=client,
+        device_info=device_info,
+        config_entry=entry,
     )
+    hass.data[DOMAIN][entry.entry_id] = coordinator
 
     # Fetch the config entry options directly from the entry
-    refresh_interval = entry.options.get("refresh_interval", 300)
+    refresh_interval = entry.options.get("refresh_interval", SCAN_INTERVAL.total_seconds())
 
-    if refresh_interval:
-        _LOGGER.debug("refresh_interval exists 0: %s",refresh_interval)
-        coordinator.refresh_interval = refresh_interval
+    coordinator.refresh_interval = refresh_interval
 
     _LOGGER.debug("coordinator attributes: %s", dir(coordinator))
     _LOGGER.debug("coordinator attribute refresh_interval: %s", coordinator.refresh_interval)
@@ -79,10 +89,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # await coordinator.async_config_entry_first_refresh()
 
     if not coordinator.last_update_success:
-        raise ConfigEntryNotReady
+        raise ConfigEntryNotReady(f"Failed to initialize {entry.title}")
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
 
     return True
