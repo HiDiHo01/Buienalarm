@@ -17,7 +17,7 @@ DATA_KEY: Final[str] = "data"
 # Base component constants.
 NAME: Final[str] = "Buienalarm"
 DOMAIN: Final[str] = "buienalarm"
-VERSION: Final[str] = "2024.11.8"
+VERSION: Final[str] = "2025.6.17"
 ATTRIBUTION: Final[str] = "Data provided by Buienalarm"
 ATTR_ATTRIBUTION: Final[str] = "Data provided by Buienalarm"
 CONF_ATTRIBUTION: Final[str] = "Data provided by Buienalarm"
