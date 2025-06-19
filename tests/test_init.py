@@ -16,11 +16,10 @@ def mock_hass() -> HomeAssistant:
     hass.data = {}
     return hass
 
-
 @pytest.fixture
 def mock_entry() -> ConfigEntry:
-    """Return a mock ConfigEntry."""
-    return MagicMock(
+    """Return a mock ConfigEntry with required 'data' attribute."""
+    entry = MagicMock(
         spec=ConfigEntry,
         domain=DOMAIN,
         data={"latitude": 52.3676, "longitude": 4.9041},
@@ -28,13 +27,12 @@ def mock_entry() -> ConfigEntry:
         options={},
         title="Test Buienalarm",
     )
-
+    return entry
 
 @pytest.fixture
 def mock_coordinator():
     """Return a mock coordinator."""
     return AsyncMock()
-
 
 @patch("custom_components.buienalarm.BuienalarmApiClient")
 @patch("custom_components.buienalarm.BuienalarmDataUpdateCoordinator")
@@ -53,7 +51,6 @@ async def test_async_setup_entry(
     assert mock_entry.entry_id in mock_hass.data[DOMAIN]
     mock_coordinator_class.assert_called_once()
 
-
 @patch("custom_components.buienalarm.BuienalarmDataUpdateCoordinator")
 @pytest.mark.asyncio
 async def test_async_setup_entry_failure(
@@ -66,7 +63,6 @@ async def test_async_setup_entry_failure(
     with pytest.raises(ConfigEntryNotReady):
         await async_setup_entry(mock_hass, mock_entry)
 
-
 @patch("custom_components.buienalarm.PLATFORMS", ["sensor"])
 @pytest.mark.asyncio
 async def test_async_unload_entry(mock_hass, mock_entry) -> None:
@@ -78,7 +74,6 @@ async def test_async_unload_entry(mock_hass, mock_entry) -> None:
 
     assert result is True
     assert mock_entry.entry_id not in mock_hass.data[DOMAIN]
-
 
 @patch("custom_components.buienalarm.async_setup_entry")
 @patch("custom_components.buienalarm.async_unload_entry")
