@@ -34,7 +34,7 @@ def test_base_component_constants():
     """Test the base component constants."""
     assert NAME == "Buienalarm"
     assert DOMAIN == "buienalarm"
-    assert VERSION == "2024.11.8"
+    assert VERSION == "2025.6.17"
     assert ATTRIBUTION == "Data provided by Buienalarm"
     assert DEFAULT_NAME == NAME
 
