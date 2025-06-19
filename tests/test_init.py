@@ -14,6 +14,7 @@ def mock_hass() -> HomeAssistant:
     """Return a mock HomeAssistant instance."""
     hass = MagicMock(spec=HomeAssistant)
     hass.data = {}
+    hass.bus = MagicMock()  # Add this line
     return hass
 
 @pytest.fixture
