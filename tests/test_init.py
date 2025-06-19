@@ -12,7 +12,9 @@ from custom_components.buienalarm.const import DOMAIN
 @pytest.fixture
 def mock_hass() -> HomeAssistant:
     """Return a mock HomeAssistant instance."""
-    return MagicMock(spec=HomeAssistant)
+    hass = MagicMock(spec=HomeAssistant)
+    hass.data = {}
+    return hass
 
 
 @pytest.fixture
