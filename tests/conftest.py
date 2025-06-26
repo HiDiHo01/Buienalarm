@@ -1,5 +1,6 @@
 import asyncio
 import pytest
+import pytest_asyncio
 from homeassistant.core import HomeAssistant
 from homeassistant.util.dt import utcnow
 from homeassistant.helpers.typing import ConfigType
