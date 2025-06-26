@@ -44,6 +44,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     try:
         latitude = entry.data[CONF_LATITUDE]
         longitude = entry.data[CONF_LONGITUDE]
+        network = entry.data.get("network")
+        if network is None:
+            _LOGGER.error("Missing required 'network' in config entry data")
+            return False
     except KeyError as e:
         _LOGGER.error("Missing required configuration: %s", e)
         return False
