@@ -98,16 +98,16 @@ async def test_async_unload_entry(
 
 
 @pytest.mark.asyncio
-@patch("custom_components.buienalarm.async_setup_entry", AsyncMock(return_value=True))
-@patch("custom_components.buienalarm.async_unload_entry", AsyncMock(return_value=True))
+@patch("custom_components.buienalarm.async_unload_entry", new_callable=AsyncMock)
+@patch("custom_components.buienalarm.async_setup_entry", new_callable=AsyncMock)
 async def test_async_reload_entry(
-    mock_unload: AsyncMock,
-    mock_setup: AsyncMock,
+    mock_setup_entry: AsyncMock,
+    mock_unload_entry: AsyncMock,
     mock_hass: HomeAssistant,
     mock_entry: ConfigEntry,
 ) -> None:
     """Test reloading of the integration."""
     await async_reload_entry(mock_hass, mock_entry)
 
-    mock_unload.assert_called_once_with(mock_hass, mock_entry)
-    mock_setup.assert_called_once_with(mock_hass, mock_entry)
+    mock_unload_entry.assert_called_once_with(mock_hass, mock_entry)
+    mock_setup_entry.assert_called_once_with(mock_hass, mock_entry)
