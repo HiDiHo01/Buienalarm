@@ -51,13 +51,20 @@ def mock_entry() -> ConfigEntry:
 @pytest.mark.asyncio
 @patch("custom_components.buienalarm.BuienalarmApiClient")
 @patch("custom_components.buienalarm.BuienalarmDataUpdateCoordinator")
-async def test_async_setup_entry(mock_coordinator_class, mock_client_class, mock_hass, mock_entry):
-    """Test successful setup of a config entry."""
-    network_mock = MagicMock()
-    mock_hass.data = {"network": network_mock}
+async def test_async_setup_entry(mock_coordinator_class, mock_client_class):
+    """Test setup of the integration."""
+    mock_hass = MagicMock()
+    mock_entry = MagicMock()
 
+    # Voeg een netwerk-mock toe aan mock_hass.data
+    mock_hass.data = {"network": MagicMock()}
+
+    # Optioneel instellen van coordinator gedrag
     mock_coordinator = mock_coordinator_class.return_value
     mock_coordinator.last_update_success = True
+
+    # Importeer eventueel de setup functie (pas pad aan)
+    from custom_components.buienalarm import async_setup_entry
 
     result = await async_setup_entry(mock_hass, mock_entry)
 
