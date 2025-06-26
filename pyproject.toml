@@ -14,6 +14,9 @@ python = ">=3.13,<3.14"
 homeassistant = "^2025.4.1"
 pytest-asyncio = "*"
 
+[tool.poetry.dev-dependencies]
+pytest-homeassistant-custom-component = "^0.12.0"
+
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.5"
 black = "^25.1.0"
