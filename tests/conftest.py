@@ -1,29 +1,21 @@
 import sys
 import os
-
 import pytest
+import pytest_asyncio
 from homeassistant.core import HomeAssistant
+from homeassistant.setup import async_setup_component
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-@pytest.fixture
-async def config_data() -> dict:
-    """Provide default config data for tests."""
-    return {
-        "username": "testuser",
-        "password": "testpass",
-        "station": "utrecht",
-    }
+@pytest_asyncio.fixture
+async def hass() -> HomeAssistant:
+    """Create a Home Assistant instance for testing."""
+    from homeassistant import setup
+    hass = HomeAssistant()
+    # Initialize Home Assistant core or any setups here if needed
+    await async_setup_component(hass, "http", {})  # Example if HTTP needed
 
-# De 'hass' fixture wordt geleverd door pytest-homeassistant-custom-component plugin
-# Je hoeft deze niet zelf te definiëren, maar je kunt hier wel extra setup doen als nodig.
+    yield hass
 
-@pytest.fixture
-async def hass_with_integration(hass: HomeAssistant, config_data: dict) -> HomeAssistant:
-    """Fixture to setup the integration for tests."""
-    # Als je setup nodig hebt, zoals async_setup_component kan je dat hier doen
-    # Bijvoorbeeld:
-    # await async_setup_component(hass, "http", {})
-    # Je kan hier ook config entries toevoegen als je wil
-
-    return hass
+    # Clean up after tests
+    await hass.async_stop()
