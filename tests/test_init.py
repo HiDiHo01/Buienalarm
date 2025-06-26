@@ -5,7 +5,11 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 
-from custom_components.buienalarm import async_setup_entry, async_unload_entry, async_reload_entry
+from custom_components.buienalarm import (
+    async_setup_entry,
+    async_unload_entry,
+    async_reload_entry,
+)
 from custom_components.buienalarm.const import DOMAIN
 
 @pytest.fixture
@@ -28,7 +32,7 @@ def mock_entry() -> ConfigEntry:
         data={
             "latitude": 52.3676,
             "longitude": 4.9041,
-            "network": "test-network",  # Add this field if your code expects it
+            "network": "test-network",  # Ensure this key is present
         },
         entry_id="test_entry",
         options={},
