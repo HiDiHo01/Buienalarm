@@ -1,4 +1,6 @@
 import pytest
+from homeassistant.components.network import async_get_loaded_network, Network
+from homeassistant.helpers.typing import HomeAssistantType
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from homeassistant.config_entries import ConfigEntry
@@ -11,6 +13,10 @@ from custom_components.buienalarm import (
     async_reload_entry,
 )
 from custom_components.buienalarm.const import DOMAIN
+
+# Inject fake network
+network_mock = MagicMock(spec=Network)
+mock_hass.data["network"] = network_mock
 
 @pytest.fixture
 def mock_hass() -> HomeAssistant:
