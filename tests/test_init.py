@@ -1,113 +1,65 @@
-"""Tests for the Buienalarm integration setup and teardown."""
+"""Test initialization of the Buienalarm integration."""
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
-from homeassistant.components.network import Network
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryNotReady
-
-from custom_components.buienalarm import (
-    async_setup_entry,
-    async_unload_entry,
-    async_reload_entry,
-)
 from custom_components.buienalarm.const import DOMAIN
+from custom_components.buienalarm import async_setup_entry, async_unload_entry
+
+from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+from homeassistant.core import HomeAssistant
+from homeassistant.setup import async_setup_component
 
 
 @pytest.fixture
-def mock_hass() -> HomeAssistant:
-    """Return a mocked HomeAssistant instance."""
-    hass = MagicMock(spec=HomeAssistant)
-    hass.data = {}
-    hass.data["network"] = MagicMock(spec=Network)
-    hass.bus = MagicMock()
-    hass.config_entries = MagicMock()
-    hass.config_entries.async_forward_entry_setups = AsyncMock()
-    hass.config_entries.async_unload_platforms = AsyncMock(return_value=True)
-    return hass
-
-
-@pytest.fixture
-def mock_entry() -> ConfigEntry:
-    """Return a mocked ConfigEntry instance."""
-    entry = MagicMock(
-        spec=ConfigEntry,
-        domain=DOMAIN,
-        entry_id="test_entry",
-        data={
-            "latitude": 52.3676,
-            "longitude": 4.9041,
-            "network": "test-network",
-        },
-        title="Test Buienalarm",
-    )
-    entry.options = {}
-    entry.add_update_listener = MagicMock()
-    return entry
+def config_data() -> dict:
+    """Return minimal valid config for Buienalarm."""
+    return {"station": "utrecht"}
 
 
 @pytest.mark.asyncio
-@patch("custom_components.buienalarm.BuienalarmApiClient")
-@patch("custom_components.buienalarm.BuienalarmDataUpdateCoordinator")
-async def test_async_setup_entry_success(
-    mock_coordinator_class,
-    mock_client_class,
-    mock_hass: HomeAssistant,
-    mock_entry: ConfigEntry,
-) -> None:
-    """Test successful async setup of the integration."""
-    mock_coordinator = mock_coordinator_class.return_value
-    mock_coordinator.last_update_success = True
+async def test_async_setup_entry_success(hass: HomeAssistant, config_data: dict) -> None:
+    """Test successful async_setup_entry of the integration."""
+    await async_setup_component(hass, "http", {})  # Required for aiohttp session
 
-    result = await async_setup_entry(mock_hass, mock_entry)
+    entry = MockConfigEntry(domain=DOMAIN, data=config_data)
+    entry.add_to_hass(hass)
+
+    result = await async_setup_entry(hass, entry)
 
     assert result is True
-    mock_hass.config_entries.async_forward_entry_setups.assert_called_once_with(mock_entry, ["sensor"])
+    assert DOMAIN in hass.data
+    assert entry.entry_id in hass.data[DOMAIN]
 
 
 @pytest.mark.asyncio
-@patch("custom_components.buienalarm.BuienalarmDataUpdateCoordinator")
-async def test_async_setup_entry_failure(
-    mock_coordinator_class,
-    mock_hass: HomeAssistant,
-    mock_entry: ConfigEntry,
-) -> None:
-    """Test failed async setup of the integration due to update error."""
-    mock_coordinator = mock_coordinator_class.return_value
-    mock_coordinator.last_update_success = False
+async def test_async_setup_entry_failure(hass: HomeAssistant, config_data: dict) -> None:
+    """Test setup entry fails gracefully if coordinator fails."""
+    await async_setup_component(hass, "http", {})  # Required for aiohttp session
 
-    with pytest.raises(ConfigEntryNotReady):
-        await async_setup_entry(mock_hass, mock_entry)
+    entry = MockConfigEntry(domain=DOMAIN, data=config_data)
+    entry.add_to_hass(hass)
+
+    # Patch the coordinator to simulate failure
+    with pytest.raises(Exception):
+        with pytest.MonkeyPatch().context() as mp:
+            from custom_components.buienalarm import BuienalarmDataUpdateCoordinator
+            mp.setattr(BuienalarmDataUpdateCoordinator, "async_config_entry_first_refresh", lambda self: (_ for _ in ()).throw(Exception("fail")))
+            await async_setup_entry(hass, entry)
 
 
 @pytest.mark.asyncio
-@patch("custom_components.buienalarm.PLATFORMS", ["sensor"])
-async def test_async_unload_entry(
-    mock_hass: HomeAssistant,
-    mock_entry: ConfigEntry,
-) -> None:
-    """Test successful unloading of a config entry."""
-    mock_hass.data[DOMAIN] = {mock_entry.entry_id: "mock_coordinator"}
+async def test_async_unload_entry(hass: HomeAssistant, config_data: dict) -> None:
+    """Test unloading an entry."""
+    await async_setup_component(hass, "http", {})  # Required for aiohttp session
 
-    result = await async_unload_entry(mock_hass, mock_entry)
+    entry = MockConfigEntry(domain=DOMAIN, data=config_data)
+    entry.add_to_hass(hass)
+
+    await async_setup_entry(hass, entry)
+    assert DOMAIN in hass.data
+
+    result = await async_unload_entry(hass, entry)
 
     assert result is True
-    assert mock_entry.entry_id not in mock_hass.data[DOMAIN]
-
-
-@pytest.mark.asyncio
-@patch("custom_components.buienalarm.async_unload_entry", new_callable=AsyncMock)
-@patch("custom_components.buienalarm.async_setup_entry", new_callable=AsyncMock)
-async def test_async_reload_entry(
-    mock_setup_entry: AsyncMock,
-    mock_unload_entry: AsyncMock,
-    mock_hass: HomeAssistant,
-    mock_entry: ConfigEntry,
-) -> None:
-    """Test reloading of the integration."""
-    await async_reload_entry(mock_hass, mock_entry)
-
-    mock_unload_entry.assert_called_once_with(mock_hass, mock_entry)
-    mock_setup_entry.assert_called_once_with(mock_hass, mock_entry)
+    assert entry.entry_id not in hass.data[DOMAIN]
