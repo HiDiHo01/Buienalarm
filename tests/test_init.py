@@ -8,7 +8,6 @@ from custom_components.buienalarm import async_setup_entry, async_unload_entry
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from homeassistant.core import HomeAssistant
-from homeassistant.setup import async_setup_component
 
 
 @pytest.fixture
@@ -20,8 +19,6 @@ def config_data() -> dict:
 @pytest.mark.asyncio
 async def test_async_setup_entry_success(hass: HomeAssistant, config_data: dict) -> None:
     """Test successful async_setup_entry of the integration."""
-    await async_setup_component(hass, "http", {})  # Required for aiohttp session
-
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     entry.add_to_hass(hass)
 
@@ -33,26 +30,25 @@ async def test_async_setup_entry_success(hass: HomeAssistant, config_data: dict)
 
 
 @pytest.mark.asyncio
-async def test_async_setup_entry_failure(hass: HomeAssistant, config_data: dict) -> None:
+async def test_async_setup_entry_failure(
+    hass: HomeAssistant, config_data: dict, monkeypatch
+) -> None:
     """Test setup entry fails gracefully if coordinator fails."""
-    await async_setup_component(hass, "http", {})  # Required for aiohttp session
-
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     entry.add_to_hass(hass)
 
-    # Patch the coordinator to simulate failure
+    monkeypatch.setattr(
+        "custom_components.buienalarm.BuienalarmDataUpdateCoordinator.async_config_entry_first_refresh",
+        lambda self: (_ for _ in ()).throw(Exception("fail")),
+    )
+
     with pytest.raises(Exception):
-        with pytest.MonkeyPatch().context() as mp:
-            from custom_components.buienalarm import BuienalarmDataUpdateCoordinator
-            mp.setattr(BuienalarmDataUpdateCoordinator, "async_config_entry_first_refresh", lambda self: (_ for _ in ()).throw(Exception("fail")))
-            await async_setup_entry(hass, entry)
+        await async_setup_entry(hass, entry)
 
 
 @pytest.mark.asyncio
 async def test_async_unload_entry(hass: HomeAssistant, config_data: dict) -> None:
     """Test unloading an entry."""
-    await async_setup_component(hass, "http", {})  # Required for aiohttp session
-
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     entry.add_to_hass(hass)
 
