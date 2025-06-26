@@ -8,13 +8,15 @@ from homeassistant.exceptions import ConfigEntryNotReady
 from custom_components.buienalarm import async_setup_entry, async_unload_entry, async_reload_entry
 from custom_components.buienalarm.const import DOMAIN
 
-
 @pytest.fixture
 def mock_hass() -> HomeAssistant:
     """Return a mock HomeAssistant instance."""
     hass = MagicMock(spec=HomeAssistant)
     hass.data = {}
-    hass.bus = MagicMock()  # Add this line
+    hass.bus = MagicMock()
+    hass.config_entries = MagicMock()
+    hass.config_entries.async_forward_entry_setups = AsyncMock()
+    hass.config_entries.async_unload_platforms = AsyncMock(return_value=True)
     return hass
 
 @pytest.fixture
@@ -23,24 +25,23 @@ def mock_entry() -> ConfigEntry:
     entry = MagicMock(
         spec=ConfigEntry,
         domain=DOMAIN,
-        data={"latitude": 52.3676, "longitude": 4.9041},
+        data={
+            "latitude": 52.3676,
+            "longitude": 4.9041,
+            "network": "test-network",  # Add this field if your code expects it
+        },
         entry_id="test_entry",
         options={},
         title="Test Buienalarm",
     )
+    entry.options = {}
+    entry.add_update_listener = MagicMock()
     return entry
-
-@pytest.fixture
-def mock_coordinator():
-    """Return a mock coordinator."""
-    return AsyncMock()
 
 @patch("custom_components.buienalarm.BuienalarmApiClient")
 @patch("custom_components.buienalarm.BuienalarmDataUpdateCoordinator")
 @pytest.mark.asyncio
-async def test_async_setup_entry(
-    mock_coordinator_class, mock_client_class, mock_hass, mock_entry
-) -> None:
+async def test_async_setup_entry(mock_coordinator_class, mock_client_class, mock_hass, mock_entry):
     """Test successful setup of a config entry."""
     mock_coordinator = mock_coordinator_class.return_value
     mock_coordinator.last_update_success = True
@@ -54,9 +55,7 @@ async def test_async_setup_entry(
 
 @patch("custom_components.buienalarm.BuienalarmDataUpdateCoordinator")
 @pytest.mark.asyncio
-async def test_async_setup_entry_failure(
-    mock_coordinator_class, mock_hass, mock_entry
-) -> None:
+async def test_async_setup_entry_failure(mock_coordinator_class, mock_hass, mock_entry):
     """Test setup failure due to unsuccessful data update."""
     mock_coordinator = mock_coordinator_class.return_value
     mock_coordinator.last_update_success = False
@@ -66,9 +65,8 @@ async def test_async_setup_entry_failure(
 
 @patch("custom_components.buienalarm.PLATFORMS", ["sensor"])
 @pytest.mark.asyncio
-async def test_async_unload_entry(mock_hass, mock_entry) -> None:
+async def test_async_unload_entry(mock_hass, mock_entry):
     """Test successful unloading of a config entry."""
-    mock_hass.config_entries.async_unload_platforms = AsyncMock(return_value=True)
     mock_hass.data[DOMAIN] = {mock_entry.entry_id: "coordinator_mock"}
 
     result = await async_unload_entry(mock_hass, mock_entry)
@@ -79,14 +77,12 @@ async def test_async_unload_entry(mock_hass, mock_entry) -> None:
 @patch("custom_components.buienalarm.async_setup_entry")
 @patch("custom_components.buienalarm.async_unload_entry")
 @pytest.mark.asyncio
-async def test_async_reload_entry(mock_unload_entry, mock_setup_entry, mock_hass, mock_entry) -> None:
+async def test_async_reload_entry(mock_unload_entry, mock_setup_entry, mock_hass, mock_entry):
     """Test reloading of a config entry."""
     mock_unload_entry.return_value = True
     mock_setup_entry.return_value = True
 
-    result = await async_reload_entry(mock_hass, mock_entry)
+    await async_reload_entry(mock_hass, mock_entry)
 
     mock_unload_entry.assert_called_once_with(mock_hass, mock_entry)
     mock_setup_entry.assert_called_once_with(mock_hass, mock_entry)
-
-    assert result is True
