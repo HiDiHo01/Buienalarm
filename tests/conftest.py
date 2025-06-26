@@ -1,21 +1,30 @@
-import sys
-import os
+import asyncio
 import pytest
-import pytest_asyncio
 from homeassistant.core import HomeAssistant
-from homeassistant.setup import async_setup_component
-
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from homeassistant.util.dt import utcnow
+from homeassistant.helpers.typing import ConfigType
+from tempfile import TemporaryDirectory
 
 @pytest_asyncio.fixture
 async def hass() -> HomeAssistant:
-    """Create a Home Assistant instance for testing."""
-    from homeassistant import setup
-    hass = HomeAssistant()
-    # Initialize Home Assistant core or any setups here if needed
-    await async_setup_component(hass, "http", {})  # Example if HTTP needed
+    """Return a Home Assistant instance with temporary config dir."""
+    from homeassistant.core import HomeAssistant
+    from homeassistant.config import async_process_ha_core_config
 
-    yield hass
+    with TemporaryDirectory() as config_dir:
+        hass = HomeAssistant(config_dir)
 
-    # Clean up after tests
-    await hass.async_stop()
+        # Optioneel: stel basisconfig in
+        await async_process_ha_core_config(
+            hass,
+            {
+                "name": "Home",
+                "latitude": 52.1,
+                "longitude": 5.1,
+                "elevation": 1,
+                "unit_system": "metric",
+                "time_zone": "Europe/Amsterdam",
+            },
+        )
+
+        yield hass
