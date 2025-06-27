@@ -15,28 +15,32 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.13"]
+
     steps:
-      - name: Checkout code
+      - name: 📥 Checkout code
         uses: actions/checkout@v4  # Update naar v4
 
-      - name: Set up Python 3.13.5
+      - name: 🐍 Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
-          python-version: "3.13.5"
+          python-version: ${{ matrix.python-version }}
 
-      - name: Install Poetry
+      - name: 🧰 Install Poetry
         run: |
           curl -sSL https://install.python-poetry.org | python3 -
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-      - name: Install dependencies
+      - name: ⚙️ Configure Poetry environment
         run: |
           poetry lock
-          poetry env use 3.13  # Ensure Poetry uses Python 3.12
+          poetry env use "${{ matrix.python-version }}"
           poetry install --no-interaction --no-ansi
 
-      - name: Install Home Assistant
-        run: poetry add homeassistant
+      - name: 🧠 Set PYTHONPATH
+        run: echo "PYTHONPATH=$GITHUB_WORKSPACE" >> $GITHUB_ENV
 
       - name: Set up configuration
         run: |
@@ -48,14 +52,17 @@ jobs:
         env:
           HASS_CONFIG: ./config
 
-      - name: Format code
-        run: poetry run black .
+      - name: 🧪 Run tests
+        run: poetry run pytest --color=yes --tb=short
 
-      - name: Package integration
+      - name: 🎨 Format code (Black)
+        run: poetry run black --check .
+
+      - name: 📦 Build integration package
         run: poetry build
 
-      - name: Upload Package
+      - name: ⬆️ Upload Package / built wheel
         uses: actions/upload-artifact@v4  # Update van v3 naar v4
         with:
-          name: integration-package
+          name: buienalarm-package
           path: dist/*.whl
