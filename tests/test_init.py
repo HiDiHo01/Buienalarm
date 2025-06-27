@@ -15,15 +15,14 @@ from custom_components.buienalarm import (
 )
 from custom_components.buienalarm.const import DOMAIN, CONF_LATITUDE, CONF_LONGITUDE
 
-
 @pytest.fixture
 def config_data() -> dict:
     """Provide minimal valid config entry data."""
     return {
         CONF_LATITUDE: 52.1,
         CONF_LONGITUDE: 5.1,
+        "network": "home",
     }
-
 
 @pytest.mark.asyncio
 @patch("custom_components.buienalarm.BuienalarmDataUpdateCoordinator")
