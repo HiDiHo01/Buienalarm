@@ -21,6 +21,8 @@ VERSION: Final[str] = "2025.6.17"
 ATTRIBUTION: Final[str] = "Data provided by Buienalarm"
 ATTR_ATTRIBUTION: Final[str] = "Data provided by Buienalarm"
 CONF_ATTRIBUTION: Final[str] = "Data provided by Buienalarm"
+CONF_LATITUDE = "latitude"
+CONF_LONGITUDE = "longitude"
 
 # Defaults
 DEFAULT_NAME: Final[str] = NAME
