@@ -1,22 +1,9 @@
-"""Integration tests for Buienalarm sensors."""
-
-from unittest.mock import patch
-
 import pytest
-
+from unittest.mock import patch
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_component import async_update_entity
 from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry
-from homeassistant.const import UnitOfTime, UnitOfVolumetricFlux
-
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.helpers.typing import ConfigType
-
-from custom_components.buienalarm.const import DOMAIN, SENSORS, DATA_KEY
-from custom_components.buienalarm.coordinator import BuienalarmDataUpdateCoordinator
-
+from custom_components.buienalarm.const import DOMAIN, SENSORS
 from tests.common import MockConfigEntry
-
 
 @pytest.mark.asyncio
 async def test_sensor_entities_created_and_populated(
@@ -24,7 +11,6 @@ async def test_sensor_entities_created_and_populated(
 ) -> None:
     """Test all sensors are set up and have correct state and attributes."""
 
-    # Patch the update method to return mock data
     with patch(
         "custom_components.buienalarm.coordinator.BuienalarmDataUpdateCoordinator.async_update_data",
         return_value=mock_buienalarm_data,
@@ -37,11 +23,9 @@ async def test_sensor_entities_created_and_populated(
         )
         entry.add_to_hass(hass)
 
-        # Start integration
         await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
 
-    # Check entity registry
     entity_registry = async_get_entity_registry(hass)
 
     for sensor in SENSORS:
