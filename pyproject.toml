@@ -20,7 +20,6 @@ pytest-asyncio = "*"
 
 [tool.poetry.group.dev.dependencies]
 pytest-homeassistant-custom-component = "^0.13.0"
-pytest = "^8.3.5"
 black = "^25.1.0"
 pylint = "^3.0.0"
 pytest = "^8.4"
