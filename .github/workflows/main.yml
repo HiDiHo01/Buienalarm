@@ -40,8 +40,7 @@ jobs:
           poetry install --no-interaction --no-ansi
 
       - name: 🧠 Set PYTHONPATH
-        run: echo "PYTHONPATH=$GITHUB_WORKSPACE" >> $GITHUB_ENV
-
+        run: echo "PYTHONPATH=$GITHUB_WORKSPACE/Buienalarm" >> $GITHUB_ENV
       - name: Set up configuration
         run: |
           mkdir -p ./config
