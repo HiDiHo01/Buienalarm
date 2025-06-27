@@ -74,12 +74,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         sw_version=VERSION,
     )
 
-    coordinator = BuienalarmDataUpdateCoordinator(
-        hass=hass,
-        client=client,
-        device_info=device_info,
-        config_entry=entry,
-    )
+    try:
+        coordinator = BuienalarmDataUpdateCoordinator(
+            hass=hass,
+            client=client,
+            device_info=device_info,
+            config_entry=entry,
+        )
+    except Exception as err:
+        raise ConfigEntryNotReady("Unexpected failure") from err
+    
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
     # Fetch the config entry options directly from the entry
