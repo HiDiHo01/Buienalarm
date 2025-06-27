@@ -7,6 +7,12 @@ from custom_components.buienalarm.const import DOMAIN, SENSORS
 # from pytest_homeassistant_custom_component.mock import MockConfigEntry
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+async def mock_async_fetch(*args, **kwargs):
+    return {"nowcastmessage": "Test message"}  # Replace with expected dict
+
+@patch("custom_components.buienalarm.sensor.BuienalarmApi.async_fetch", new=mock_async_fetch)
+async def test_sensor_entities_created_and_populated(...):
+
 @pytest.mark.asyncio
 async def test_sensor_entities_created_and_populated(
     hass: HomeAssistant, mock_buienalarm_data: dict
