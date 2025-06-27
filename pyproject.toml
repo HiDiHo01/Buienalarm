@@ -9,6 +9,10 @@ packages = [
     { include = "custom_components/buienalarm" }
 ]
 
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
 [tool.poetry.dependencies]
 python = ">=3.13,<3.14"
 homeassistant = "^2025.6.2"
