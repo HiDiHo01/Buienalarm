@@ -47,7 +47,7 @@ jobs:
           mkdir -p ./config
           echo "homeassistant: { name: 'Test' }" > ./config/configuration.yaml
 
-      - name: Check configuration
+      - name: Check HA config validity
         run: poetry run hass --script check_config --config ./config
         env:
           HASS_CONFIG: ./config
