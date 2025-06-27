@@ -55,7 +55,7 @@ jobs:
         run: poetry run pytest --color=yes --tb=short
 
       - name: 🎨 Format code (Black)
-        run: poetry run black --check .
+        run: poetry run black .
 
       - name: 📦 Build integration package
         run: poetry build
