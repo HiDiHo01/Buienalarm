@@ -15,15 +15,14 @@ asyncio_default_fixture_loop_scope = "function"
 
 [tool.poetry.dependencies]
 python = ">=3.13.2,<3.14"
-homeassistant = "^2025.6.3"
-pytest-asyncio = "*"
+homeassistant = "^2025.6.2"
 
 [tool.poetry.group.dev.dependencies]
 pytest-homeassistant-custom-component = "^0.13.0"
 black = "^25.1.0"
 pylint = "^3.0.0"
 pytest = "^8.3.5"
-pytest-asyncio = "^0.23"
+pytest-asyncio = ">=0.23.6,<0.30.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
