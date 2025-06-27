@@ -1,4 +1,0 @@
-pytest
-pytest-asyncio
-flake8
-pytest-homeassistant-custom-component
