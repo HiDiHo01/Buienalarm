@@ -56,9 +56,7 @@ async def test_async_setup_entry_failure(mock_coordinator: MagicMock, hass: Home
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     entry.add_to_hass(hass)
 
-    # with pytest.raises(ConfigEntryNotReady, match="last_update_success is False"):
-    #     await async_setup_entry(hass, entry)
-    with pytest.raises(ConfigEntryNotReady, match="Unexpected failure"):
+    with pytest.raises(ConfigEntryNotReady, match=r"Failed to initialize Mock Title"):
         await async_setup_entry(hass, entry)
 
 
