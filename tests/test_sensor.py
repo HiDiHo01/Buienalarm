@@ -12,7 +12,7 @@ async def test_sensor_entities_created_and_populated(
     """Test all sensors are set up and have correct state and attributes."""
 
     with patch(
-        "custom_components.buienalarm.coordinator.BuienalarmDataUpdateCoordinator.async_update_data",
+        "custom_components.buienalarm.coordinator.BuienalarmDataUpdateCoordinator._async_update_data",
         return_value=mock_buienalarm_data,
     ):
         entry = MockConfigEntry(
