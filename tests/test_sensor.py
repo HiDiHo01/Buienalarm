@@ -4,7 +4,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry
 from custom_components.buienalarm.const import DOMAIN, SENSORS
 # from tests.common import MockConfigEntry
-from pytest_homeassistant_custom_component.mock import MockConfigEntry
+# from pytest_homeassistant_custom_component.mock import MockConfigEntry
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 @pytest.mark.asyncio
 async def test_sensor_entities_created_and_populated(
