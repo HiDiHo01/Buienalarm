@@ -37,6 +37,7 @@ This is a custom component for Home Assistant that integrates with Buienalarm to
 ### YAML Configuration (Optional)
 
 Alternatively, you can configure the component using YAML:
+(deprecated and no longer updated and supported)
 
 ```yaml
 # Example configuration.yaml entry
