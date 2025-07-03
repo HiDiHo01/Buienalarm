@@ -3,7 +3,5 @@
   "homeassistant": "2025.3.4",
   "render_readme": true,
   "content_in_root": false,
-  "country": "NL",
-  "zip_release": true,
-  "filename": "Buienalarm.zip"
+  "country": "NL"
 }
