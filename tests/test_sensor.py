@@ -6,19 +6,11 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.buienalarm.const import DOMAIN, SENSORS
 
-async def mock_async_fetch(*args, **kwargs) -> dict:
-    """Mock BuienalarmApi.async_fetch to return test data."""
-    return {"nowcastmessage": "Test message"}
-
 @pytest.mark.asyncio
-@patch(
-    "custom_components.buienalarm.sensor.BuienalarmApi.async_fetch",
-    new=mock_async_fetch,
-)
 async def test_sensor_entities_created_and_populated(
     hass: HomeAssistant, mock_buienalarm_data: dict
 ) -> None:
-    """Test all sensors are set up and have correct state and attributes."""
+    """Test all sensors are set up and have correct state and attributes using mock data from the coordinator."""
     # Patch coordinator to use provided mock data
     with patch(
         "custom_components.buienalarm.coordinator.BuienalarmDataUpdateCoordinator._async_update_data",
