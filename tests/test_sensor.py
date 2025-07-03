@@ -21,8 +21,7 @@ def mock_requests(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def mock_aiohttp_get():
-    """Mock aiohttp.ClientSession.get so er nooit echte HTTP‑verzoeken plaatsvinden."""
-    # Bouw één dict met alle keys → waarden (float of string)
+    """Mock aiohttp.ClientSession.get for Buienalarm."""
     inner = {
         sensor["key"]: (
             3.14
@@ -35,15 +34,14 @@ def mock_aiohttp_get():
     async def _mock_json():
         return {"data": inner}
 
-    # Maak een AsyncMock dat als async‑context‑manager fungeert
-    mock_response = AsyncMock()
-    mock_response.__aenter__.return_value = mock_response
-    mock_response.status = 200
-    mock_response.json = _mock_json
+    mock_resp = AsyncMock()
+    mock_resp.__aenter__.return_value = mock_resp
+    mock_resp.status = 200
+    mock_resp.json = _mock_json
 
-    # Patch de methode op het juiste pad
-    with patch("aiohttp.ClientSession.get", return_value=mock_response):
+    with patch("aiohttp.ClientSession.get", return_value=mock_resp):
         yield
+
 
 @pytest.mark.asyncio
 async def test_sensor_entities_created_and_populated(hass: HomeAssistant) -> None:
@@ -67,41 +65,47 @@ async def test_sensor_entities_created_and_populated(hass: HomeAssistant) -> Non
     await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
+    entity_registry = async_get_entity_registry(hass)
+
+    def get_entity_id(key: str) -> str:
+        """Return entity_id via registry from unique_id."""
+        entity_id = entity_registry.async_get_entity_id(
+            "sensor",
+            DOMAIN,
+            f"{entry.unique_id}_{key}",
+        )
+        assert entity_id is not None, f"entity_id not found for key {key}"
+        return entity_id
+
     # ---- expliciete check voor nowcastmessage ----
-    nowcast_entity_id = f"sensor.{slugify(entry.title)}_nowcastmessage"
+    nowcast_entity_id = get_entity_id("nowcastmessage")
     state_now = hass.states.get(nowcast_entity_id)
     assert state_now is not None, f"Sensor {nowcast_entity_id} ontbreekt"
     assert state_now.state == expected_data["nowcastmessage"]
 
-    entity_registry = async_get_entity_registry(hass)
-
+    # ---- overige sensoren ----
     for sensor in SENSORS:
-        entity_id = (
-            f"sensor.{slugify(entry.title)}_{sensor['key']}"
-        )
+        entity_id = get_entity_id(sensor["key"])
         state = hass.states.get(entity_id)
 
         assert state is not None, f"Sensor {entity_id} ontbreekt"
-        assert entity_registry.async_get(entity_id) is not None, f"Registry mist {entity_id}"
 
         expected = expected_data[sensor["key"]]
         if isinstance(expected, float):
-            assert float(state.state) == expected, f"Verwacht {expected} (float) voor {entity_id}"
+            assert float(state.state) == expected
         else:
-            assert state.state == expected, f"Verwacht '{expected}' (str) voor {entity_id}"
+            assert state.state == expected
 
         for attr in ("unit_of_measurement", "device_class", "state_class"):
             if sensor.get(attr):
-                assert state.attributes.get(attr) == sensor[attr], f"Foutieve {attr} voor {entity_id}"
+                assert state.attributes.get(attr) == sensor[attr]
 
     # ---- guard: onjuiste data structuur ----
-    with patch("requests.get") as bad_get:
-        bad_resp = bad_get.return_value
-        bad_resp.json.return_value = []  # verkeerde structuur
+    with patch("aiohttp.ClientSession.get", return_value=AsyncMock(json=lambda: [])):
         await hass.config_entries.async_reload(entry.entry_id)
         await hass.async_block_till_done()
 
     for sensor in SENSORS:
-        entity_id = f"sensor.{slugify(sensor['name'])}"
+        entity_id = get_entity_id(sensor["key"])
         state = hass.states.get(entity_id)
-        assert state.state == "unknown", f"Verwacht 'unknown' bij onjuiste data voor {entity_id}"
+        assert state.state == "unknown"
