@@ -6,26 +6,29 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.buienalarm.const import DOMAIN, SENSORS
 
+@patch(
+    "custom_components.buienalarm.coordinator.BuienalarmDataUpdateCoordinator._async_update_data",
+)
 @pytest.mark.asyncio
 async def test_sensor_entities_created_and_populated(
-    hass: HomeAssistant, mock_buienalarm_data: dict
+    mock_update, hass: HomeAssistant, mock_buienalarm_data: dict
 ) -> None:
-    """Test all sensors are set up and have correct state and attributes using mock data from the coordinator."""
-    # Patch coordinator to use provided mock data
-    with patch(
-        "custom_components.buienalarm.coordinator.BuienalarmDataUpdateCoordinator._async_update_data",
-        return_value=mock_buienalarm_data,
-    ):
-        entry = MockConfigEntry(
-            domain=DOMAIN,
-            title="Buienalarm Test",
-            unique_id="test123",
-            data={"latitude": 52.3702, "longitude": 4.8952},  # Amsterdam
-        )
-        entry.add_to_hass(hass)
+    """Test all sensors are set up and have correct state and attributes using mock coordinator data."""
+    # Configure the mock to return our test data
+    mock_update.return_value = mock_buienalarm_data
 
-        await hass.config_entries.async_setup(entry.entry_id)
-        await hass.async_block_till_done()
+    # Set up the config entry
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Buienalarm Test",
+        unique_id="test123",
+        data={"latitude": 52.3702, "longitude": 4.8952},  # Amsterdam
+    )
+    entry.add_to_hass(hass)
+
+    # Initialize integration, which will use the patched update method
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
 
     entity_registry = async_get_entity_registry(hass)
 
@@ -48,7 +51,7 @@ async def test_sensor_entities_created_and_populated(
                 f"Unexpected state for {entity_id}: {state.state}"
             )
 
-        # Check attributes
+        # Validate attributes
         if sensor.get("unit_of_measurement"):
             assert (
                 state.attributes.get("unit_of_measurement")
