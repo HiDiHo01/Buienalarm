@@ -116,17 +116,66 @@ class BuienalarmEntity(CoordinatorEntity):
 
     @property
     def data_points_as_list(self) -> list[dict[str, str | int | float | None]]:
-        """Return the precipitation data as a list of dictionaries."""
-        data = self.coordinator.data.get("data") or []
-        return [
-            {
-                "precipitationrate": data_point.get('precipitationrate'),
-                "precipitationtype": data_point.get('precipitationtype'),
-                "timestamp": data_point.get('timestamp'),
-                "time": dt.as_local(datetime.fromisoformat(data_point.get('time', '1970-01-01T00:00:00'))),
-            }
-            for data_point in data
-        ]
+        """Return precipitation data points as a list of dictionaries.
+    
+        Each dict contains:
+    
+        * ``precipitationrate`` – mm/h (float | int | None)
+        * ``precipitationtype`` – type code (str | None)
+        * ``timestamp`` – UNIX seconds since epoch (int | float | None)
+        * ``time`` – *local* `datetime`
+        """
+        raw_data: list[object] = []
+    
+        if isinstance(self.coordinator.data, Mapping):
+            raw_data = self.coordinator.data.get("data") or []
+        else:
+            _LOGGER.debug(
+                "coordinator.data is not a mapping (type=%s): %s",
+                type(self.coordinator.data),
+                self.coordinator.data,
+            )
+    
+        results: list[dict[str, str | int | float | None]] = []
+    
+        for data_point in raw_data:
+            # ── verify we can safely call .get() ────────────────────────────────
+            if not isinstance(data_point, Mapping) and not hasattr(data_point, "get"):
+                _LOGGER.debug(
+                    "Skipping data point without 'get' attribute: %s",
+                    data_point,
+                )
+                continue
+            # -------------------------------------------------------------------
+    
+            rate = data_point.get("precipitationrate")
+            ptype = data_point.get("precipitationtype")
+            ts = data_point.get("timestamp")
+            iso_time: str | None = data_point.get("time")
+    
+            # Parse ISO time string defensively
+            parsed_time: datetime
+            if isinstance(iso_time, str):
+                try:
+                    parsed_time = datetime.fromisoformat(iso_time)
+                    if parsed_time.tzinfo is None:  # normalise to aware
+                        parsed_time = parsed_time.replace(tzinfo=timezone.utc)
+                except ValueError as exc:
+                    _LOGGER.debug("Invalid ISO time '%s': %s", iso_time, exc)
+                    parsed_time = datetime(1970, 1, 1, tzinfo=timezone.utc)
+            else:
+                parsed_time = datetime(1970, 1, 1, tzinfo=timezone.utc)
+    
+            results.append(
+                {
+                    "precipitationrate": rate,
+                    "precipitationtype": ptype,
+                    "timestamp": ts,
+                    "time": dt.as_local(parsed_time),
+                }
+            )
+    
+        return results
 
     def get_nowcastmessage(self) -> str | None:
         """Generate a user-friendly message for the current weather forecast."""
