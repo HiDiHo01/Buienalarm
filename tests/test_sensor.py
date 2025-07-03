@@ -19,11 +19,41 @@ def mock_requests(monkeypatch):
         mock_resp.json.return_value = {"data": inner}
         yield
 
+@pytest.fixture(autouse=True)
+def mock_aiohttp_get():
+    """Mock aiohttp.ClientSession.get so er nooit echte HTTP‑verzoeken plaatsvinden."""
+    # Bouw één dict met alle keys → waarden (float of string)
+    inner = {
+        sensor["key"]: (
+            3.14
+            if sensor.get("device_class") or sensor.get("state_class")
+            else "Test message"
+        )
+        for sensor in SENSORS
+    }
+
+    async def _mock_json():
+        return {"data": inner}
+
+    # Maak een AsyncMock dat als async‑context‑manager fungeert
+    mock_response = AsyncMock()
+    mock_response.__aenter__.return_value = mock_response
+    mock_response.status = 200
+    mock_response.json = _mock_json
+
+    # Patch de methode op het juiste pad
+    with patch("aiohttp.ClientSession.get", return_value=mock_response):
+        yield
+
 @pytest.mark.asyncio
 async def test_sensor_entities_created_and_populated(hass: HomeAssistant) -> None:
     """Ensure sensors are created and reflect mocked coordinator data."""
     expected_data = {
-        sensor["key"]: (3.14 if sensor.get("device_class") or sensor.get("state_class") else "Test message")
+        sensor["key"]: (
+            3.14
+            if sensor.get("device_class") or sensor.get("state_class")
+            else "Test message"
+        )
         for sensor in SENSORS
     }
 
@@ -38,15 +68,10 @@ async def test_sensor_entities_created_and_populated(hass: HomeAssistant) -> Non
     await hass.async_block_till_done()
 
     # ---- expliciete check voor nowcastmessage ----
-    nowcast_entity_id = (
-        f"sensor.{slugify(entry.title)}_nowcastmessage"
-    )
+    nowcast_entity_id = f"sensor.{slugify(entry.title)}_nowcastmessage"
     state_now = hass.states.get(nowcast_entity_id)
     assert state_now is not None, f"Sensor {nowcast_entity_id} ontbreekt"
-    assert state_now.state == expected_data["nowcastmessage"], (
-        f"Verwacht '{expected_data['nowcastmessage']}' voor {nowcast_entity_id}, "
-        f"kreeg '{state_now.state}'"
-    )
+    assert state_now.state == expected_data["nowcastmessage"]
 
     entity_registry = async_get_entity_registry(hass)
 
