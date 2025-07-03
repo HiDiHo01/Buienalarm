@@ -332,38 +332,6 @@ class BuienalarmEntity(CoordinatorEntity):
 
         return True
 
-    def old_get_rain_start_time_and_duration(self, precipitation_data):
-        rain_start_time: datetime = None
-        rain_stop_time: datetime = None
-        rain_duration: int = 0
-        consecutive_zero_precipitation: int = 0
-        rain_stopped: bool = True
-
-        for data_point in precipitation_data:
-            precipitation_rate = data_point.get("precipitationrate", 0)
-
-            if precipitation_rate > 0:
-                if rain_start_time is None:
-                    # set start time when there is precipitation and no start time
-                    rain_start_time = datetime.utcfromtimestamp(data_point.get("timestamp"))
-                    rain_stopped = False
-                rain_duration += 5
-                consecutive_zero_precipitation = 0
-            else:
-                consecutive_zero_precipitation += 5
-                if rain_start_time is not None and rain_stop_time is None:  # and consecutive_zero_precipitation >= 10:
-                    # set stop time when there is a start time and no stop time
-                    rain_stop_time = data_point.get("timestamp")
-                    rain_stopped = True
-                    break  # Stop the loop when precipitation stops
-
-        if rain_start_time is not None:
-            rain_start_time = datetime.utcfromtimestamp(rain_start_time)
-        if rain_stop_time is not None:
-            rain_stop_time = datetime.utcfromtimestamp(rain_stop_time)
-
-        return rain_start_time, rain_stop_time, rain_duration, rain_stopped
-
     def get_rain_start_time_and_duration(self, precipitation_data):
         """Calculate the start time and duration of rain from the precipitation data."""
         current_time_utc: datetime = datetime.utcnow()
