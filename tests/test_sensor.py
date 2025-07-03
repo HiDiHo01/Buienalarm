@@ -2,6 +2,7 @@ import pytest
 from unittest.mock import patch
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry
+from homeassistant.util import slugify
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.buienalarm.const import DOMAIN, SENSORS
@@ -11,30 +12,21 @@ def mock_requests(monkeypatch):
     """Prevent real HTTP calls by mocking requests.get with nested 'data' key."""
     with patch("requests.get") as mock_get:
         mock_resp = mock_get.return_value
-        # Provide float-compatible values for numeric sensors and strings for others
-        inner = {}
-        for sensor in SENSORS:
-            key = sensor["key"]
-            if sensor.get("device_class") or sensor.get("state_class"):
-                inner[key] = 3.14
-            else:
-                inner[key] = "Test message"
+        inner = {
+            sensor["key"]: (3.14 if sensor.get("device_class") or sensor.get("state_class") else "Test message")
+            for sensor in SENSORS
+        }
         mock_resp.json.return_value = {"data": inner}
         yield
 
 @pytest.mark.asyncio
 async def test_sensor_entities_created_and_populated(hass: HomeAssistant) -> None:
     """Ensure sensors are created and reflect mocked coordinator data."""
-    # Expected extracted data from nested structure
-    expected_data = {}
-    for sensor in SENSORS:
-        key = sensor["key"]
-        if sensor.get("device_class") or sensor.get("state_class"):
-            expected_data[key] = 3.14
-        else:
-            expected_data[key] = "Test message"
+    expected_data = {
+        sensor["key"]: (3.14 if sensor.get("device_class") or sensor.get("state_class") else "Test message")
+        for sensor in SENSORS
+    }
 
-    # Create config entry and initialize integration
     entry = MockConfigEntry(
         domain=DOMAIN,
         title="Buienalarm Test",
@@ -45,48 +37,42 @@ async def test_sensor_entities_created_and_populated(hass: HomeAssistant) -> Non
     await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
-    # Explicit check for nowcastmessage sensor
-    state_now = hass.states.get("sensor.nowcastmessage")
-    assert state_now is not None, "Sensor nowcastmessage missing"
+    # ---- expliciete check voor nowcastmessage ----
+    nowcast_entity_id = f"sensor.{slugify(next(s['name'] for s in SENSORS if s['key'] == 'nowcastmessage'))}"
+    state_now = hass.states.get(nowcast_entity_id)
+    assert state_now is not None, f"Sensor {nowcast_entity_id} ontbreekt"
     assert state_now.state == expected_data["nowcastmessage"], (
-        f"Expected '{expected_data['nowcastmessage']}' for nowcastmessage, got {state_now.state}"
+        f"Verwacht '{expected_data['nowcastmessage']}' voor {nowcast_entity_id}, "
+        f"kreeg '{state_now.state}'"
     )
 
     entity_registry = async_get_entity_registry(hass)
 
     for sensor in SENSORS:
-        entity_id = f"sensor.{sensor['key']}"
+        entity_id = f"sensor.{slugify(sensor['name'])}"   # ← gebruikt slugify i.p.v. key
         state = hass.states.get(entity_id)
-        # Entity should exist
-        assert state is not None, f"Missing sensor {entity_id}"
-        assert entity_registry.async_get(entity_id) is not None, f"Registry missing {entity_id}"
+
+        assert state is not None, f"Sensor {entity_id} ontbreekt"
+        assert entity_registry.async_get(entity_id) is not None, f"Registry mist {entity_id}"
 
         expected = expected_data[sensor["key"]]
         if isinstance(expected, float):
-            # numeric sensor should parse float
-            assert float(state.state) == expected, f"Expected numeric value {expected} for {entity_id}"
+            assert float(state.state) == expected, f"Verwacht {expected} (float) voor {entity_id}"
         else:
-            # non-numeric sensors use string
-            assert state.state == expected, f"Expected string value '{expected}' for {entity_id}"
+            assert state.state == expected, f"Verwacht '{expected}' (str) voor {entity_id}"
 
-        # Verify optional attributes
         for attr in ("unit_of_measurement", "device_class", "state_class"):
             if sensor.get(attr):
-                assert state.attributes.get(attr) == sensor[attr], (
-                    f"Wrong {attr} for {entity_id}"
-                )
+                assert state.attributes.get(attr) == sensor[attr], f"Foutieve {attr} voor {entity_id}"
 
-    # Confirm guard: integration should handle missing 'data' key gracefully
-    # Simulate coordinator returning non-dict
+    # ---- guard: onjuiste data structuur ----
     with patch("requests.get") as bad_get:
         bad_resp = bad_get.return_value
-        bad_resp.json.return_value = []  # incorrect structure
-        # Reload integration to trigger fetch
+        bad_resp.json.return_value = []  # verkeerde structuur
         await hass.config_entries.async_reload(entry.entry_id)
         await hass.async_block_till_done()
 
-    # After bad data, all sensor states should be 'unknown'
     for sensor in SENSORS:
-        entity_id = f"sensor.{sensor['key']}"
+        entity_id = f"sensor.{slugify(sensor['name'])}"
         state = hass.states.get(entity_id)
-        assert state.state == "unknown", f"Expected unknown for bad data on {entity_id}"
+        assert state.state == "unknown", f"Verwacht 'unknown' bij onjuiste data voor {entity_id}"
