@@ -38,7 +38,9 @@ async def test_sensor_entities_created_and_populated(hass: HomeAssistant) -> Non
     await hass.async_block_till_done()
 
     # ---- expliciete check voor nowcastmessage ----
-    nowcast_entity_id = f"sensor.{slugify(next(s['name'] for s in SENSORS if s['key'] == 'nowcastmessage'))}"
+    nowcast_entity_id = (
+        f"sensor.{slugify(entry.title)}_nowcastmessage"
+    )
     state_now = hass.states.get(nowcast_entity_id)
     assert state_now is not None, f"Sensor {nowcast_entity_id} ontbreekt"
     assert state_now.state == expected_data["nowcastmessage"], (
@@ -49,7 +51,9 @@ async def test_sensor_entities_created_and_populated(hass: HomeAssistant) -> Non
     entity_registry = async_get_entity_registry(hass)
 
     for sensor in SENSORS:
-        entity_id = f"sensor.{slugify(sensor['name'])}"   # ← gebruikt slugify i.p.v. key
+        entity_id = (
+            f"sensor.{slugify(entry.title)}_{sensor['key']}"
+        )
         state = hass.states.get(entity_id)
 
         assert state is not None, f"Sensor {entity_id} ontbreekt"
