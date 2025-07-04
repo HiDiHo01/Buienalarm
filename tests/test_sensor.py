@@ -94,7 +94,9 @@ async def test_sensor_entities_created_and_populated(hass: HomeAssistant) -> Non
 
     # ---- expliciete check voor nowcastmessage ----
     # nowcast_entity_id = get_entity_id("nowcastmessage")
-    nowcast_entity_id = get_entity_id("Buienalarm") 
+    # nowcast_entity_id = get_entity_id("buienalarm")
+    nowcast_sensor = next(s for s in SENSORS if s["name"] == "Buienalarm")
+    nowcast_entity_id = get_entity_id(nowcast_sensor["key"])
     state_now = hass.states.get(nowcast_entity_id)
     assert state_now is not None, f"Sensor {nowcast_entity_id} ontbreekt"
     assert state_now.state == expected_data["nowcastmessage"]
