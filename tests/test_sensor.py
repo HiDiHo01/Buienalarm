@@ -7,6 +7,17 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.buienalarm.const import DOMAIN, SENSORS
 
+def get_entity_id(sensor_name: str) -> str:
+    """Return registry entity_id by the sensor’s true unique_id."""
+    unique_id = f"{slugify(sensor_name)}_none"          # 👈 location slug is 'none'
+    entity_id = entity_registry.async_get_entity_id(
+        "sensor",
+        DOMAIN,
+        unique_id,
+    )
+    assert entity_id is not None, f"entity_id not found for {unique_id}"
+    return entity_id
+
 @pytest.fixture(autouse=True)
 def mock_requests(monkeypatch):
     """Prevent real HTTP calls by mocking requests.get with nested 'data' key."""
@@ -78,14 +89,16 @@ async def test_sensor_entities_created_and_populated(hass: HomeAssistant) -> Non
         return entity_id
 
     # ---- expliciete check voor nowcastmessage ----
-    nowcast_entity_id = get_entity_id("nowcastmessage")
+    # nowcast_entity_id = get_entity_id("nowcastmessage")
+    nowcast_entity_id = get_entity_id("Buienalarm") 
     state_now = hass.states.get(nowcast_entity_id)
     assert state_now is not None, f"Sensor {nowcast_entity_id} ontbreekt"
     assert state_now.state == expected_data["nowcastmessage"]
 
     # ---- overige sensoren ----
     for sensor in SENSORS:
-        entity_id = get_entity_id(sensor["key"])
+        # entity_id = get_entity_id(sensor["key"])
+        entity_id = get_entity_id(sensor["name"])
         state = hass.states.get(entity_id)
 
         assert state is not None, f"Sensor {entity_id} ontbreekt"
