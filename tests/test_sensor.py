@@ -7,6 +7,17 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.buienalarm.const import DOMAIN, SENSORS
 
+def _resolve_entity_id(key: str) -> str:
+    """
+    Resolves the entity_id based on key, considering known prefixes.
+    """
+    known_prefixes = ("buienalarm_", "my_buienalarm_", "neerslag_omschrijving_", "soort_neerslag_", "duur_neerslag_", "neerslag_komend_uur_", "neerslag_verwacht_")
+    
+    if any(key.startswith(prefix) for prefix in known_prefixes):
+        return f"sensor.{key}"
+    # fallback to buienalarm prefix if no known prefix found
+    return f"sensor.buienalarm_{key}"
+
 def get_entity_id(sensor_name: str) -> str:
     """Return registry entity_id by the sensor’s true unique_id."""
     unique_id = f"{slugify(sensor_name)}_none"          # 👈 location slug is 'none'
@@ -61,7 +72,7 @@ async def test_sensor_entities_created_and_populated(
 ) -> None:
     """Ensure sensors are created and reflect mocked coordinator data."""
     for sensor in SENSORS:
-        entity_id = resolve_entity_id(sensor["key"])
+        entity_id = _resolve_entity_id(sensor["key"])
         state = hass.states.get(entity_id)
         expected = expected_sensor_values[sensor["key"]]
 
