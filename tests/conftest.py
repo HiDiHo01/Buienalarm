@@ -39,3 +39,18 @@ _FIXTURE: Final[Path] = Path(__file__).parent / "mock_data" / "api_response.json
 def nowcast_payload() -> dict:
     """Return the full Buienalarm JSON fixture as a dict."""
     return json.loads(_FIXTURE.read_text(encoding="utf-8"))
+
+@pytest.fixture(scope="session")
+def expected_sensor_values(nowcast_payload) -> dict[str, object]:
+    """Flatten the payload into a dict of key → expected state."""
+    first_point = nowcast_payload["data"][0]       # take current sample
+    return {
+        "nowcastmessage": nowcast_payload["nowcastmessage"]["nl"],
+        "mycastmessage":  nowcast_payload["nowcastmessage"]["nl"],
+        "precipitationrate_now_desc": "Geen neerslag",
+        "precipitationtype_now": first_point["precipitationtype"],
+        "precipitation_duration": 0,  # you might compute duration yourself
+        "precipitationrate_now": first_point["precipitationrate"],
+        "precipitationrate_hour": 0.0,   # if your code calculates an hour‑sum
+        "precipitationrate_total": 0.0,  # ditto
+    }
