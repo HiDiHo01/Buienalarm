@@ -55,16 +55,20 @@ def mock_aiohttp_get():
 
 
 @pytest.mark.asyncio
-async def test_sensor_entities_created_and_populated(hass: HomeAssistant) -> None:
+async def test_sensor_entities_created_and_populated(
+    hass: HomeAssistant,
+    expected_sensor_values,          # ← use the fixture
+) -> None:
     """Ensure sensors are created and reflect mocked coordinator data."""
-    expected_data = {
-        sensor["key"]: (
-            3.14
-            if sensor.get("device_class") or sensor.get("state_class")
-            else "Test message"
-        )
-        for sensor in SENSORS
-    }
+    for sensor in SENSORS:
+        entity_id = resolve_entity_id(sensor["key"])
+        state = hass.states.get(entity_id)
+        expected = expected_sensor_values[sensor["key"]]
+
+        if isinstance(expected, float):
+            assert float(state.state) == expected
+        else:
+            assert state.state == expected
 
     entry = MockConfigEntry(
         domain=DOMAIN,
