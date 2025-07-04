@@ -78,6 +78,10 @@ async def test_sensor_entities_created_and_populated(hass: HomeAssistant) -> Non
 
     entity_registry = async_get_entity_registry(hass)
 
+    print("\nRegistered entity IDs:")
+    for eid, entry in entity_registry.entities.items():
+        print(f"  {eid:<40}  unique_id={entry.unique_id}")
+    
     def get_entity_id(key: str) -> str:
         """Return entity_id via registry from unique_id."""
         entity_id = entity_registry.async_get_entity_id(
