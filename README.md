@@ -21,7 +21,9 @@ This is a custom component for Home Assistant that integrates with Buienalarm to
 3. Restart Home Assistant.
 
 ### HACS Installation
+[![Add Buienalarm to HACS](https://my.home-assistant.io/badges/hacs.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=HiDiHo01&repository=Buienalarm&category=integration)
 
+or
 1. Open HACS in your Home Assistant instance.
 2. Click on the hamburger menu (three dots)
 3. Click custom repositories (Aangepaste repositories)
