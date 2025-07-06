@@ -8,7 +8,6 @@
         "@HiDiHo01"
     ],
     "requirements": [],
-    "homeassistant": "2024.1.0",
     "after_dependencies": [],
     "config_flow": true,
     "quality_scale": "silver",
