@@ -2,63 +2,74 @@
 import asyncio
 import logging
 from datetime import timedelta
-from typing import Any, Callable
+from typing import Callable
 
-from aiohttp import ClientSession
+import aiohttp
+import requests
+from aiohttp import ClientSession, ClientTimeout
 from aiohttp.client_exceptions import ClientResponseError
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.entity import DeviceInfo
-from homeassistant.helpers.update_coordinator import (DataUpdateCoordinator,
-                                                      UpdateFailed)
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import BuienalarmApiClient
-from .const import API_ENDPOINT, API_TIMEOUT, DOMAIN
+from .const import API_ENDPOINT, API_TIMEOUT, DEFAULT_UPDATE_INTERVAL
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
-DEFAULT_UPDATE_INTERVAL = timedelta(minutes=5)
 
-_LOGGER.debug("coordinator loaded")
+_LOGGER.debug("[COORD] coordinator loaded")
+
+_API_TIMEOUT = ClientTimeout(
+    total=12,          # hard‑stop; moet < HA default (15 s) blijven
+    connect=4,
+    sock_read=8,
+)
 
 
 class BuienalarmDataUpdateCoordinator(DataUpdateCoordinator):
-    _LOGGER.debug(f"coordinator: BuienalarmDataUpdateCoordinator")
+    _LOGGER.debug("[COORD] coordinator: class BuienalarmDataUpdateCoordinator loaded")
     """Class to manage fetching data from the API."""
     options: dict = None
 
     def __init__(
         self,
         hass: HomeAssistant,
-        client: BuienalarmApiClient,
+        api: BuienalarmApiClient,
         device_info: DeviceInfo,
         config_entry: ConfigEntry,
+        update_interval: timedelta = DEFAULT_UPDATE_INTERVAL,
     ) -> None:
+        _LOGGER.debug(
+            "[COORD INIT] api=%s, entry_id=%s, update_interval=%s, device_info=%s",
+            api,
+            config_entry.entry_id,
+            update_interval,
+            device_info,
+        )
 
         # Initialize coordinator attributes
         self.hass = hass
-        #self.latitude = latitude
-        #self.longitude = longitude
-        #_LOGGER.debug("cor_latitude = %s, longitude = %s", latitude, longitude)
-        #self.url = API_ENDPOINT.format(latitude, longitude)
-        #_LOGGER.debug("url = %s", self.url)
-
-        self.api = client
-        #self.client_session = ClientSession()
-        #self.update_interval = update_interval
-        # self.data = {}
-        # self.refresh_task = None
+        self.api = api
         self.device_info = device_info
         self.config_entry = config_entry
+        self.url = API_ENDPOINT.format(api.latitude, api.longitude)
+        _LOGGER.debug("[COORD INIT] Using API URL: %s", self.url)
         self.entities = []  # Create an empty list to store associated entities
         self.last_update_success = False
 
+#        super().__init__(
+#            hass=hass, logger=_LOGGER, name=DOMAIN
+#        )
         super().__init__(
-            hass=hass, logger=_LOGGER, name=DOMAIN
+            hass=hass,
+            logger=_LOGGER,
+            name="Buienalarm Coordinator",
+            update_method=self._async_update_data,
+            update_interval=update_interval,
         )
-
-    def get_entities(self):
-        return self.entities
+        _LOGGER.debug("[COORD INIT] DataUpdateCoordinator initialized")
 
     async def async_add_listener(self, listener, update_supported=True):
         # Implement the logic to add a listener here
@@ -66,7 +77,9 @@ class BuienalarmDataUpdateCoordinator(DataUpdateCoordinator):
         pass
 
     async def fetch_data(self):
-        """Fetch data from the Buienalarm API asynchronously."""
+        """Fetch data from the Buienalarm API asynchronously.
+        Wordt nioet uitegevoerd
+        """
         _LOGGER.debug("Fetching data")
         try:
             async with self.client_session.get(self.url) as response:
@@ -78,21 +91,54 @@ class BuienalarmDataUpdateCoordinator(DataUpdateCoordinator):
             self.last_update_success = False
             raise UpdateFailed(f"Error fetching data: {error}") from error
 
-    async def _async_update_data(self) -> dict[str, Any]:
-        """Fetch data from the Buienalarm API asynchronously."""
-        _LOGGER.debug("coordinator: _async_update_data")
-        _LOGGER.debug(f"Type of client_session: {type(self.api)}")
-        #_LOGGER.debug(f"URL: {self.url}")
+    async def _async_update_data(self):
+        _LOGGER.debug("[COORD UPDATE] Starting _async_update_data for URL: %s with timeout: %s", self.url, _API_TIMEOUT)
         try:
-            _LOGGER.debug("coor Fetching data from API...")
-            data = await self.api.async_get_data()
-            # Use WeatherData to parse the data
-            # self.data = data
-            # await self.async_request_refresh()
+            return await self.api.async_get_data()
+            response = await self.hass.async_add_executor_job(
+                requests.get, self.url
+            )
+            _LOGGER.debug(
+                "[COORD] HTTP status: %s, headers: %s",
+                response.status_code,
+                response.headers,
+            )
+            response.raise_for_status()
+            data = response.json()
+            _LOGGER.debug("[COORD] JSON data: %s", data)
             return data
-        except (ClientResponseError, asyncio.TimeoutError) as error:
-            _LOGGER.error(f"Error fetching Buienalarm data: {error}")
-            raise UpdateFailed(error)
+        except (requests.RequestException, ValueError) as error:
+            _LOGGER.error("[COORD] Error updating data: %s", error)
+            raise UpdateFailed(f"Error updating data: {error}") from error
+
+    async def old_async_update_data(self) -> dict[str, object]:
+        """Query de Buienalarm‑API (1 retry)."""
+        _LOGGER.debug("[COORD UPDATE] Starting _async_update_data for URL: %s", self.url)
+        _LOGGER.debug(
+            "[COORDINATOR] Will fetch URL: %s using %s",
+            self.url,
+            self.hass.loop.is_running(),
+        )
+        _LOGGER.debug(f"Type of client_session: {type(self.api)}")
+        url = self.url
+        for attempt in (1, 2):  # max 2 pogingen
+            try:
+                _LOGGER.debug("[COORD UPDATE] Fetch try %s: %s", attempt, url)
+                return await self.api.async_get_data(timeout=_API_TIMEOUT)
+            except asyncio.TimeoutError:
+                _LOGGER.warning(
+                    "[COORD UPDATE] Timeout (%ss) bij poging %s",
+                    _API_TIMEOUT.total, attempt,
+                )
+            except (ClientResponseError, aiohttp.ClientError) as exc:
+                _LOGGER.error("[COORD UPDATE] HTTP‑fout bij poging %s: %s", attempt, exc)
+                _LOGGER.error(
+                    "[COORD UPDATE] HTTP error fetching data: status=%s, message=%s",
+                    exc.status,
+                    exc.message,
+                )
+                raise UpdateFailed(exc) from exc
+        raise UpdateFailed("Alle pogingen verlopen")
 
     async def refresh_data(self):
         """Refresh data with the specified update interval asynchronously."""
@@ -108,7 +154,8 @@ class BuienalarmDataUpdateCoordinator(DataUpdateCoordinator):
             try:
                 return convert_to(self.data.get(key, None))
             except ValueError:
-                _LOGGER.warning("Value %s with key %s can't be converted to %s", self.data.get(key, None), key, convert_to)
+                _LOGGER.warning("Value %s with key %s can't be converted to %s",
+                                self.data.get(key, None), key, convert_to)
                 return None
         _LOGGER.warning("Value %s is missing in API response", key)
         return None
@@ -145,14 +192,11 @@ class BuienalarmDataUpdateCoordinator(DataUpdateCoordinator):
 
 
 async def create_buienalarm_coordinator(hass, config_entry, api, latitude, longitude, update_interval=DEFAULT_UPDATE_INTERVAL):
-    # timeout = ClientTimeout(total=10)
-    # client_session = ClientSession(timeout=timeout)
-    # coordinator = BuienalarmCoordinator(hass, latitude, longitude, client_session, update_interval)
     client_session = ClientSession(timeout=API_TIMEOUT)
-    coordinator = BuienalarmDataUpdateCoordinator(hass, config_entry, api, latitude, longitude, client_session, update_interval)
+    coordinator = BuienalarmDataUpdateCoordinator(
+        hass, config_entry, api, latitude, longitude, client_session, update_interval)
 
     await coordinator.start()
-    # await coordinator.async_refresh()
     return coordinator
 
 
@@ -164,7 +208,7 @@ async def old_create_buienalarm_coordinator(
     device_info: DeviceInfo,
 ) -> DataUpdateCoordinator:
     """Create and configure the Buienalarm coordinator."""
-    _LOGGER.debug("Received latitude and longitude data")
+    _LOGGER.debug("Received latitude: %s, longitude: %s", latitude, longitude)
     # Define the update interval (e.g., 15 minutes)
     update_interval = timedelta(minutes=5)
 

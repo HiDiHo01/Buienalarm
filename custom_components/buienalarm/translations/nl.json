@@ -1,4 +1,5 @@
 {
+    "title": "Buienalarm",
     "config": {
         "step": {
             "user": {
@@ -68,54 +69,5 @@
                 }
             }
         }
-    },
-    "entity_component": {
-        "binary_sensor.knmi_zon": {
-            "name": "Zon",
-            "state": {
-                "True": "Boven de horizon",
-                "False": "Onder de horizon",
-                "on": "Boven de horizon",
-                "off": "Onder de horizon",
-                "above_horizon": "Boven de horizon",
-                "below_horizon": "Onder de horizon"
-            }
-        },
-        "knmi_zon": {
-            "name": "Zon",
-            "state": {
-                "on": "Boven de horizon",
-                "off": "Onder de horizon",
-                "above_horizon": "Boven de horizon",
-                "below_horizon": "Onder de horizon"
-            }
-        },
-        "_": {
-            "state": {
-                "on": "Boven de horizon",
-                "off": "Onder de horizon",
-                "above_horizon": "Boven de horizon",
-                "below_horizon": "Onder de horizon"
-            }
-        },
-        "sun": {
-            "name": "Zon",
-            "state": {
-                "on": "Boven de horizon",
-                "off": "Onder de horizon",
-                "above_horizon": "Boven de horizon",
-                "below_horizon": "Onder de horizon"
-            }
-        },
-        "Zon": {
-            "name": "Zon",
-            "state": {
-                "on": "Boven de horizon",
-                "off": "Onder de horizon",
-                "above_horizon": "Boven de horizon",
-                "below_horizon": "Onder de horizon"
-            }
-        }
-    },
-    "title": "Buienalarm Nederland"
+    }
 }

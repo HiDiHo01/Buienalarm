@@ -1,37 +1,35 @@
-"""Constants for Buienalarm."""
 # const.py
+"""Constants for Buienalarm."""
+
 
 from datetime import timedelta
-from typing import Any, Final
+from typing import Final
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
 from homeassistant.const import UnitOfTime, UnitOfVolumetricFlux
 
-# API
+# API Configuration
 API_ENDPOINT: Final[str] = "https://cdn.buienalarm.nl/api/4.0/nowcast/timeseries/{}/{}"
-API_TIMEOUT: Final[int] = 15
+API_TIMEOUT: Final[int] = 30
 API_TIMEZONE: Final[str] = "Europe/Amsterdam"
 API_CONF_URL: Final[str] = "https://buienalarm.nl"
 DATA_KEY: Final[str] = "data"
 
-# Base component constants.
+# Integration metadata
 NAME: Final[str] = "Buienalarm"
 DOMAIN: Final[str] = "buienalarm"
-VERSION: Final[str] = "2025.6.17"
-ATTRIBUTION: Final[str] = "Data provided by Buienalarm"
+VERSION: Final[str] = "2025.7.7"
 ATTR_ATTRIBUTION: Final[str] = "Data provided by Buienalarm"
-CONF_ATTRIBUTION: Final[str] = "Data provided by Buienalarm"
-CONF_LATITUDE = "latitude"
-CONF_LONGITUDE = "longitude"
 
-# Defaults
+# Default configuration
 DEFAULT_NAME: Final[str] = NAME
 
-# API and Data Refresh
+# API and Data Update intervals
 SCAN_INTERVAL: Final[timedelta] = timedelta(minutes=5)
 DATA_REFRESH_INTERVAL: Final[int] = 300
+DEFAULT_UPDATE_INTERVAL: Final[timedelta] = timedelta(minutes=5)
 
-# Platforms.
+# Supported platforms
 # BINARY_SENSOR: Final[str] = "binary_sensor"
 SENSOR: Final[str] = "sensor"
 # PLATFORMS: Final[list[str]] = [BINARY_SENSOR, SENSOR]
@@ -40,8 +38,8 @@ PLATFORMS: Final[list[str]] = [SENSOR]
 # Icon templates (not in use)
 ICON_TEMPLATE: Final[str] = "mdi:weather-{}"
 
-# Sensors
-SENSORS: Final[list[dict[str, Any]]] = [
+# Sensor definitions
+SENSORS: Final[list[dict[str, object]]] = [
     {
         "name": "Buienalarm",
         "icon": "mdi:weather-pouring",

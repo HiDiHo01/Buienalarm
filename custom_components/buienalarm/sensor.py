@@ -1,83 +1,153 @@
 # sensor.py
 import logging
 from datetime import timedelta
-from typing import Any, Optional
 
 import requests
 from homeassistant.components.sensor import SensorEntity
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_NAME
-from homeassistant.helpers.update_coordinator import (DataUpdateCoordinator,
-                                                      UpdateFailed)
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.typing import StateType
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import API_ENDPOINT, DOMAIN, SENSORS
+from .const import API_ENDPOINT, ATTR_ATTRIBUTION, DOMAIN, SENSORS
+from .coordinator import BuienalarmDataUpdateCoordinator
 from .entity import BuienalarmEntity
 
-# from .coordinator import BuienalarmDataUpdateCoordinator
+_LOGGER = logging.getLogger(__name__)
 
-_LOGGER: logging.Logger = logging.getLogger(__name__)
+# Sensor data update coordinator for Buienalarm
+# This coordinator fetches data from the Buienalarm API and provides it to sensor entities.
 
 
-class BuienalarmDataUpdateCoordinator(DataUpdateCoordinator):
-    _LOGGER.debug("BuienalarmDataUpdateCoordinator sensor.py")
+class BuienalarmDataUpdateCoordinator(DataUpdateCoordinator[dict[str, object]]):
+    _LOGGER.debug("[SENSOR COORD] Initializing sync coordinator in sensor.py")
 
-    def __init__(self, hass, latitude, longitude):
+    def __init__(self,
+                 hass: HomeAssistant,
+                 latitude: float,
+                 longitude: float
+                 ) -> None:
         self.latitude = latitude
         self.longitude = longitude
         self.url = API_ENDPOINT.format(latitude, longitude)
+        _LOGGER.debug("[SENSOR COORD] URL set to %s", self.url)
         super().__init__(
             hass,
             _LOGGER,
             name=DOMAIN,
             update_interval=timedelta(minutes=5)  # set update interval
-            )
+        )
+        _LOGGER.debug("[SENSOR COORD] Initialized with URL: %s", self.url)
 
-    async def _async_update_data(self):
+    async def _async_update_data(self) -> dict[str, object]:
+        """Fetch the latest data from Buienalarm."""
+        _LOGGER.debug("[SENSOR COORD] _async_update_data called")
         try:
             response = await self.hass.async_add_executor_job(
                 requests.get, self.url
-                )
+            )
+            _LOGGER.debug(
+                "[SENSOR COORD] HTTP status: %s, headers: %s",
+                response.status_code,
+                response.headers,
+            )
             response.raise_for_status()
             data = response.json()
+            _LOGGER.debug("[SENSOR COORD] JSON data: %s", data)
             return data
         except (requests.RequestException, ValueError) as error:
-            raise UpdateFailed(f"Error updating data: {error}") from error
+            _LOGGER.error("[SENSOR COORD] Error updating data: %s", error)
+            raise UpdateFailed(f"Error updating Buienalarm data: {error}") from error
 
 
-async def async_setup_entry(hass, entry, async_add_devices):
-    _LOGGER.debug("async_setup_entry sensor.py")
-    coordinator = BuienalarmDataUpdateCoordinator(
-        hass,
-        entry.data["latitude"],
-        entry.data["longitude"]
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """
+    Set up Buienalarm sensors from config entry.
+
+    This function creates a coordinator, fetches initial data,
+    and adds sensor entities.
+    """
+    _LOGGER.debug("[SENSOR SETUP] Setting up Buienalarm sensors for %s", entry.unique_id)
+    _LOGGER.debug("[SENSOR SETUP] async_setup_entry called for %s", entry.entry_id)
+
+    latitude = entry.data.get("latitude")
+    longitude = entry.data.get("longitude")
+
+    _LOGGER.debug(
+        "[SENSOR SETUP] Coordinates from entry: lat=%s, lon=%s", latitude, longitude
     )
-    # Coordinator starts its data refresh
-    await coordinator.async_config_entry_first_refresh()
+    coordinator = BuienalarmDataUpdateCoordinator(hass, latitude, longitude)
+    _LOGGER.debug("[SENSOR SETUP] Coordinator created: %s", coordinator)
 
-    sensors = []
+    # Perform initial refresh to warm up data
+    try:
+        # Prefer waiting – the tests and most users expect initial data
+        # await coordinator.async_config_entry_first_refresh()
 
-    for sensor_data in SENSORS:
-        sensor = BuienalarmSensor(coordinator, entry, **sensor_data)
-        sensors.append(sensor)
+        # Start refresh as background task (niet awaiten!)
+        task = hass.async_create_task(coordinator.async_config_entry_first_refresh())
+        entry.async_on_unload(task.cancel)
+        _LOGGER.debug(
+            "[SENSOR SETUP] Initial refresh completed: success=%s",
+            coordinator.last_update_success,
+        )
+    except UpdateFailed as err:
+        _LOGGER.error("[SENSOR SETUP] Initial data fetch failed: %s", err)
+        return False
 
-    async_add_devices(sensors)
+    """Store the coordinator in hass.data for later access."""
+    _LOGGER.debug("[SENSOR SETUP] Storing coordinator in hass.data for entry %s", entry.entry_id)
+    if DOMAIN not in hass.data:
+        _LOGGER.debug("[SENSOR SETUP] Initializing hass.data[%s]", DOMAIN)
+        # Persist the coordinator in hass.data
+        hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
+
+    sensors: list[SensorEntity] = [
+        BuienalarmSensor(coordinator, entry, **sensor_data)
+        for sensor_data in SENSORS
+    ]
+
+    _LOGGER.debug("[SENSOR SETUP] Adding %d sensors", len(sensors))
+    async_add_entities(sensors, update_before_add=False)
+    _LOGGER.debug("[SENSOR SETUP] %d sensors added", len(sensors))
+
+    # await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    # ValueError: Config entry Schagen (1ba2a3d11e3e38b8e768ad5ceb4df8bf) for buienalarm.sensor has already been setup!
+    entry.async_on_unload(entry.add_update_listener(async_reload_entry))
+
     return True
 
 
+async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Reload config entry when options are changed."""
+    await hass.config_entries.async_reload(entry.entry_id)
+
+
 class BuienalarmSensor(BuienalarmEntity, SensorEntity):
-    _LOGGER.debug("BuienalarmSensor sensor.py")
+    _LOGGER.debug("[SENSOR SETUP] BuienalarmSensor created")
+
+    _attr_has_entity_name = True
+    _attr_should_poll = False
 
     def __init__(
         self,
-        coordinator,
-        config_entry,
+        coordinator: BuienalarmDataUpdateCoordinator,
+        config_entry: ConfigEntry,
         name: str,
         unit_of_measurement: str,
         icon: str,
         device_class: str,
         state_class: str,
-        attributes: list[dict[str, Any]],
+        attributes: list[dict[str, object]],
         key: str,
     ) -> None:
+        _LOGGER.debug("[SENSOR ENTITY] __init__ for %s", name)
         super().__init__(coordinator, config_entry, key)
         self.entry_name = config_entry.data.get(CONF_NAME, "no_name")
         self.entry_place = config_entry.data.get("place", None)
@@ -88,6 +158,12 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
         self._state_class = state_class
         self._attributes = attributes
         self._key = key
+        _LOGGER.debug("[SENSOR ENTITY] Initialized sensor: %s", self.name)
+
+    @property
+    def available(self) -> bool:
+        """Geeft aan of de sensor data heeft opgehaald."""
+        return self.coordinator.last_update_success
 
     @property
     def unique_id(self) -> str:
@@ -96,38 +172,56 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
 
     @property
     def name(self) -> str:
-        # return self._name
+        """Return the sensor name."""
         return f"{self._name} {self.entry_place}"
 
+    # StateType = str | int | float | None
     @property
-    def native_value(self) -> Any:
-        """Return the native_value of the sensor."""
-        return self.get_data(self._key)
+    def native_value(self) -> StateType:
+        """Return the current value of the sensor."""
+        # extra check to ensure data is available
+        if not self.coordinator.last_update_success or self.coordinator.data is None:
+            _LOGGER.debug("[SENSOR ENTITY] No data available for key: %s", self._key)
+            return None  # STATE_UNAVAILABLE  # STATE_UNKNOWN  # of None
+        value = self.get_data(self._key)
+        _LOGGER.debug("[SENSOR ENTITY] native_value for %s: %s", self._key, value)
+
+        # Validate the value to match allowed StateType
+        if isinstance(value, (str, int, float)) or value is None:
+            return value
+
+        _LOGGER.warning(
+            "[SENSOR ENTITY] Unexpected value type for key '%s': %s (%s)",
+            self._key,
+            value,
+            type(value).__name__,
+        )
+        return None
 
     @property
-    def native_unit_of_measurement(self) -> Optional[str]:
-        """Return the unit of measurement of this entity, if any."""
+    def native_unit_of_measurement(self) -> str | None:
+        """Return the unit of measurement."""
         return self._unit_of_measurement
 
     @property
-    def icon(self):
+    def state_class(self) -> str | None:
+        """Return the state class of this entity, if any."""
+        return self._state_class
+
+    @property
+    def device_class(self) -> str | None:
+        """Return the device class of this entity, if any."""
+        return self._device_class
+
+    @property
+    def icon(self) -> str | None:
+        """Return the icon to use in the frontend, if any."""
         return self._icon
 
-#    @property
-#    def device_state_attributes(self):
-#        """Return additional attributes for the sensor."""
-#        return {
-#            "precipitation_data": self._coordinator.data.get("data", []),
-#            ATTR_ATTRIBUTION: "Data provided by buienalarm.nl",
-#        }
-
-#    async def async_update(self):
-#        _LOGGER.debug("async_update sensor.py")
-#        """Update the sensor state by fetching the latest weather data."""
-#        try:
-#            await self.coordinator.async_request_refresh()
-#            # Wait for the coordinator to fetch and update the data
-#            await self.coordinator.async_wait_update()
-#        except UpdateFailed as error:
-#            _LOGGER.error(f"Error updating sensor data: {error}")
-            # You can handle the error, such as setting the state to "Unavailable" or leaving it as is
+    @property
+    def extra_state_attributes(self) -> dict[str, object] | None:
+        """Return the state attributes."""
+        return {
+            "precipitation_data": self.data_points_as_list,
+            "attribution": ATTR_ATTRIBUTION,
+        }

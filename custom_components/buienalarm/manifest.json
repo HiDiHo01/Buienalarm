@@ -1,14 +1,17 @@
 {
     "domain": "buienalarm",
     "name": "Buienalarm",
-    "after_dependencies": [],
-    "codeowners": ["@HiDiHo01"],
-    "config_flow": true,
-    "dependencies": [],
-    "documentation": "https://github.com/HiDiHo01/buienalarm",
+    "documentation": "https://github.com/HiDiHo01/Buienalarm",
     "iot_class": "cloud_polling",
-    "issue_tracker": "https://github.com/HiDiHo01/buienalarm/issues",
-    "quality_scale": "silver",
+    "dependencies": [],
+    "codeowners": [
+        "@HiDiHo01"
+    ],
     "requirements": [],
-    "version": "2025.6.17"
+    "homeassistant": "2024.1.0",
+    "after_dependencies": [],
+    "config_flow": true,
+    "quality_scale": "silver",
+    "version": "2025.7.7",
+    "issue_tracker": "https://github.com/HiDiHo01/Buienalarm/issues"
 }

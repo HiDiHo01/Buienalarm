@@ -36,6 +36,14 @@ class BuienalarmEntity(CoordinatorEntity):
         self.config_entry: ConfigEntry = config_entry
         self.sensor_key: str = sensor_key
 
+        # ========== Entity & unique‑id ==========
+        # -> sensor.<prefix>_<key>
+        self._attr_name = f"{NAME} {sensor_key}"
+        # -> <config_entry.unique_id>_<key>   (falls back to entry‑id)
+        base = config_entry.unique_id or config_entry.entry_id
+        self._attr_unique_id = f"{base}_{sensor_key}"
+        # =======================================
+
     @property
     def data(self) -> dict[str, object]:
         """Convenience property to access coordinator data."""
@@ -115,18 +123,32 @@ class BuienalarmEntity(CoordinatorEntity):
         return attributes
 
     @property
+    def old_data_points_as_list(self) -> list[dict[str, str | int | float | None]]:
+        """Return the precipitation data as a list of dictionaries."""
+        data = self.coordinator.data.get("data") or []
+        return [
+            {
+                "precipitationrate": data_point.get('precipitationrate'),
+                "precipitationtype": data_point.get('precipitationtype'),
+                "timestamp": data_point.get('timestamp'),
+                "time": dt.as_local(datetime.fromisoformat(data_point.get('time', '1970-01-01T00:00:00'))),
+            }
+            for data_point in data
+        ]
+
+    @property
     def data_points_as_list(self) -> list[dict[str, str | int | float | None]]:
         """Return precipitation data points as a list of dictionaries.
-    
+
         Each dict contains:
-    
+
         * ``precipitationrate`` – mm/h (float | int | None)
         * ``precipitationtype`` – type code (str | None)
         * ``timestamp`` – UNIX seconds since epoch (int | float | None)
         * ``time`` – *local* `datetime`
         """
         raw_data: list[object] = []
-    
+
         if isinstance(self.coordinator.data, Mapping):
             raw_data = self.coordinator.data.get("data") or []
         else:
@@ -135,9 +157,9 @@ class BuienalarmEntity(CoordinatorEntity):
                 type(self.coordinator.data),
                 self.coordinator.data,
             )
-    
+
         results: list[dict[str, str | int | float | None]] = []
-    
+
         for data_point in raw_data:
             # ── verify we can safely call .get() ────────────────────────────────
             if not isinstance(data_point, Mapping) and not hasattr(data_point, "get"):
@@ -147,12 +169,12 @@ class BuienalarmEntity(CoordinatorEntity):
                 )
                 continue
             # -------------------------------------------------------------------
-    
+
             rate = data_point.get("precipitationrate")
             ptype = data_point.get("precipitationtype")
             ts = data_point.get("timestamp")
             iso_time: str | None = data_point.get("time")
-    
+
             # Parse ISO time string defensively
             parsed_time: datetime
             if isinstance(iso_time, str):
@@ -165,7 +187,7 @@ class BuienalarmEntity(CoordinatorEntity):
                     parsed_time = datetime(1970, 1, 1, tzinfo=timezone.utc)
             else:
                 parsed_time = datetime(1970, 1, 1, tzinfo=timezone.utc)
-    
+
             results.append(
                 {
                     "precipitationrate": rate,
@@ -174,7 +196,7 @@ class BuienalarmEntity(CoordinatorEntity):
                     "time": dt.as_local(parsed_time),
                 }
             )
-    
+
         return results
 
     def get_nowcastmessage(self) -> str | None:
@@ -211,7 +233,7 @@ class BuienalarmEntity(CoordinatorEntity):
 
                 # Replace the timestamp placeholders with formatted datetime strings
                 for timestamp, local_dt in zip(matches, datetimes_local):
-                    formatted_time = local_dt.strftime("%H:%M").lstrip("0")  # Remove leading zero
+                    formatted_time = f"{local_dt.hour}:{local_dt.minute:02d}"  # Remove leading zero
                     nowcastmessage_data = nowcastmessage_data.replace(f"{{{timestamp}}}", formatted_time)
 
                 return nowcastmessage_data
@@ -230,7 +252,7 @@ class BuienalarmEntity(CoordinatorEntity):
         local = dt.as_local(timestamp)
 
         # Standaard '%H:%M' en dan voorloop-nullen wegstrippen
-        return local.strftime("%H:%M").lstrip("0")
+        return f"{local.hour}:{local.minute:02d}"
 
     def get_mycastmessage(self) -> str | None:
         """Generate a user-friendly message for the precipitation forecast."""

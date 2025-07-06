@@ -1,199 +1,211 @@
-# config_flow.py
+"""Config flow for the Buienalarm integration.
+
+This module implements the user‑facing configuration flow and the accompanying
+options flow.  It validates latitude/longitude coordinates, ensures each
+configuration entry has a stable ``unique_id`` (lat_lon combo), and exposes
+user‑editable options such as *refresh_interval* and *notification_limit*.
+
+The flow follows Home Assistant best‑practices:
+    • Uses VERSION tracking for forward migrations.
+    • Aborts if an identical ``unique_id`` is already configured.
+    • Adds exhaustive type‑hints and detailed docstrings.
+    • Employs lazy ``%`` interpolation for all logging calls
+      (pylint‑warning W1203).
+"""
+from __future__ import annotations
 
 import logging
+from typing import Any, Final
 
 import voluptuous as vol
 from homeassistant import config_entries, exceptions
-from homeassistant.const import CONF_LATITUDE, CONF_LONGITUDE, CONF_NAME
+from homeassistant.const import (
+    CONF_LATITUDE,
+    CONF_LONGITUDE,
+    CONF_NAME,
+)
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 
-from .const import DOMAIN
+from .const import DOMAIN, NAME
 
-_LOGGER: logging.Logger = logging.getLogger(__name__)
+_LOGGER: Final[logging.Logger] = logging.getLogger(__name__)
 
-CONF_PLACE = "place"
-DEFAULT_LATITUDE: float = "52.7875"
-DEFAULT_LONGITUDE: float = "4.79861"
-DEFAULT_DATA_REFRESH_INTERVAL: int = 300
-DEFAULT_NOTIFICATION_LIMIT: int = 0  # show notification on all values
-HINT = "https://www.coordinatenbepalen.nl"
+# -----------------------------------------------------------------------------
+# Defaults & helpers
+# -----------------------------------------------------------------------------
+DEFAULT_LATITUDE: Final[float] = 52.7875
+DEFAULT_LONGITUDE: Final[float] = 4.79861
+DEFAULT_REFRESH_INTERVAL: Final[int] = 300  # seconds (5 min)
+DEFAULT_NOTIFICATION_LIMIT: Final[int] = 0   # mm/h – notify on any value
 
 
-@config_entries.HANDLERS.register(DOMAIN)
-class ConfigFlow(config_entries.ConfigFlow):
-    """Config flow for Buienalarm."""
-    VERSION = 1
-    CONNECTION_CLASS = config_entries.CONN_CLASS_CLOUD_POLL
+def _is_valid_coordinates(latitude: float | str, longitude: float | str) -> bool:
+    """Return *True* if *latitude* and *longitude* are within valid ranges."""
+    try:
+        lat: float = float(str(latitude).replace(",", "."))
+        lon: float = float(str(longitude).replace(",", "."))
+    except (TypeError, ValueError):
+        return False
 
+    return -90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0
+
+
+# -----------------------------------------------------------------------------
+# Config Flow
+# -----------------------------------------------------------------------------
+
+
+class BuienalarmConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+    """Handle the Buienalarm config flow."""
+
+    VERSION: Final[int] = 2
+    CONNECTION_CLASS: Final[str] = config_entries.CONN_CLASS_CLOUD_POLL
+
+    # ---------------------------------------------------------------------
+    # Initial step
+    # ---------------------------------------------------------------------
     async def async_step_user(
         self,
-        user_input: dict[str, any] | None = None
-    ) -> config_entries.FlowResult:
-        """Handle the initial step when the user initiates a config flow."""
+        user_input: dict[str, Any] | None = None,
+    ) -> FlowResult:
+        """Handle the first step when the user starts the flow."""
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            # place = user_input[CONF_PLACE]
-            latitude = str(user_input[CONF_LATITUDE]).replace(",", ".")
-            longitude = str(user_input[CONF_LONGITUDE]).replace(",", ".")
-            # notification_limit = user_input["notification_limit"]
-            # refresh_interval = user_input["refresh_interval"]
-            # Validate user input (e.g., check if latitude and longitude are valid)
-            try:
-                # Validate coordinates
-                if not is_valid_coordinates(latitude, longitude):
-                    raise InvalidCoordinatesError
-                await validate_coordinates(latitude, longitude)
-            except InvalidCoordinatesError:
+            latitude_raw: str = str(user_input[CONF_LATITUDE]).replace(",", ".")
+            longitude_raw: str = str(user_input[CONF_LONGITUDE]).replace(",", ".")
+
+            if not _is_valid_coordinates(latitude_raw, longitude_raw):
                 errors["base"] = "invalid_coordinates"
             else:
-                # Store the configuration data in the entry
+                unique_id: str = f"{latitude_raw}_{longitude_raw}"
+
+                # Register unique_id with HA and abort if it already exists.
+                await self.async_set_unique_id(unique_id)
+                self._abort_if_unique_id_configured()
+
+                _LOGGER.debug("Creating new config entry: %s", unique_id)
+
                 return self.async_create_entry(
-                    title="Buienalarm",
-                    data=user_input,
-                    # data={
-                    #    CONF_PLACE: place,
-                    #    CONF_LATITUDE: latitude,
-                    #    CONF_LONGITUDE: longitude,
-                    #    "notification_limit": notification_limit,
-                    #    "refresh_interval": refresh_interval,
-                    # },
+                    title=f"{NAME} ({latitude_raw}, {longitude_raw})",
+                    data={
+                        CONF_LATITUDE: float(latitude_raw),
+                        CONF_LONGITUDE: float(longitude_raw),
+                        "notification_limit": user_input.get(
+                            "notification_limit", DEFAULT_NOTIFICATION_LIMIT
+                        ),
+                        "refresh_interval": user_input.get(
+                            "refresh_interval", DEFAULT_REFRESH_INTERVAL
+                        ),
+                    },
                 )
 
-        # Create a description for the refresh_interval field
-        help_text = (
-            "The refresh interval in seconds determines how often the data is "
-            "retrieved from the Buienalarm API. A lower value will result in more frequent "
-            "updates but may consume more resources. The default value is 300 seconds "
-            "(5 minutes)."
-        )
+        return self._show_form(errors)
 
-        # Define the schema for the configuration options
-        data_schema = vol.Schema(
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+    def _show_form(self, errors: dict[str, str] | None = None) -> FlowResult:
+        """Return the form definition for the *user* step."""
+        data_schema: vol.Schema = vol.Schema(
             {
-                vol.Required(CONF_PLACE): str,
-                vol.Required(CONF_LATITUDE, default=float(DEFAULT_LATITUDE)): float,
-                vol.Required(CONF_LONGITUDE, default=float(DEFAULT_LONGITUDE)): float,
+                vol.Required(CONF_LATITUDE, default=DEFAULT_LATITUDE): float,
+                vol.Required(CONF_LONGITUDE, default=DEFAULT_LONGITUDE): float,
                 vol.Optional(
-                    "notification_limit",
-                    default=DEFAULT_NOTIFICATION_LIMIT,  # Default to 0 mm/h (notify on every value))
-                    description="Enter the notification limit in mm/h",
+                    "notification_limit", default=DEFAULT_NOTIFICATION_LIMIT
                 ): int,
                 vol.Optional(
+                    "refresh_interval", default=DEFAULT_REFRESH_INTERVAL
+                ): int,
+            }
+        )
+        return self.async_show_form(
+            step_id="user",
+            data_schema=data_schema,
+            errors=errors or {},
+        )
+
+    # ------------------------------------------------------------------
+    # Options flow
+    # ------------------------------------------------------------------
+    @staticmethod
+    @callback  # noqa: D401 – Home Assistant pattern
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> "BuienalarmOptionsFlow":
+        """Return the options flow handler."""
+        return BuienalarmOptionsFlow(config_entry)
+
+
+# -----------------------------------------------------------------------------
+# Options Flow
+# -----------------------------------------------------------------------------
+
+
+class BuienalarmOptionsFlow(config_entries.OptionsFlow):
+    """Handle the Buienalarm options flow."""
+
+    def __init__(self, entry: config_entries.ConfigEntry) -> None:  # noqa: D401
+        self._entry: Final[config_entries.ConfigEntry] = entry
+
+    # --------------------------------------------------------------
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Manage the Buienalarm options."""
+        if user_input is not None:
+            _LOGGER.debug(
+                "Updating options for entry %s: %s", self._entry.entry_id, user_input
+            )
+            return self.async_create_entry(title="", data=user_input)
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=self._options_schema(),
+        )
+
+    # --------------------------------------------------------------
+    def _options_schema(self) -> vol.Schema:  # noqa: D401
+        """Return schema for the options form."""
+        existing = self._entry.options
+        return vol.Schema(
+            {
+                vol.Required(
+                    CONF_NAME,
+                    default=existing.get(CONF_NAME, NAME),
+                ): str,
+                vol.Required(
+                    CONF_LATITUDE,
+                    default=existing.get(CONF_LATITUDE, DEFAULT_LATITUDE),
+                ): float,
+                vol.Required(
+                    CONF_LONGITUDE,
+                    default=existing.get(CONF_LONGITUDE, DEFAULT_LONGITUDE),
+                ): float,
+                vol.Required(
+                    "notification_limit",
+                    default=existing.get(
+                        "notification_limit", DEFAULT_NOTIFICATION_LIMIT
+                    ),
+                ): int,
+                vol.Required(
                     "refresh_interval",
-                    default=DEFAULT_DATA_REFRESH_INTERVAL,  # Default to 300 seconds (5 minutes)
-                    description="Enter the refresh interval in seconds",
+                    default=existing.get("refresh_interval", DEFAULT_REFRESH_INTERVAL),
                 ): int,
             }
         )
 
-        return self.async_show_form(
-            step_id="user",
-            data_schema=data_schema,
-            errors=errors,
-        )
 
-    @staticmethod
-    @callback
-    def async_get_options_flow(config_entry) -> "BuienalarmOptionsFlowHandler":
-        return BuienalarmOptionsFlowHandler(config_entry)
-
-
-async def validate_coordinates(latitude, longitude):
-    # Implement your validation logic for latitude and longitude here
-    errors = {}
-    if not is_valid_latitude(latitude) or not is_valid_longitude(longitude):
-        errors["base"] = "invalid_coordinates"
-        raise InvalidCoordinatesError("Invalid coordinates")
-
-
-def is_valid_latitude(latitude):
-    # Implement validation logic for latitude
-    try:
-        # Convert the latitude to a float
-        # latitude_float = float(latitude)
-        latitude_float = float(str(latitude).replace(",", "."))
-
-        # Check if the latitude is within the valid range (-90 to 90 degrees)
-        if -90.0 <= latitude_float <= 90.0:
-            return True
-        else:
-            return False
-    except ValueError:
-        # If the conversion to float fails, it's not a valid latitude
-        return False
-
-
-def is_valid_longitude(longitude):
-    # Implement validation logic for longitude
-    try:
-        # Convert the longitude to a float
-        # longitude_float = float(longitude)
-        longitude_float = float(str(longitude).replace(",", "."))
-
-        # Check if the longitude is within the valid range (-180 to 180 degrees)
-        if -180.0 <= longitude_float <= 180.0:
-            return True
-        else:
-            return False
-    except ValueError:
-        # If the conversion to float fails, it's not a valid longitude
-        return False
-
-
-class BuienalarmOptionsFlowHandler(config_entries.OptionsFlow):
-    """Handle a Buienalarm options flow."""
-
-    def __init__(self, entry: config_entries.ConfigEntry) -> None:
-        super().__init__()
-        self._entry_id = entry.entry_id
-        self._entry = entry
-
-    async def async_step_init(self, user_input: dict | None = None) -> FlowResult:
-        """Initialize the options flow."""
-        if user_input is not None:
-            # Handle user input and update options here
-            # For example, you can update options like this:
-            # self.config_entry.options[CONF_NAME] = user_input[CONF_NAME]
-            # return self.async_create_entry(title="", data={})
-            return self.async_create_entry(title="", data=user_input)
-
-        # Present options to the user
-        return self.async_show_form(
-            step_id="init",
-            data_schema=self._get_options_schema(),
-        )
-
-    def _get_options_schema(self):
-        """Return the schema for the options form."""
-        return vol.Schema({
-            vol.Required(CONF_NAME, default="Buienalarm", description="Configuration name"): str,
-            vol.Required(CONF_PLACE, default=self.hass.config.location_name, description="Configuration place"): str,
-            vol.Required(CONF_LATITUDE, default=DEFAULT_LATITUDE): float,
-            vol.Required(CONF_LONGITUDE, default=DEFAULT_LONGITUDE): float,
-            vol.Optional(
-                "notification_limit",
-                default=DEFAULT_NOTIFICATION_LIMIT,  # Default to 0 mm/h (notify on every value))
-                description="Enter the notification limit in mm/h",
-            ): int,
-            vol.Optional(
-                "refresh_interval",
-                default=DEFAULT_DATA_REFRESH_INTERVAL,  # Default to 300 seconds (5 minutes)
-                description="Enter the refresh interval in seconds",
-            ): int,
-        })
-
-
-def is_valid_coordinates(latitude, longitude):
-    try:
-        latitude = float(latitude)
-        longitude = float(longitude)
-        return -90.0 <= latitude <= 90.0 and -180.0 <= longitude <= 180.0
-    except (ValueError, TypeError):
-        return False
+# -----------------------------------------------------------------------------
+# Custom Exceptions
+# -----------------------------------------------------------------------------
 
 
 class InvalidCoordinatesError(exceptions.HomeAssistantError):
-    """Exception to indicate invalid coordinates."""
-    pass
+    """Raised when the supplied coordinates are outside valid ranges."""
+
+    def __init__(self, latitude: Any, longitude: Any) -> None:  # noqa: D401
+        super().__init__(
+            f"Invalid coordinates provided: lat={latitude!r}, lon={longitude!r}"
+        )

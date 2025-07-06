@@ -1,170 +1,243 @@
-# api.py
+# api.py – Buienalarm API client with ultra‑verbose debug logging
+"""Async API client used by the Buienalarm Home‑Assistant integration.
+
+Every network hop, JSON parse and exceptional path is traced with
+`_LOGGER.debug()` or `_LOGGER.error()`.  The log messages are designed so
+that you can reconstruct an entire request/response life‑cycle by simply
+filtering on the `[API]` tag.
+"""
+
 import asyncio
 import json
 import logging
 import socket
-import uuid
+from datetime import datetime, timezone
+from typing import Any, Final, cast
 
 import aiohttp
 import async_timeout
-from aiohttp import ClientSession
-from homeassistant.components.persistent_notification import \
-    async_create as async_create_notification
-from homeassistant.components.persistent_notification import \
-    async_dismiss as async_dismiss_notification
+from aiohttp import ClientResponse, ClientSession, ClientTimeout
+from homeassistant.components.persistent_notification import (
+    async_dismiss as hass_async_dismiss_notification,
+)
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .const import API_ENDPOINT, API_TIMEOUT
-from .exceptions import ApiError, BuienalarmApiException
+from .const import API_ENDPOINT, API_TIMEOUT, DOMAIN, VERSION
+from .exceptions import ApiError
 
-_LOGGER: logging.Logger = logging.getLogger(__name__)
+# -----------------------------------------------------------------------------
+#  Logger setup
+# -----------------------------------------------------------------------------
+_LOGGER = logging.getLogger(__name__)
+
+# -----------------------------------------------------------------------------
+#  JSON pretty print helper
+# -----------------------------------------------------------------------------
+_DEF_DUMP_OPTS: dict[str, object] = {
+    "ensure_ascii": False,
+    "allow_nan": False,
+    "indent": 2,
+    "sort_keys": True,
+}
+
+
+def _dump_json(data: object) -> str:
+    """Safely serialize data to a JSON-formatted string.
+
+    Falls back to `repr(data)` if serialization fails.
+    """
+    try:
+        return json.dumps(data, **_DEF_DUMP_OPTS)
+    except (TypeError, ValueError) as err:
+        _LOGGER.debug("Failed to serialize JSON: %s", err)
+        return repr(data)
+
+# -----------------------------------------------------------------------------
+#  API Client
+# -----------------------------------------------------------------------------
 
 
 class BuienalarmApiClient:
+    """Async wrapper around Buienalarm's JSON timeseries endpoint."""
+
     def __init__(
         self,
         latitude: float,
         longitude: float,
-        session: ClientSession,
+        session: ClientSession | None,
         hass: HomeAssistant,
+        entry_id: str | None = None,
+        *,
+        timeout: int = API_TIMEOUT,
     ) -> None:
-        self.latitude = latitude
-        self.longitude = longitude
-        self.session = session
-        self.hass = hass
-        self.notification_id = None
-        _LOGGER.debug("BuienalarmApiClient initialized with provided coordinates.")
+        # Use consistent attribute names
+        # self.latitude = float(latitude)
+        # self.longitude = float(longitude)
+        self.latitude: Final[float] = cast(float, latitude)
+        self.longitude: Final[float] = cast(float, longitude)
+        # self._session = session
+        self._session: Final[ClientSession] = (
+            session if session else async_get_clientsession(hass)
+        )
+        self._hass: Final[HomeAssistant] = hass
+        self._entry_id: Final[str | None] = entry_id
+        self._url: Final[str] = API_ENDPOINT.format(self.latitude, self.longitude)
+        self._timeout: Final[ClientTimeout] = ClientTimeout(total=timeout)
+        self._notification_id: str | None = None
 
-    async def old_fetch_data(self):
-        """Fetch Buienalarm data."""
-        _LOGGER.debug("fetch_data BuienalarmApiClient data")
-        url = f"http://cdn.buienalarm.nl/api/4.0/nowcast/timeseries/{self.latitude}/{self.longitude}/"
+        # Verbose diagnostics
+        _LOGGER.debug("[API%s] Initialized BuienalarmApiClient", self._sfx)
+        _LOGGER.debug("[API%s] Latitude: %s", self._sfx, self.latitude)
+        _LOGGER.debug("[API%s] Longitude: %s", self._sfx, self.longitude)
+        _LOGGER.debug("[API%s] Formatted URL: %s", self._sfx, self._url)
+        _LOGGER.debug("[API%s] Timeout: %ss", self._sfx, self._timeout.total)
+        _LOGGER.debug("[API%s] Entry ID: %s", self._sfx, self._entry_id or "N/A")
+        _LOGGER.debug(
+            "[API%s] Session: %s (%s)",
+            self._sfx,
+            "provided externally" if session else "created via async_get_clientsession()",
+            type(self._session).__name__,
+        )
+        _LOGGER.debug("[API%s] Notification ID initialized as None", self._sfx)
 
+    async def async_get_nowcast(
+        self,
+        timeout: ClientTimeout | None = None,
+    ) -> dict[str, object]:
+        """Download raw JSON from Buienalarm endpoint with tracing."""
+        timeout = timeout or self._timeout
+        _LOGGER.debug("[API%s] → GET %s (timeout=%ss)", self._sfx, self._url, timeout.total)
+        fetch_started_at: datetime = datetime.now(timezone.utc)
         try:
-            async with self.session.get(url) as response:
-                if response.status != 200:
-                    _LOGGER.error("Error fetching Buienalarm data, status code: %d", response.status)
-                    return
+            async with async_timeout.timeout(timeout.total):
+                async with self._session.get(
+                    self._url,
+                    timeout=timeout,
+                    headers={
+                        "Accept-Encoding": "gzip",
+                        "User-Agent": f"HomeAssistant/{VERSION} {DOMAIN}",
+                    },
+                ) as resp:
+                    resp.raise_for_status()
+                    headers: dict = resp.headers
+                    content: dict = await resp.json()
 
-                self.data = await response.json()
+                    age_header: int = int(headers.get("Age", "0"))
+                    _LOGGER.debug("[API]   Age header: %s", age_header)
+                    _LOGGER.debug("[API%s]   HTTP %s", self._sfx, resp.status)
+                    if resp.status != 200:
+                        _LOGGER.error(
+                            "[API%s]   HTTP error: %s %s",
+                            self._sfx,
+                            resp.status,
+                            resp.reason,
+                        )
+                        raise ApiError(f"HTTP error {resp.status}: {resp.reason}")
+                    _LOGGER.debug("[API%s]   Response received", self._sfx)
+                    _LOGGER.debug("[API%s]   Response headers: %s", self._sfx, dict(resp.headers))
+                    _LOGGER.debug("[API%s]   Response content type: %s", self._sfx,
+                                  resp.headers.get("Content-Type", "unknown"))
+                    _LOGGER.debug("[API%s]   Response content length: %s",
+                                  self._sfx, resp.headers.get("Content-Length", "?"))
+                    if resp.status == 200:
+                        data = await resp.json(content_type=None)
+                        _LOGGER.debug("[API%s]   Status OK (200), processing response", self._sfx)
+                        _LOGGER.debug("[API%s]   Response is expected to be JSON", self._sfx)
+                        _LOGGER.debug("[API%s]   Will parse response as JSON", self._sfx)
+                        _LOGGER.info(
+                            "[API%s]   Successfully fetched data from Buienalarm", self._sfx
+                        )
+                        _LOGGER.info("[API%s]   Response received", self._sfx)
+                        _LOGGER.info("[API%s]   ---------> Response data: %s", self._sfx, data)
+                    if resp.status == 204:
+                        return {}
+                    await self._log_response_meta(resp)
+                    compressed = resp.headers.get("Content-Length", "?")
+                    _LOGGER.debug(
+                        "[API%s]   compressed payload: %s bytes", self._sfx, compressed
+                    )
+                    _LOGGER.debug(
+                        "[API%s]   parsed JSON → %d top-level keys",
+                        self._sfx,
+                        len(data) if isinstance(data, dict) else -1,
+                    )
+                    pretty = _dump_json(data).replace("\n", "\n    ")
+                    _LOGGER.debug("[API%s]   full JSON dump:\n    %s", self._sfx, pretty)
+        except asyncio.TimeoutError as err:
+            _LOGGER.error("[API%s]   TIMEOUT after %ss", self._sfx, timeout.total)
+            raise ApiError("Timeout while requesting Buienalarm data") from err
+        except (aiohttp.ClientError, socket.gaierror) as err:
+            _LOGGER.error("[API%s]   HTTP error: %s", self._sfx, err)
+            raise ApiError(err) from err
+        except ValueError as err:
+            _LOGGER.error("[API%s]   JSON decode error: %s", self._sfx, err)
+            raise ApiError("Invalid JSON") from err
 
-        except aiohttp.ClientError as err:
-            _LOGGER.error("Error fetching Buienalarm data: %s", err)
+        await self._maybe_dismiss_notification()
+        # return cast(dict[str, object], data)
+        return {
+            "timeseries": content,
+            "retrieval_time": fetch_started_at,
+            "cache_age": age_header,
+        }
 
-    async def async_update(self):
-        """Update Buienalarm data."""
-        _LOGGER.debug("async_update BuienalarmApiClient data")
-        await self.fetch_data()
-
-    async def async_get_data(self):
-        """Get data from the Buienalarm API."""
-        _LOGGER.debug("async_get_data BuienalarmApiClient data")
-        url = API_ENDPOINT.format(self.latitude, self.longitude)
-        return await self._api_wrapper(url)
-
-    async def _api_wrapper(self, url):
-        """Private method to get information from the API."""
-        _LOGGER.debug("_api_wrapper BuienalarmApiClient data")
-        try:
-            async with async_timeout.timeout(API_TIMEOUT):
-                response = await self.session.get(url)
-                _LOGGER.debug("Response status: %s", response.status)
-                _LOGGER.debug("Response headers: %s", response.headers)
-                response_text = await response.text()
-                _LOGGER.debug("Response text: %s", response_text)
-
-                await self._handle_error_responses(response_text)
-
-                data = await self._parse_json_response(response, response_text)
-                _LOGGER.debug("Raw JSON response: %s", data)
-
-                if isinstance(data, dict) and "data" in data:
-                    _LOGGER.debug("OK! Data is dict and ""data"" exist")
-                    buienalarm_data = data["data"][0]
-                    if buienalarm_data:
-                        _LOGGER.debug("OK! buienalarm_data")
-                        await self._handle_notification_dismissal()
-                        return buienalarm_data
-                    else:
-                        raise ApiError("No 'buienalarm_data' data in the response")
-                else:
-                    raise ApiError("Invalid data type or structure in JSON response")
-        except asyncio.TimeoutError as exception:
-            _LOGGER.error(
-                "Timeout error fetching information from the API - %s",
-                exception,
-            )
-        except (aiohttp.ClientError, socket.gaierror) as exception:
-            await self._handle_error_logging(exception, url)
-        except BuienalarmApiException as exception:
-            await self._handle_error_logging(exception)
-            raise exception
-
-    async def _handle_error_responses(self, response_text):
-        if "De server ondervindt een probleem" in response_text:
-            raise BuienalarmApiException("Error fetching information from the API")
-
-    async def _parse_json_response(self, response, response_text):
-        _LOGGER.debug("_parse_json_response BuienalarmApiClient data")
-        if response.headers.get("Content-Type") != "application/json":
-            raise ApiError("Invalid content type in the response")
-
-        try:
-            if response.status == 200:
-                data = json.loads(response_text)
-            else:
-                data = None
-        except json.JSONDecodeError as exception:
-            _LOGGER.error(
-                "Error decoding JSON response - %s: %s",
-                exception,
-                response_text,
-            )
-            raise ApiError("Invalid JSON data in the response")
-
-        return data
-
-    async def _handle_notification_dismissal(self):
-        if self.notification_id is not None and self.notification_exists():
-            await async_dismiss_notification(self.hass, self.notification_id)
-            self.notification_id = None
-
-    async def _handle_error_logging(self, exception, url=None):
-        if url:
-            _LOGGER.error(
-                "Error fetching information from the API - %s",
-                exception,
-            )
+    async def async_get_data(
+        self,
+        timeout: ClientTimeout | None = None,
+    ) -> dict[str, Any]:
+        """Alias for async_get_nowcast with extra tracing."""
+        _LOGGER.debug("[API%s] async_get_data() called with timeout: %s", self._sfx, timeout)
+        if timeout is None:
+            timeout = self._timeout
+            _LOGGER.debug("[API%s] No timeout provided, using default: %ss", self._sfx, timeout.total)
         else:
-            _LOGGER.error("Error: %s", exception)
+            _LOGGER.debug("[API%s] Using provided timeout: %ss", self._sfx, timeout.total)
+        result = await self.async_get_nowcast(timeout=timeout)
+        _LOGGER.debug(
+            "[API%s] async_get_data() completed in %s", self._sfx, result.get("retrieval_time", "unknown")
+        )
+        _LOGGER.debug("[API%s] async_get_data → result type: %s", self._sfx, type(result).__name__)
+        if isinstance(result, dict):
+            _LOGGER.debug("[API%s] async_get_data → result keys: %s", self._sfx, list(result.keys()))
+        _LOGGER.debug(
+            "[API%s] async_get_data → returning %d top-level keys",
+            self._sfx,
+            len(result) if isinstance(result, dict) else -1,
+        )
+        return result
 
-    def notification_exists(self):
-        notifications = self.hass.data.get("persistent_notification", {})
-        if not isinstance(notifications, dict):
-            return False
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
 
-        existing_notification = notifications.get(self.notification_id)
+    async def _log_response_meta(self, resp: ClientResponse) -> None:
+        _LOGGER.debug(
+            "[API%s]   HTTP %s • %sB • hdr-ct=%s",
+            self._sfx,
+            resp.status,
+            resp.headers.get("Content-Length", "?"),
+            resp.headers.get("Content-Type"),
+        )
+        _LOGGER.debug("[API%s]   Resp-Headers: %s", self._sfx, dict(resp.headers))
 
-        if existing_notification is not None:
-            _LOGGER.debug("Notification exists: %s", self.notification_id)
-            return True
+    async def _maybe_dismiss_notification(self) -> None:
+        if self._notification_id and self._notification_exists():
+            await hass_async_dismiss_notification(self._hass, self._notification_id)
+            _LOGGER.debug("[API%s] dismissed notification %s", self._sfx, self._notification_id)
+            self._notification_id = None
 
-        _LOGGER.debug("Notification does not exist: %s", self.notification_id)
-        return False
+    def _notification_exists(self) -> bool:
+        return (
+            isinstance(self._hass.data.get("persistent_notification"), dict)
+            and self._notification_id in self._hass.data["persistent_notification"]
+        )
 
-    async def async_fetch_daily_forecast_data(self):
-        _LOGGER.debug("async_fetch_daily_forecast_data BuienalarmApiClient data")
-        try:
-            url = API_ENDPOINT.format(self.latitude, self.longitude)
-            _LOGGER.debug("Fetching data from API endpoint with provided coordinates")
-            async with async_timeout.timeout(API_TIMEOUT):
-                response = await self.session.get(url)
-                response.raise_for_status()
-                response_text = await response.text()
-                data = await self._parse_json_response(response, response_text)
+    # ------------------------------------------------------------------
+    # Properties
+    # ------------------------------------------------------------------
 
-                if not data is None:
-                    return data.get("data", [])
-
-        except aiohttp.ClientError as e:
-            raise BuienalarmApiException(f"Error fetching daily forecast data: {e}")
+    @property
+    def _sfx(self) -> str:
+        """Return a short suffix for logs/notifications: '' or f'‑{entry_id}'."""
+        return f" id={self._entry_id}" if self._entry_id else ""
