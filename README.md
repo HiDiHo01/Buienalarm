@@ -23,8 +23,12 @@ This is a custom component for Home Assistant that integrates with Buienalarm to
 ### HACS Installation
 
 1. Open HACS in your Home Assistant instance.
-2. Search for "Buienalarm" in the integrations section.
-3. Click "Install" and restart Home Assistant.
+2. Click on the hamburger menu (three dots)
+3. Click custom repositories (Aangepaste repositories)
+4. Add https://github.com/HiDiHo01/Buienalarm/
+5. Type integration
+6. Click "Add" and restart Home Assistant.
+7. Follow steps Configuration via UI
 
 ## Configuration
 
