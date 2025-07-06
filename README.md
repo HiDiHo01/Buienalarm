@@ -34,18 +34,83 @@ This is a custom component for Home Assistant that integrates with Buienalarm to
 2. Click **Add Integration**.
 3. Search for **Buienalarm** and follow the configuration prompts.
 
-### YAML Configuration (Optional)
+### Example apexcharts-card
 
-Alternatively, you can configure the component using YAML:
-(deprecated and no longer updated and supported)
+<img src="https://github.com/HiDiHo01/Buienalarm/blob/main/images/buienalarm%20card.png">
 
-```yaml
-# Example configuration.yaml entry
-buienalarm:
-  latitude: 52.3676  # Optional, defaults to Home Assistant latitude
-  longitude: 4.9041  # Optional, defaults to Home Assistant longitude
-  monitored_conditions:
-    - precipitation
+```
+type: custom:apexcharts-card
+graph_span: 2h
+show:
+  last_updated: true
+span:
+  start: minute
+  offset: "-10m"
+now:
+  show: true
+  label: Nu
+  color: white
+header:
+  show: true
+  title: Neerslag in mm/u (+2 uur)
+series:
+  - entity: sensor.neerslag_verwacht_schagen
+    name: Neerslag
+    unit: mm/u
+    stroke_width: 8
+    show:
+      extremas: true
+      header_color_threshold: true
+    float_precision: 1
+    type: line
+    opacity: 1
+    color: "#44739e"
+    color_threshold:
+      - value: 0
+        color: "#89CFF0"
+        opacity: 0.3
+      - value: 0.1
+        color: "#89CFF0"
+        opacity: 0.4
+      - value: 0.2
+        color: "#87CEEB"
+        opacity: 0.8
+      - value: 0.4
+        color: "#4473ff"
+      - value: 0.6
+        color: "#000080"
+      - value: 0.8
+        color: "#000080"
+      - value: 1
+        color: darkblue
+      - value: 2
+        color: "#000044"
+    data_generator: |
+      return entity.attributes.precipitation_data.map((record, index) => {
+        return [record.time, record.precipitationrate, record.precipitationtype];
+      });
+experimental:
+  color_threshold: true
+apex_config:
+  tooltip:
+    x:
+      format: HH:mm
+  xaxis:
+    type: datetime
+    labels:
+      useSeriesColors: true
+      datetimeFormatter:
+        hour: HH:mm
+      format: HH:mm
+  chart:
+    height: 300px
+    animations:
+      enabled: true
+      easing: easeinout
+      speed: 2000
+      animateGradually:
+        enabled: true
+        delay: 500
 ```
 
 ## Entities Provided
