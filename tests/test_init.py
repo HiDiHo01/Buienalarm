@@ -27,7 +27,7 @@ def config_data() -> dict[str, float | str]:
 
 @pytest.mark.asyncio
 @patch("custom_components.buienalarm.BuienalarmDataUpdateCoordinator")
-async def test_async_setup_entry_success(mock_coordinator: MagicMock, hass: HomeAssistant, config_data: dict[str, float | str]) -> None:
+async def test_async_setup_entry_success(mock_coordinator: AsyncMock, hass: HomeAssistant, config_data: dict[str, float | str]) -> None:
     """Test successful setup of config entry."""
     coordinator = mock_coordinator.return_value
     coordinator.last_update_success = True
@@ -49,7 +49,7 @@ async def test_async_setup_entry_success(mock_coordinator: MagicMock, hass: Home
 
 @pytest.mark.asyncio
 @patch("custom_components.buienalarm.BuienalarmDataUpdateCoordinator")
-async def test_async_setup_entry_failure(mock_coordinator: MagicMock, hass: HomeAssistant, config_data: dict[str, float | str]) -> None:
+async def test_async_setup_entry_failure(mock_coordinator: AsyncMock, hass: HomeAssistant, config_data: dict[str, float | str]) -> None:
     """Test setup fails if coordinator update was unsuccessful."""
     coordinator = mock_coordinator.return_value
     coordinator.last_update_success = False
@@ -64,7 +64,7 @@ async def test_async_setup_entry_failure(mock_coordinator: MagicMock, hass: Home
 @pytest.mark.asyncio
 @patch("custom_components.buienalarm.BuienalarmDataUpdateCoordinator")
 @patch("custom_components.buienalarm.PLATFORMS", ["sensor"]) # test dynamische platformen.
-async def test_async_unload_entry(mock_coordinator: MagicMock, hass: HomeAssistant, config_data: dict[str, float | str]) -> None:
+async def test_async_unload_entry(mock_coordinator: AsyncMock, hass: HomeAssistant, config_data: dict[str, float | str]) -> None:
     """Test successful unloading of an entry."""
     coordinator = mock_coordinator.return_value
     coordinator.last_update_success = True
@@ -110,7 +110,7 @@ async def test_async_reload_entry(
 
 @pytest.mark.asyncio
 @patch("custom_components.buienalarm.BuienalarmDataUpdateCoordinator")
-async def test_async_setup_entry_exception(mock_coordinator: MagicMock, hass: HomeAssistant, config_data: dict[str, float | str]) -> None:
+async def test_async_setup_entry_exception(mock_coordinator: AsyncMock, hass: HomeAssistant, config_data: dict[str, float | str]) -> None:
     """Test setup fails due to unexpected exception in coordinator."""
     mock_coordinator.side_effect = Exception("Unexpected failure")
 
