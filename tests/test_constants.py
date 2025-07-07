@@ -13,7 +13,7 @@ from custom_components.buienalarm.const import (
     NAME,
     DOMAIN,
     VERSION,
-    ATTRIBUTION,
+    ATTR_ATTRIBUTION,
     DEFAULT_NAME,
     SCAN_INTERVAL,
     DATA_REFRESH_INTERVAL,
@@ -25,7 +25,7 @@ from custom_components.buienalarm.const import (
 def test_api_constants():
     """Test the API-related constants."""
     assert API_ENDPOINT == "https://cdn.buienalarm.nl/api/4.0/nowcast/timeseries/{}/{}"
-    assert API_TIMEOUT == 15
+    assert API_TIMEOUT == 30
     assert API_TIMEZONE == "Europe/Amsterdam"
     assert API_CONF_URL == "https://buienalarm.nl"
     assert DATA_KEY == "data"
@@ -34,8 +34,8 @@ def test_base_component_constants():
     """Test the base component constants."""
     assert NAME == "Buienalarm"
     assert DOMAIN == "buienalarm"
-    assert VERSION == "2025.6.17"
-    assert ATTRIBUTION == "Data provided by Buienalarm"
+    assert VERSION == "2025.7.7"
+    assert ATTR_ATTRIBUTION == "Data provided by Buienalarm"
     assert DEFAULT_NAME == NAME
 
 def test_refresh_constants():
