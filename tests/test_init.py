@@ -3,6 +3,7 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from homeassistant.const import CONF_LATITUDE, CONF_LONGITUDE
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 
@@ -13,7 +14,7 @@ from custom_components.buienalarm import (
     async_unload_entry,
     async_reload_entry,
 )
-from custom_components.buienalarm.const import DOMAIN, CONF_LATITUDE, CONF_LONGITUDE, PLATFORMS
+from custom_components.buienalarm.const import DOMAIN, PLATFORMS
 
 @pytest.fixture
 def config_data() -> dict[str, float | str]:
