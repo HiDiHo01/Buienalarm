@@ -1,21 +1,93 @@
 # sensor.py
 import logging
 from datetime import timedelta
+from typing import Final
 
 import requests
-from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.sensor import (
+    SensorDeviceClass,
+    SensorEntity,
+    SensorEntityDescription,
+    SensorStateClass,
+)
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_NAME
+from homeassistant.const import CONF_NAME, UnitOfTime, UnitOfVolumetricFlux
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import StateType
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.helpers.update_coordinator import (
+    DataUpdateCoordinator,
+    UpdateFailed,
+)
 
 from .const import API_ENDPOINT, ATTR_ATTRIBUTION, DOMAIN, SENSORS
 from .coordinator import BuienalarmDataUpdateCoordinator
-from .entity import BuienalarmEntity
+from .entity import BuienalarmEntity, BuienalarmSensorEntity
+from .sensor_types import SENSOR_DESCRIPTIONS
 
 _LOGGER = logging.getLogger(__name__)
+
+
+old_SENSOR_DESCRIPTIONS: Final[list[SensorEntityDescription]] = [
+    SensorEntityDescription(
+        key="nowcastmessage",
+        name="Buienalarm",
+        icon="mdi:weather-pouring",
+    ),
+    SensorEntityDescription(
+        key="mycastmessage",
+        name="My Buienalarm",
+        icon="mdi:weather-pouring",
+    ),
+    SensorEntityDescription(
+        key="precipitationrate_now_description",
+        name="Neerslag omschrijving",
+        icon="mdi:weather-rainy",
+    ),
+    SensorEntityDescription(
+        key="precipitationtype_now",
+        name="Soort neerslag",
+        icon="mdi:weather-pouring",
+    ),
+    SensorEntityDescription(
+        key="next_precipitation",
+        name="Next precipitation",
+        icon="mdi:clock-outline",
+        native_unit_of_measurement=UnitOfTime.MINUTES,
+        device_class=SensorDeviceClass.DURATION,
+    ),
+    SensorEntityDescription(
+        key="precipitation_duration",
+        name="Duur neerslag",
+        icon="mdi:clock-outline",
+        native_unit_of_measurement=UnitOfTime.MINUTES,
+        device_class=SensorDeviceClass.DURATION,
+    ),
+    SensorEntityDescription(
+        key="precipitationrate_now",
+        name="Neerslag",
+        icon="mdi:weather-rainy",
+        native_unit_of_measurement=UnitOfVolumetricFlux.MILLIMETERS_PER_HOUR,
+        device_class=SensorDeviceClass.PRECIPITATION_INTENSITY,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="precipitationrate_hour",
+        name="Neerslag komend uur",
+        icon="mdi:weather-rainy",
+        native_unit_of_measurement=UnitOfVolumetricFlux.MILLIMETERS_PER_HOUR,
+        device_class=SensorDeviceClass.PRECIPITATION_INTENSITY,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="precipitationrate_total",
+        name="Neerslag verwacht",
+        icon="mdi:weather-rainy",
+        native_unit_of_measurement=UnitOfVolumetricFlux.MILLIMETERS_PER_HOUR,
+        device_class=SensorDeviceClass.PRECIPITATION_INTENSITY,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+]
 
 # Sensor data update coordinator for Buienalarm
 # This coordinator fetches data from the Buienalarm API and provides it to sensor entities.
@@ -37,7 +109,8 @@ class BuienalarmDataUpdateCoordinator(DataUpdateCoordinator[dict[str, object]]):
             hass,
             _LOGGER,
             name=DOMAIN,
-            update_interval=timedelta(minutes=5)  # set update interval
+            update_interval=timedelta(minutes=5),  # set update interval
+            always_update=True,  # of False indien __eq__ kan vergelijken
         )
         _LOGGER.debug("[SENSOR COORD] Initialized with URL: %s", self.url)
 
@@ -45,6 +118,7 @@ class BuienalarmDataUpdateCoordinator(DataUpdateCoordinator[dict[str, object]]):
         """Fetch the latest data from Buienalarm."""
         _LOGGER.debug("[SENSOR COORD] _async_update_data called")
         try:
+            # response = await self.api.async_get_data()
             response = await self.hass.async_add_executor_job(
                 requests.get, self.url
             )
@@ -108,14 +182,44 @@ async def async_setup_entry(
         # Persist the coordinator in hass.data
         hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
 
-    sensors: list[SensorEntity] = [
+    # old_sensors
+    sensors1: list[SensorEntity] = [
         BuienalarmSensor(coordinator, entry, **sensor_data)
         for sensor_data in SENSORS
     ]
 
-    _LOGGER.debug("[SENSOR SETUP] Adding %d sensors", len(sensors))
-    async_add_entities(sensors, update_before_add=False)
-    _LOGGER.debug("[SENSOR SETUP] %d sensors added", len(sensors))
+    sensors2 = [
+        BuienalarmSensorEntity(coordinator, entry, description,
+                               location_id=entry.data.get("location_id", "unknown"),
+                               location_name=entry.data.get("location_name", "unknown"))
+        for description in SENSOR_DESCRIPTIONS
+    ]
+
+    sensors3: list[SensorEntity] = [
+        BuienalarmSensorEntity(coordinator, entry, description,
+                               location_id=entry.data.get("location_id", "unknown"),
+                               location_name=entry.data.get("location_name", "unknown"))
+        for description in SENSOR_DESCRIPTIONS
+    ]
+
+    sensors4 = [
+        BuienalarmSensor(coordinator, entry, description.name, description.native_unit_of_measurement,
+                         description.icon, description.device_class, description.state_class, description.key)
+        for description in SENSOR_DESCRIPTIONS
+    ]
+
+    sensors5: list[SensorEntity] = [
+        BuienalarmTestSensor(coordinator, entry, description)
+        for description in SENSOR_DESCRIPTIONS
+    ]
+
+    _LOGGER.debug("[SENSOR SETUP] Adding %d sensors", len(sensors1))
+    async_add_entities(sensors1, update_before_add=False)  # sensors van de oude setup *werkt*
+    # async_add_entities(sensors2, update_before_add=True)  # sensors van SENSOR_DESCRIPTIONS *raw Nowcast Message*
+    # async_add_entities(sensors3, update_before_add=True)  # sensors van SENSOR_DESCRIPTIONS met SensorEntity
+    # async_add_entities(sensors4, update_before_add=True)  # sensors van SENSOR_DESCRIPTIONS met BuienalarmSensor
+    # async_add_entities(sensors5, update_before_add=True)  # sensors van SENSOR_DESCRIPTIONS met BuienalarmTestSensor
+    _LOGGER.debug("[SENSOR SETUP] %d sensors added", len(sensors1))
 
     # await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     # ValueError: Config entry Schagen (1ba2a3d11e3e38b8e768ad5ceb4df8bf) for buienalarm.sensor has already been setup!
@@ -127,6 +231,36 @@ async def async_setup_entry(
 async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Reload config entry when options are changed."""
     await hass.config_entries.async_reload(entry.entry_id)
+
+
+# class BuienalarmTestSensor(CoordinatorEntity[BuienalarmDataUpdateCoordinator], SensorEntity):
+class BuienalarmTestSensor(BuienalarmEntity, SensorEntity):
+    def __init__(
+        self,
+        coordinator: BuienalarmDataUpdateCoordinator,
+        config_entry: ConfigEntry,
+        description: SensorEntityDescription,
+    ):
+        # super().__init__(coordinator)
+        super().__init__(coordinator, config_entry, description.key)
+        self.entity_description = description
+        self._attr_name = description.name
+        self._attr_unique_id = f"{config_entry.entry_id}-{description.key}"
+
+    # @property
+    # def strict_native_value(self) -> int | float | str | datetime | None:
+    #     """Return the value for the sensor."""
+    #     return self.coordinator.data.get(self.entity_description.key)
+
+    @property
+    def native_value(self) -> object:
+        """Return the state of the sensor."""
+        if not self.coordinator.data:
+            _LOGGER.debug("[TEST SENSOR] No data available for %s", self.entity_description.key)
+            return None
+        # return self.coordinator.data.get(self.entity_description.key)
+        value = self.get_data(self.entity_description.key)
+        return value
 
 
 class BuienalarmSensor(BuienalarmEntity, SensorEntity):
@@ -144,7 +278,6 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
         icon: str,
         device_class: str,
         state_class: str,
-        attributes: list[dict[str, object]],
         key: str,
     ) -> None:
         _LOGGER.debug("[SENSOR ENTITY] __init__ for %s", name)
@@ -156,14 +289,34 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
         self._icon = icon
         self._device_class = device_class
         self._state_class = state_class
-        self._attributes = attributes
         self._key = key
         _LOGGER.debug("[SENSOR ENTITY] Initialized sensor: %s", self.name)
 
     @property
     def available(self) -> bool:
         """Geeft aan of de sensor data heeft opgehaald."""
-        return self.coordinator.last_update_success
+        if not self.coordinator.last_update_success:
+            return False
+        if not self.coordinator.data:
+            return False
+        if not isinstance(self.coordinator.data, dict):
+            _LOGGER.debug(
+                "[SENSOR ENTITY] Coordinator data is not a dict: %s",
+                type(self.coordinator.data).__name__,
+            )
+            return False
+        # if self.coordinator.data.get(self._key, None) is None:
+        #     return False
+        return True
+
+    @property
+    def new_available(self) -> bool:
+        """Geeft aan of de sensor data heeft opgehaald."""
+        return (
+            self.coordinator.last_update_success
+            and self.coordinator.data is not None
+            and self.coordinator.data.get(self._key) is not None
+        )
 
     @property
     def unique_id(self) -> str:
@@ -173,7 +326,9 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
     @property
     def name(self) -> str:
         """Return the sensor name."""
-        return f"{self._name} {self.entry_place}"
+        if self.entry_place:
+            return f"{self._name} {self.entry_place}"
+        return self._name
 
     # StateType = str | int | float | None
     @property

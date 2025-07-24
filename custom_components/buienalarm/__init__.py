@@ -3,7 +3,6 @@
 import logging
 
 import aiohttp
-from aiohttp import ClientTimeout
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_LATITUDE, CONF_LONGITUDE
 from homeassistant.core import HomeAssistant
@@ -156,7 +155,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER.debug("[INIT_SETUP_ENTRY] Coordinator initialized: %s", coordinator)
     except Exception as err:
         _LOGGER.error("[INIT_SETUP_ENTRY] Failed to create coordinator: %s", err)
-        raise ConfigEntryNotReady(f"Failed to create coordinator for {entry.title}")
+        # raise ConfigEntryNotReady(f"Failed to create coordinator for {entry.title}")
+        raise ConfigEntryNotReady("Failed to create coordinator for %s" % entry.title) from err
 
     # Configure refresh
     # Fetch the config entry options directly from the entry
@@ -202,14 +202,18 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if unloaded := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         hass.data[DOMAIN].pop(entry.entry_id, None)
         _LOGGER.debug("[INIT_UNLOAD_ENTRY] Config entry %s with ID %s unloaded", entry.title, entry.entry_id)
-    else:
-        _LOGGER.warning("[INIT_UNLOAD_ENTRY] Failed to unload entry %s with ID %s from platforms",
-                        entry.title, entry.entry_id)
-    return unloaded
+        _LOGGER.debug("[INIT_UNLOAD_ENTRY] Unloading platforms: %s", PLATFORMS)
+        _LOGGER.debug("[INIT_UNLOAD_ENTRY] Unloading %s", unloaded)
+        return unloaded
+    _LOGGER.warning("[INIT_UNLOAD_ENTRY] Failed to unload entry %s with ID %s from platforms",
+                    entry.title, entry.entry_id)
+    _LOGGER.debug("[INIT_UNLOAD_ENTRY] Unloading platforms: %s", PLATFORMS)
+    _LOGGER.debug("[INIT_UNLOAD_ENTRY] Unloading %s", unloaded)
+    return False
 
 
 async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Reload config entry."""
+    """Handle reload of a config entry."""
     _LOGGER.debug("[INIT_RELOAD_ENTRY] Reloading config entry %s with ID %s", entry.title, entry.entry_id)
-    await async_unload_entry(hass, entry)
-    await async_setup_entry(hass, entry)
+    await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

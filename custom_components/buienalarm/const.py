@@ -18,7 +18,7 @@ DATA_KEY: Final[str] = "data"
 # Integration metadata
 NAME: Final[str] = "Buienalarm"
 DOMAIN: Final[str] = "buienalarm"
-VERSION: Final[str] = "2025.7.7"
+VERSION: Final[str] = "2025.7.24"
 ATTR_ATTRIBUTION: Final[str] = "Data provided by Buienalarm"
 
 # Default configuration
@@ -41,19 +41,17 @@ ICON_TEMPLATE: Final[str] = "mdi:weather-{}"
 # Sensor definitions
 SENSORS: Final[list[dict[str, object]]] = [
     {
-        "name": "Buienalarm",
+        "name": "Nelding",
         "icon": "mdi:weather-pouring",
         "key": "nowcastmessage",
-        "attributes": [],
         "unit_of_measurement": None,
         "device_class": None,
         "state_class": None,
     },
     {
-        "name": "My Buienalarm",
+        "name": "Mijn melding",
         "icon": "mdi:weather-pouring",
         "key": "mycastmessage",
-        "attributes": [],
         "unit_of_measurement": None,
         "device_class": None,
         "state_class": None,
@@ -62,7 +60,6 @@ SENSORS: Final[list[dict[str, object]]] = [
         "name": "Neerslag omschrijving",
         "icon": "mdi:weather-rainy",
         "key": "precipitationrate_now_desc",
-        "attributes": [],
         "unit_of_measurement": None,
         "device_class": None,
         "state_class": None,
@@ -71,16 +68,22 @@ SENSORS: Final[list[dict[str, object]]] = [
         "name": "Soort neerslag",
         "icon": "mdi:weather-pouring",
         "key": "precipitationtype_now",
-        "attributes": [],
         "unit_of_measurement": None,
         "device_class": None,
+        "state_class": None,
+    },
+    {
+        "name": "Volgende neerslag",
+        "icon": "mdi:clock-outline",
+        "key": "next_precipitation",
+        "unit_of_measurement": UnitOfTime.MINUTES,
+        "device_class": SensorDeviceClass.DURATION,
         "state_class": None,
     },
     {
         "name": "Duur neerslag",
         "icon": "mdi:clock-outline",
         "key": "precipitation_duration",
-        "attributes": [],
         "unit_of_measurement": UnitOfTime.MINUTES,
         "device_class": SensorDeviceClass.DURATION,
         "state_class": None,
@@ -88,7 +91,6 @@ SENSORS: Final[list[dict[str, object]]] = [
     {
         "name": "Neerslag",
         "icon": "mdi:weather-rainy",
-        "attributes": [],
         "key": "precipitationrate_now",
         "unit_of_measurement": UnitOfVolumetricFlux.MILLIMETERS_PER_HOUR,
         "device_class": SensorDeviceClass.PRECIPITATION_INTENSITY,
@@ -97,7 +99,6 @@ SENSORS: Final[list[dict[str, object]]] = [
     {
         "name": "Neerslag komend uur",
         "icon": "mdi:weather-rainy",
-        "attributes": [],
         "key": "precipitationrate_hour",
         "unit_of_measurement": UnitOfVolumetricFlux.MILLIMETERS_PER_HOUR,
         "device_class": SensorDeviceClass.PRECIPITATION_INTENSITY,
@@ -106,10 +107,17 @@ SENSORS: Final[list[dict[str, object]]] = [
     {
         "name": "Neerslag verwacht",
         "icon": "mdi:weather-rainy",
-        "attributes": [],
         "key": "precipitationrate_total",
         "unit_of_measurement": UnitOfVolumetricFlux.MILLIMETERS_PER_HOUR,
         "device_class": SensorDeviceClass.PRECIPITATION_INTENSITY,
         "state_class": SensorStateClass.MEASUREMENT,
+    },
+    {
+        "name": "Neerslag periodes",
+        "icon": "mdi:weather-rainy",
+        "key": "precipitation_periods",
+        "unit_of_measurement": None,
+        "device_class": None,
+        "state_class": None,
     },
 ]

@@ -86,12 +86,16 @@ class BuienalarmConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self._abort_if_unique_id_configured()
 
                 _LOGGER.debug("Creating new config entry: %s", unique_id)
+                location_name = user_input.get(CONF_NAME, NAME)  # Default name if not provided
 
                 return self.async_create_entry(
-                    title=f"{NAME} ({latitude_raw}, {longitude_raw})",
+                    title=f"{location_name} ({latitude_raw}, {longitude_raw})",
                     data={
+                        CONF_NAME: user_input.get(CONF_NAME, NAME),
                         CONF_LATITUDE: float(latitude_raw),
                         CONF_LONGITUDE: float(longitude_raw),
+                        "location_id": unique_id,
+                        "location_name": location_name,
                         "notification_limit": user_input.get(
                             "notification_limit", DEFAULT_NOTIFICATION_LIMIT
                         ),
@@ -110,6 +114,7 @@ class BuienalarmConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Return the form definition for the *user* step."""
         data_schema: vol.Schema = vol.Schema(
             {
+                vol.Required(CONF_NAME, default=NAME): str,
                 vol.Required(CONF_LATITUDE, default=DEFAULT_LATITUDE): float,
                 vol.Required(CONF_LONGITUDE, default=DEFAULT_LONGITUDE): float,
                 vol.Optional(

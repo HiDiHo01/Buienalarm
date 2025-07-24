@@ -11,19 +11,32 @@
                     "latitude": "Breedtegraad",
                     "longitude": "Lengtegraad",
                     "notification_limit": "Limiet voor meldingen (mm/u)",
-                    "refresh_interval": "Data vernieuw interval (sec)"
+                    "refresh_interval": "Interval voor verversen van data (sec)"
+                },
+                "data_description": {
+                    "name": "Naam",
+                    "place": "Plaats",
+                    "latitude": "Breedtegraad",
+                    "longitude": "Lengtegraad",
+                    "notification_limit": "Limiet voor meldingen (mm/u)",
+                    "refresh_interval": "Zet de vernieuwinterval minimaal op 300 seconden."
                 }
             }
         },
         "error": {
-            "general": "Onbekende fout bij het ophalen van weergegevens, probeer het later opnieuw",
-            "invalid_coordinates": "Coördinaten ongeldig"
+            "general": "Onbekende fout bij het ophalen van weergegevens, probeer het later opnieuw.",
+            "invalid_coordinates": "De opgegeven coördinaten zijn ongeldig. Controleer de breedte- en lengtegraad en probeer het opnieuw.",
+            "cannot_connect": "Kan geen verbinding maken met de Buienalarm API. Controleer je internetverbinding en probeer het later opnieuw."
         },
         "abort": {
-            "single_instance_allowed": "Al geconfigureerd. Slechts \u00e9\u00e9n configuratie mogelijk."
+            "single_instance_allowed": "Al geconfigureerd. Slechts één configuratie mogelijk.",
+            "already_configured" : "Een plaats met deze coördinaten is al geconfigureerd. Probeer een andere plaats of wijzig de coördinaten.",
+            "invalid_coordinates": "De opgegeven coördinaten zijn ongeldig. Controleer de breedte- en lengtegraad en probeer het opnieuw.",
+            "cannot_connect": "Kan geen verbinding maken met de Buienalarm API. Controleer je internetverbinding en probeer het later opnieuw."
         },
         "base": {
-            "invalid_coordinates": "Coördinaten ongeldig"
+            "invalid_coordinates": "Coördinaten ongeldig",
+            "cannot_connect": "Kan geen verbinding maken met de Buienalarm API. Controleer je internetverbinding en probeer het later opnieuw."
         }
     },
     "options": {
@@ -37,7 +50,7 @@
                     "latitude": "Breedtegraad",
                     "longitude": "Lengtegraad",
                     "notification_limit": "Limiet voor meldingen (mm/u)",
-                    "refresh_interval": "Data vernieuw interval (sec)"
+                    "refresh_interval": "Interval voor verversen van data (sec)"
                 },
                 "data_description": {
                     "name": "Naam",
@@ -45,7 +58,7 @@
                     "latitude": "Breedtegraad",
                     "longitude": "Lengtegraad",
                     "notification_limit": "Limiet voor meldingen (mm/u)",
-                    "refresh_interval": "Zet de vernieuw interval minimaal op 300 seconden."
+                    "refresh_interval": "Zet de vernieuwinterval minimaal op 300 seconden."
                 }
             },
             "init": {
@@ -57,7 +70,7 @@
                     "latitude": "Breedtegraad",
                     "longitude": "Lengtegraad",
                     "notification_limit": "Limiet voor meldingen (mm/u)",
-                    "refresh_interval": "Data vernieuw interval (sec)"
+                    "refresh_interval": "Interval voor verversen van data (sec)"
                 },
                 "data_description": {
                     "name": "Naam",
@@ -67,6 +80,41 @@
                     "notification_limit": "Limiet voor meldingen (mm/u)",
                     "refresh_interval": "Zet de vernieuw interval minimaal op 300 seconden."
                 }
+            }
+        }
+    },
+    "entity": {
+        "sensor": {
+            "nowcastmessage": {
+                "name": "Weermelding"
+            },
+            "mycastmessage": {
+                "name": "Mijn weermelding"
+            },
+            "precipitation_duration": {
+                "name": "Neerslagduur"
+            },
+            "precipitationrate_total": {
+                "name": "Totale neerslag"
+            },
+            "precipitationrate_hour": {
+                "name": "Neerslag per uur"
+            },
+            "precipitationrate_now": {
+                "name": "Huidige neerslag"
+            },
+            "precipitationrate_now_description": {
+                "name": "Huidige neerslag beschrijving",
+                "description": "Beschrijving van de actuele neerslagintensiteit."
+            },
+            "precipitationtype_now": {
+                "name": "Huidig neerslagtype"
+            },
+            "next_precipitation": {
+                "name": "Volgende neerslag over"
+            },
+            "rain_periods": {
+                "name": "Regenperiodes"
             }
         }
     }

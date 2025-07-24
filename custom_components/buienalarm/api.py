@@ -59,7 +59,7 @@ def _dump_json(data: object) -> str:
 
 
 class BuienalarmApiClient:
-    """Async wrapper around Buienalarm's JSON timeseries endpoint."""
+    """Async wrapper around Buienalarm's JSON timeseries endpoint with verbose logging."""
 
     def __init__(
         self,
@@ -71,9 +71,6 @@ class BuienalarmApiClient:
         *,
         timeout: int = API_TIMEOUT,
     ) -> None:
-        # Use consistent attribute names
-        # self.latitude = float(latitude)
-        # self.longitude = float(longitude)
         self.latitude: Final[float] = cast(float, latitude)
         self.longitude: Final[float] = cast(float, longitude)
         # self._session = session
@@ -101,11 +98,28 @@ class BuienalarmApiClient:
         )
         _LOGGER.debug("[API%s] Notification ID initialized as None", self._sfx)
 
+    @property
+    def base_url(self) -> str:
+        return API_ENDPOINT.format(self.latitude, self.longitude)
+
+    async def async_get_initial_data(self) -> dict[str, object]:
+        """
+        Fetch static metadata (e.g., station name, available keys) once.
+        """
+        _LOGGER.debug("[API%s] Fetching initial metadata", self._sfx)
+        async with self._session.get(self._url, timeout=self._timeout) as resp:
+            resp.raise_for_status()
+            data = await resp.json()
+            _LOGGER.debug(
+                "[API%s] Retrieved metadata keys: %s", self._sfx, list(data.keys())
+            )
+            return data
+
     async def async_get_nowcast(
         self,
         timeout: ClientTimeout | None = None,
     ) -> dict[str, object]:
-        """Download raw JSON from Buienalarm endpoint with tracing."""
+        """Download raw JSON from Buienalarm endpoint with full debug tracing."""
         timeout = timeout or self._timeout
         _LOGGER.debug("[API%s] → GET %s (timeout=%ss)", self._sfx, self._url, timeout.total)
         fetch_started_at: datetime = datetime.now(timezone.utc)
@@ -150,6 +164,11 @@ class BuienalarmApiClient:
                         )
                         _LOGGER.info("[API%s]   Response received", self._sfx)
                         _LOGGER.info("[API%s]   ---------> Response data: %s", self._sfx, data)
+                        return {
+                            "timeseries": content,
+                            "retrieval_time": fetch_started_at,
+                            "cache_age": age_header,
+                        }
                     if resp.status == 204:
                         return {}
                     await self._log_response_meta(resp)
@@ -176,11 +195,6 @@ class BuienalarmApiClient:
 
         await self._maybe_dismiss_notification()
         # return cast(dict[str, object], data)
-        return {
-            "timeseries": content,
-            "retrieval_time": fetch_started_at,
-            "cache_age": age_header,
-        }
 
     async def async_get_data(
         self,

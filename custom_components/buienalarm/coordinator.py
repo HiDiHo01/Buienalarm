@@ -5,6 +5,7 @@ from datetime import timedelta
 from typing import Callable
 
 import aiohttp
+import async_timeout
 import requests
 from aiohttp import ClientSession, ClientTimeout
 from aiohttp.client_exceptions import ClientResponseError
@@ -22,9 +23,10 @@ _LOGGER: logging.Logger = logging.getLogger(__name__)
 _LOGGER.debug("[COORD] coordinator loaded")
 
 _API_TIMEOUT = ClientTimeout(
-    total=12,          # hard‑stop; moet < HA default (15 s) blijven
-    connect=4,
-    sock_read=8,
+    total=30,       # hard‑stop; moet < HA default (15 s) blijven
+    connect=5,      # connectie‑timeout
+    sock_read=20,   # lees‑timeout
+    sock_connect=5  # connectie‑timeout
 )
 
 
@@ -57,17 +59,15 @@ class BuienalarmDataUpdateCoordinator(DataUpdateCoordinator):
         self.url = API_ENDPOINT.format(api.latitude, api.longitude)
         _LOGGER.debug("[COORD INIT] Using API URL: %s", self.url)
         self.entities = []  # Create an empty list to store associated entities
-        self.last_update_success = False
+        # self.last_update_success = False
 
-#        super().__init__(
-#            hass=hass, logger=_LOGGER, name=DOMAIN
-#        )
         super().__init__(
             hass=hass,
             logger=_LOGGER,
             name="Buienalarm Coordinator",
-            update_method=self._async_update_data,
             update_interval=update_interval,
+            update_method=self._async_update_data,
+            setup_method=self._async_setup,
         )
         _LOGGER.debug("[COORD INIT] DataUpdateCoordinator initialized")
 
@@ -91,25 +91,42 @@ class BuienalarmDataUpdateCoordinator(DataUpdateCoordinator):
             self.last_update_success = False
             raise UpdateFailed(f"Error fetching data: {error}") from error
 
+    async def _async_setup(self) -> None:
+        """
+        Run once before first update.
+        Use this to validate auth or fetch static data.
+        """
+        _LOGGER.debug("Running _async_setup for BuienalarmCoordinator")
+        try:
+            # bv. valideren van locatietoegang of ophalen stationsinformatie
+            await self.api.async_get_initial_data()
+        except Exception as err:
+            _LOGGER.error("Initial API setup failed: %s", err)
+            raise ConfigEntryNotReady from err
+
     async def _async_update_data(self):
         _LOGGER.debug("[COORD UPDATE] Starting _async_update_data for URL: %s with timeout: %s", self.url, _API_TIMEOUT)
         try:
-            return await self.api.async_get_data()
-            response = await self.hass.async_add_executor_job(
-                requests.get, self.url
-            )
-            _LOGGER.debug(
-                "[COORD] HTTP status: %s, headers: %s",
-                response.status_code,
-                response.headers,
-            )
-            response.raise_for_status()
-            data = response.json()
-            _LOGGER.debug("[COORD] JSON data: %s", data)
-            return data
+            async with async_timeout.timeout(30):
+                return await self.api.async_get_data()
+                response = await self.hass.async_add_executor_job(
+                    requests.get, self.url
+                )
+                _LOGGER.debug(
+                    "[COORD] HTTP status: %s, headers: %s",
+                    response.status_code,
+                    response.headers,
+                )
+                response.raise_for_status()
+                data = response.json()
+                _LOGGER.debug("[COORD] JSON data: %s", data)
+                return data
         except (requests.RequestException, ValueError) as error:
             _LOGGER.error("[COORD] Error updating data: %s", error)
             raise UpdateFailed(f"Error updating data: {error}") from error
+        except Exception as err:
+            _LOGGER.error("[COORD] Error updating Buienalarm data: %s", err)
+            raise UpdateFailed("Error fetching Buienalarm data") from err
 
     async def old_async_update_data(self) -> dict[str, object]:
         """Query de Buienalarm‑API (1 retry)."""
@@ -140,7 +157,7 @@ class BuienalarmDataUpdateCoordinator(DataUpdateCoordinator):
                 raise UpdateFailed(exc) from exc
         raise UpdateFailed("Alle pogingen verlopen")
 
-    async def refresh_data(self):
+    async def old_refresh_data(self):
         """Refresh data with the specified update interval asynchronously."""
         while True:
             await self.fetch_data()
@@ -160,7 +177,7 @@ class BuienalarmDataUpdateCoordinator(DataUpdateCoordinator):
         _LOGGER.warning("Value %s is missing in API response", key)
         return None
 
-    async def start(self):
+    async def old_start(self):
         """Start the data refreshing task."""
         await self.fetch_data()
         self.refresh_task = asyncio.create_task(self.refresh_data())

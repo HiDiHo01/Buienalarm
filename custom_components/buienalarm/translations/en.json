@@ -6,13 +6,63 @@
                 "title": "Buienalarm",
                 "description": "Settings",
                 "data": {
-                    "name": "Place / Name",
-                    "place": "Place",
                     "latitude": "Latitude",
                     "longitude": "Longitude",
-                    "notification_limit": "Notification limit (mm/h)",
+                    "name": "Place / Name",
                     "refresh_interval": "Refresh interval (sec)"
                 }
+            }
+        },
+        "error": {
+            "api_key": "The given API key is incorrect."
+        },
+        "abort": {
+            "single_instance_allowed": "Only a single instance is allowed."
+        }
+    },
+    "options": {
+        "step": {
+            "user": {
+                "data": {
+                    "binary_sensor": "Binary sensor enabled",
+                    "sensor": "Sensor enabled",
+                    "weather": "Weather enabled",
+                    "refresh_interval": "Refresh interval (sec)"
+                }
+            }
+        }
+    },
+    "entity": {
+        "sensor": {
+            "nowcastmessage": {
+                "name": "Weather message"
+            },
+            "mycastmessage": {
+                "name": "My weather message"
+            },
+            "precipitation_duration": {
+                "name": "Precipitation duration"
+            },
+            "precipitationrate_total": {
+                "name": "Total precipitation"
+            },
+            "precipitationrate_hour": {
+                "name": "Precipitation per hour"
+            },
+            "precipitationrate_now": {
+                "name": "Current precipitation"
+            },
+            "precipitationrate_now_description": {
+                "name": "Current precipitation description"
+            },
+            "precipitationtype_now": {
+                "name": "Current precipitation type"
+            },
+            "next_precipitation": {
+                "name": "Next precipitation in"
+            },
+            "rain_periods": {
+                "name": "Rain periods"
             }
         }
     }
