@@ -41,7 +41,7 @@ ICON_TEMPLATE: Final[str] = "mdi:weather-{}"
 # Sensor definitions
 SENSORS: Final[list[dict[str, object]]] = [
     {
-        "name": "Nelding",
+        "name": "Melding",
         "icon": "mdi:weather-pouring",
         "key": "nowcastmessage",
         "unit_of_measurement": None,
