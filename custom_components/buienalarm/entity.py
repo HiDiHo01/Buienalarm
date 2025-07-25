@@ -82,7 +82,8 @@ class BuienalarmEntity(CoordinatorEntity):
             'precipitationtype_now': self.get_current_precipitation_type,
             'next_precipitation': self.get_next_precipitation,
             # TODO: implement periods in atrributes
-            "precipitation_periods": lambda: len(self.get_precipitation_periods_as_dict()),
+            "precipitation_periods": lambda: len(self.get_precipitation_periods_as_dict())
+            if self.get_precipitation_periods_as_dict() else 0,
             # 'precipitation_periods_as_list': self.get_precipitation_periods_as_list,
         }
 
