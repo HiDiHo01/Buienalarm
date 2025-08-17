@@ -99,7 +99,8 @@ class BuienalarmDataUpdateCoordinator(DataUpdateCoordinator[dict[str, object]]):
     def __init__(self,
                  hass: HomeAssistant,
                  latitude: float,
-                 longitude: float
+                 longitude: float,
+                 config_entry: ConfigEntry
                  ) -> None:
         self.latitude = latitude
         self.longitude = longitude
@@ -111,6 +112,7 @@ class BuienalarmDataUpdateCoordinator(DataUpdateCoordinator[dict[str, object]]):
             name=DOMAIN,
             update_interval=timedelta(minutes=5),  # set update interval
             always_update=True,  # of False indien __eq__ kan vergelijken
+            config_entry=config_entry,
         )
         _LOGGER.debug("[SENSOR COORD] Initialized with URL: %s", self.url)
 
@@ -138,7 +140,7 @@ class BuienalarmDataUpdateCoordinator(DataUpdateCoordinator[dict[str, object]]):
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: ConfigEntry,
+    config_entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """
@@ -147,16 +149,16 @@ async def async_setup_entry(
     This function creates a coordinator, fetches initial data,
     and adds sensor entities.
     """
-    _LOGGER.debug("[SENSOR SETUP] Setting up Buienalarm sensors for %s", entry.unique_id)
-    _LOGGER.debug("[SENSOR SETUP] async_setup_entry called for %s", entry.entry_id)
+    _LOGGER.debug("[SENSOR SETUP] Setting up Buienalarm sensors for %s", config_entry.unique_id)
+    _LOGGER.debug("[SENSOR SETUP] async_setup_entry called for %s", config_entry.entry_id)
 
-    latitude = entry.data.get("latitude")
-    longitude = entry.data.get("longitude")
+    latitude = config_entry.data.get("latitude")
+    longitude = config_entry.data.get("longitude")
 
     _LOGGER.debug(
         "[SENSOR SETUP] Coordinates from entry: lat=%s, lon=%s", latitude, longitude
     )
-    coordinator = BuienalarmDataUpdateCoordinator(hass, latitude, longitude)
+    coordinator = BuienalarmDataUpdateCoordinator(hass, latitude, longitude, config_entry)
     _LOGGER.debug("[SENSOR SETUP] Coordinator created: %s", coordinator)
 
     # Perform initial refresh to warm up data
@@ -166,7 +168,7 @@ async def async_setup_entry(
 
         # Start refresh as background task (niet awaiten!)
         task = hass.async_create_task(coordinator.async_config_entry_first_refresh())
-        entry.async_on_unload(task.cancel)
+        config_entry.async_on_unload(task.cancel)
         _LOGGER.debug(
             "[SENSOR SETUP] Initial refresh completed: success=%s",
             coordinator.last_update_success,
@@ -176,40 +178,40 @@ async def async_setup_entry(
         return False
 
     """Store the coordinator in hass.data for later access."""
-    _LOGGER.debug("[SENSOR SETUP] Storing coordinator in hass.data for entry %s", entry.entry_id)
+    _LOGGER.debug("[SENSOR SETUP] Storing coordinator in hass.data for entry %s", config_entry.entry_id)
     if DOMAIN not in hass.data:
         _LOGGER.debug("[SENSOR SETUP] Initializing hass.data[%s]", DOMAIN)
         # Persist the coordinator in hass.data
-        hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
+        hass.data.setdefault(DOMAIN, {})[config_entry.entry_id] = coordinator
 
     # old_sensors
     sensors1: list[SensorEntity] = [
-        BuienalarmSensor(coordinator, entry, **sensor_data)
+        BuienalarmSensor(coordinator, config_entry, **sensor_data)
         for sensor_data in SENSORS
     ]
 
     sensors2 = [
-        BuienalarmSensorEntity(coordinator, entry, description,
-                               location_id=entry.data.get("location_id", "unknown"),
-                               location_name=entry.data.get("location_name", "unknown"))
+        BuienalarmSensorEntity(coordinator, config_entry, description,
+                               location_id=config_entry.data.get("location_id", "unknown"),
+                               location_name=config_entry.data.get("location_name", "unknown"))
         for description in SENSOR_DESCRIPTIONS
     ]
 
     sensors3: list[SensorEntity] = [
-        BuienalarmSensorEntity(coordinator, entry, description,
-                               location_id=entry.data.get("location_id", "unknown"),
-                               location_name=entry.data.get("location_name", "unknown"))
+        BuienalarmSensorEntity(coordinator, config_entry, description,
+                               location_id=config_entry.data.get("location_id", "unknown"),
+                               location_name=config_entry.data.get("location_name", "unknown"))
         for description in SENSOR_DESCRIPTIONS
     ]
 
     sensors4 = [
-        BuienalarmSensor(coordinator, entry, description.name, description.native_unit_of_measurement,
+        BuienalarmSensor(coordinator, config_entry, description.name, description.native_unit_of_measurement,
                          description.icon, description.device_class, description.state_class, description.key)
         for description in SENSOR_DESCRIPTIONS
     ]
 
     sensors5: list[SensorEntity] = [
-        BuienalarmTestSensor(coordinator, entry, description)
+        BuienalarmTestSensor(coordinator, config_entry, description)
         for description in SENSOR_DESCRIPTIONS
     ]
 
@@ -223,14 +225,14 @@ async def async_setup_entry(
 
     # await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     # ValueError: Config entry Schagen (1ba2a3d11e3e38b8e768ad5ceb4df8bf) for buienalarm.sensor has already been setup!
-    entry.async_on_unload(entry.add_update_listener(async_reload_entry))
+    config_entry.async_on_unload(config_entry.add_update_listener(async_reload_entry))
 
     return True
 
 
-async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+async def async_reload_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> None:
     """Reload config entry when options are changed."""
-    await hass.config_entries.async_reload(entry.entry_id)
+    await hass.config_entries.async_reload(config_entry.entry_id)
 
 
 # class BuienalarmTestSensor(CoordinatorEntity[BuienalarmDataUpdateCoordinator], SensorEntity):

@@ -68,6 +68,7 @@ class BuienalarmDataUpdateCoordinator(DataUpdateCoordinator):
             update_interval=update_interval,
             update_method=self._async_update_data,
             setup_method=self._async_setup,
+            config_entry=config_entry,
         )
         _LOGGER.debug("[COORD INIT] DataUpdateCoordinator initialized")
 
