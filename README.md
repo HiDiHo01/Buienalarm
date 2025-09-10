@@ -1,4 +1,4 @@
-[![Dependabot Updates](https://github.com/HiDiHo01/Buienalarm/actions/workflows/dependabot/dependabot-updates/badge.svg?branch=main)](https://github.com/HiDiHo01/Buienalarm/actions/workflows/dependabot/dependabot-updates)
+s[![Dependabot Updates](https://github.com/HiDiHo01/Buienalarm/actions/workflows/dependabot/dependabot-updates/badge.svg?branch=main)](https://github.com/HiDiHo01/Buienalarm/actions/workflows/dependabot/dependabot-updates)
 # Buienalarm Home Assistant Component
 
 This is a custom component for Home Assistant that integrates with Buienalarm to provide accurate and up-to-date precipitation forecasts.
@@ -60,7 +60,7 @@ header:
   show: true
   title: Neerslag in mm/u (+2 uur)
 series:
-  - entity: sensor.neerslag_verwacht_schagen
+  - entity: sensor.neerslag_verwacht
     name: Neerslag
     unit: mm/u
     stroke_width: 8
