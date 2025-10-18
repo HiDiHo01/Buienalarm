@@ -1,7 +1,7 @@
 # coordinator.py
 import asyncio
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Callable
 
 import aiohttp
@@ -59,6 +59,7 @@ class BuienalarmDataUpdateCoordinator(DataUpdateCoordinator):
         self.url = API_ENDPOINT.format(api.latitude, api.longitude)
         _LOGGER.debug("[COORD INIT] Using API URL: %s", self.url)
         self.entities = []  # Create an empty list to store associated entities
+        self.api_last_updated: datetime | None = None
         # self.last_update_success = False
 
         super().__init__(
@@ -109,7 +110,9 @@ class BuienalarmDataUpdateCoordinator(DataUpdateCoordinator):
         _LOGGER.debug("[COORD UPDATE] Starting _async_update_data for URL: %s with timeout: %s", self.url, _API_TIMEOUT)
         try:
             async with async_timeout.timeout(30):
-                return await self.api.async_get_data()
+                data = await self.api.async_get_data()
+                self.api_last_updated = datetime.now(timezone.utc)
+                return data
                 response = await self.hass.async_add_executor_job(
                     requests.get, self.url
                 )

@@ -1,6 +1,6 @@
 # sensor.py
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Final
 
 import requests
@@ -117,7 +117,10 @@ class BuienalarmDataUpdateCoordinator(DataUpdateCoordinator[dict[str, object]]):
         _LOGGER.debug("[SENSOR COORD] Initialized with URL: %s", self.url)
 
     async def _async_update_data(self) -> dict[str, object]:
-        """Fetch the latest data from Buienalarm."""
+        """
+            Fetch the latest data from Buienalarm.
+            Called automatically by the DataUpdateCoordinator on schedule.
+        """
         _LOGGER.debug("[SENSOR COORD] _async_update_data called")
         try:
             # response = await self.api.async_get_data()
@@ -132,6 +135,8 @@ class BuienalarmDataUpdateCoordinator(DataUpdateCoordinator[dict[str, object]]):
             response.raise_for_status()
             data = response.json()
             _LOGGER.debug("[SENSOR COORD] JSON data: %s", data)
+            self.api_last_updated = datetime.now(timezone.utc)
+            _LOGGER.debug("[SENSOR COORD] Fetched new Buienalarm data at %s", self.api_last_updated.isoformat())
             return data
         except (requests.RequestException, ValueError) as error:
             _LOGGER.error("[SENSOR COORD] Error updating data: %s", error)
@@ -377,8 +382,26 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
 
     @property
     def extra_state_attributes(self) -> dict[str, object] | None:
-        """Return the state attributes."""
-        return {
-            "precipitation_data": self.data_points_as_list,
-            "attribution": ATTR_ATTRIBUTION,
-        }
+        """
+        Return the additional state attributes for Home Assistant.
+
+        This property replaces the deprecated `device_state_attributes`.
+        It includes metadata such as the last update time and any extra
+        contextual data relevant to the entity.
+        """
+        try:
+            attributes: dict[str, object] = {}
+            # attributes["api_last_updated"] = self._api_last_updated.isoformat() if self._api_last_updated else None
+            # Add API timestamp from coordinator
+            if getattr(self.coordinator, "api_last_updated", None):
+                attributes["api_last_updated"] = self.coordinator.api_last_updated.isoformat()
+
+            # Only include precipitation_data for one specific sensor
+            if self._key == "precipitationrate_total":
+                attributes["precipitation_data"] = getattr(self, "data_points_as_list", [])
+
+            attributes["attribution"] = ATTR_ATTRIBUTION
+            return attributes
+        except Exception as exc:
+            _LOGGER.error("Failed to build extra_state_attributes: %s", exc)
+            return {}

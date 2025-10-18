@@ -23,7 +23,7 @@ from homeassistant.components.persistent_notification import (
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .const import API_ENDPOINT, API_TIMEOUT, DOMAIN, VERSION
+from .const import API_ENDPOINT, API_TIMEOUT
 from .exceptions import ApiError
 
 # -----------------------------------------------------------------------------
@@ -107,7 +107,11 @@ class BuienalarmApiClient:
         Fetch static metadata (e.g., station name, available keys) once.
         """
         _LOGGER.debug("[API%s] Fetching initial metadata", self._sfx)
-        async with self._session.get(self._url, timeout=self._timeout) as resp:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+            "Accept": "application/json",
+        }
+        async with self._session.get(self._url, timeout=self._timeout, headers=headers) as resp:
             resp.raise_for_status()
             data = await resp.json()
             _LOGGER.debug(
@@ -122,16 +126,30 @@ class BuienalarmApiClient:
         """Download raw JSON from Buienalarm endpoint with full debug tracing."""
         timeout = timeout or self._timeout
         _LOGGER.debug("[API%s] → GET %s (timeout=%ss)", self._sfx, self._url, timeout.total)
+
+        # Log what headers aiohttp will send
+        effective_headers = dict(self._session.headers)  # default session headers
+        _LOGGER.debug("[API%s] → Effective request headers: %s", self._sfx, effective_headers)
+
         fetch_started_at: datetime = datetime.now(timezone.utc)
+
+        # Define the request headers
+        headers = {
+            "User-Agent": "HomeAssistant/2025.10.2 aiohttp/3.13.0 Python/3.13",
+            "Accept-Encoding": "gzip",
+        }
+
+        _LOGGER.debug("[API%s] → Set request headers to: %s", self._sfx, headers)
         try:
             async with async_timeout.timeout(timeout.total):
                 async with self._session.get(
                     self._url,
                     timeout=timeout,
-                    headers={
-                        "Accept-Encoding": "gzip",
-                        "User-Agent": f"HomeAssistant/{VERSION} {DOMAIN}",
-                    },
+                    headers=headers,
+                    #                    headers={
+                    #                        "Accept-Encoding": "gzip",
+                    #                        "User-Agent": f"HomeAssistant/{VERSION} {DOMAIN}",
+                    #                    },
                 ) as resp:
                     resp.raise_for_status()
                     headers: dict = resp.headers
