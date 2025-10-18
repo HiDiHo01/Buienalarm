@@ -18,7 +18,7 @@ DATA_KEY: Final[str] = "data"
 # Integration metadata
 NAME: Final[str] = "Buienalarm"
 DOMAIN: Final[str] = "buienalarm"
-VERSION: Final[str] = "2025.9.17"
+VERSION: Final[str] = "2025.10.18"
 ATTR_ATTRIBUTION: Final[str] = "Data provided by Buienalarm"
 
 # Default configuration
