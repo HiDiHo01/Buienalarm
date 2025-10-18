@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "Buienalarm"
-version = "2025.9.17"
-description = "Buienalarm Nederland."
+version = "2025.10.18"
+description = "Buienalarm"
 authors = ["HiDiHo <hidiho@gmail.com>"]
 license = "MIT"
 readme = "README.md"
