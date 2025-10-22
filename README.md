@@ -60,7 +60,7 @@ header:
   show: true
   title: Neerslag in mm/u (+2 uur)
 series:
-  - entity: sensor.neerslag_verwacht
+  - entity: sensor.buienalarm_neerslag_verwacht
     name: Neerslag
     unit: mm/u
     stroke_width: 8
@@ -123,14 +123,15 @@ apex_config:
 
 This integration creates the following sensor entities:
 
-- `sensor.duur_neerslag`
-- `sensor.neerslag`
-- `sensor.buienalarm`
-- `sensor.my_buienalarm`
-- `sensor.neerslag_komend_uur`
-- `sensor.neerslag_verwacht`
-- `sensor.neerslag_omschrijving`
-- `sensor.soort_neerslag`
+- `sensor.buienalarm_duur_neerslag`
+- `sensor.buienalarm_melding`
+- `sensor.buienalarm_mijn_melding`
+- `sensor.buienalarm_neerslag`
+- `sensor.buienalarm_neerslag_omschrijving`
+- `sensor.buienalarm_neerslag_periodes`
+- `sensor.buienalarm_neerslag_verwacht`
+- `sensor.buienalarm_soort_neerslag`
+- `sensor.buienalarm_volgende_neerslag`
 
 ## Customization
 
