@@ -52,7 +52,6 @@ def _get_browser_headers() -> dict[str, str]:
     return {
         "User-Agent": _get_random_user_agent(),
         "Accept": "application/json, text/plain, */*",
-        "Accept-Encoding": "gzip, deflate, br",
         "Accept-Language": "nl-NL,nl;q=0.9,en-US;q=0.8,en;q=0.7",
         "Referer": "https://www.buienalarm.nl/",
         "Origin": "https://www.buienalarm.nl",

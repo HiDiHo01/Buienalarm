@@ -130,7 +130,6 @@ class BuienalarmApiClient:
         headers = {
             "User-Agent": user_agent,
             "Accept": "application/json, text/plain, */*",
-            "Accept-Encoding": "gzip, deflate, br",
             "Accept-Language": "nl-NL,nl;q=0.9,en-US;q=0.8,en;q=0.7",
             "Referer": "https://www.buienalarm.nl/",
             "Origin": "https://www.buienalarm.nl",
@@ -171,7 +170,6 @@ class BuienalarmApiClient:
         headers = {
             "User-Agent": user_agent,
             "Accept": "application/json, text/plain, */*",
-            "Accept-Encoding": "gzip, deflate, br",
             "Accept-Language": "nl-NL,nl;q=0.9,en-US;q=0.8,en;q=0.7",
             "Referer": "https://www.buienalarm.nl/",
             "Origin": "https://www.buienalarm.nl",
