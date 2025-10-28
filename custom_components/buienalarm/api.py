@@ -10,6 +10,7 @@ filtering on the `[API]` tag.
 import asyncio
 import json
 import logging
+import random
 import socket
 from datetime import datetime, timezone
 from typing import Any, Final, cast
@@ -30,6 +31,25 @@ from .exceptions import ApiError
 #  Logger setup
 # -----------------------------------------------------------------------------
 _LOGGER = logging.getLogger(__name__)
+
+# -----------------------------------------------------------------------------
+#  User Agent rotation to avoid 403 errors
+# -----------------------------------------------------------------------------
+_USER_AGENT_LIST: Final[list[str]] = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36',
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 14_4_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.3 Mobile/15E148 Safari/604.1',
+    'Mozilla/4.0 (compatible; MSIE 9.0; Windows NT 6.1)',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Safari/537.36 Edg/87.0.664.75',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.102 Safari/537.36 Edge/18.18363',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36',
+]
+
+
+def _get_random_user_agent() -> str:
+    """Return a random user agent from the list."""
+    return random.choice(_USER_AGENT_LIST)
+
 
 # -----------------------------------------------------------------------------
 #  JSON pretty print helper
@@ -73,7 +93,6 @@ class BuienalarmApiClient:
     ) -> None:
         self.latitude: Final[float] = cast(float, latitude)
         self.longitude: Final[float] = cast(float, longitude)
-        # self._session = session
         self._session: Final[ClientSession] = (
             session if session else async_get_clientsession(hass)
         )
@@ -107,17 +126,34 @@ class BuienalarmApiClient:
         Fetch static metadata (e.g., station name, available keys) once.
         """
         _LOGGER.debug("[API%s] Fetching initial metadata", self._sfx)
+        user_agent = _get_random_user_agent()
         headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
-            "Accept": "application/json",
+            "User-Agent": user_agent,
+            "Accept": "application/json, text/plain, */*",
+            "Accept-Language": "nl-NL,nl;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Referer": "https://www.buienalarm.nl/",
+            "Origin": "https://www.buienalarm.nl",
+            "DNT": "1",
+            "Connection": "keep-alive",
+            "Sec-Fetch-Dest": "empty",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Site": "same-site",
         }
-        async with self._session.get(self._url, timeout=self._timeout, headers=headers) as resp:
-            resp.raise_for_status()
-            data = await resp.json()
-            _LOGGER.debug(
-                "[API%s] Retrieved metadata keys: %s", self._sfx, list(data.keys())
-            )
-            return data
+        _LOGGER.debug("[API%s] Using User-Agent: %s", self._sfx, user_agent)
+        
+        try:
+            async with self._session.get(self._url, timeout=self._timeout, headers=headers) as resp:
+                _LOGGER.debug("[API%s] Initial data response status: %s", self._sfx, resp.status)
+                resp.raise_for_status()
+                data = await resp.json()
+                _LOGGER.debug(
+                    "[API%s] Retrieved metadata keys: %s", self._sfx, list(data.keys())
+                )
+                return data
+        except aiohttp.ClientResponseError as err:
+            _LOGGER.error("[API%s] HTTP error fetching initial data: %s", self._sfx, err)
+            _LOGGER.error("[API%s] Response headers: %s", self._sfx, dict(err.headers) if err.headers else "N/A")
+            raise
 
     async def async_get_nowcast(
         self,
@@ -127,37 +163,35 @@ class BuienalarmApiClient:
         timeout = timeout or self._timeout
         _LOGGER.debug("[API%s] → GET %s (timeout=%ss)", self._sfx, self._url, timeout.total)
 
-        # Log what headers aiohttp will send
-        effective_headers = dict(self._session.headers)  # default session headers
-        _LOGGER.debug("[API%s] → Effective request headers: %s", self._sfx, effective_headers)
-
         fetch_started_at: datetime = datetime.now(timezone.utc)
 
-        # Define the request headers
+        # Get random user agent to avoid 403 errors
+        user_agent = _get_random_user_agent()
         headers = {
-            "User-Agent": "HomeAssistant/2025.10.2 aiohttp/3.13.0 Python/3.13",
-            "Accept-Encoding": "gzip",
+            "User-Agent": user_agent,
+            "Accept": "application/json, text/plain, */*",
+            "Accept-Language": "nl-NL,nl;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Referer": "https://www.buienalarm.nl/",
+            "Origin": "https://www.buienalarm.nl",
+            "DNT": "1",
+            "Connection": "keep-alive",
+            "Sec-Fetch-Dest": "empty",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Site": "same-site",
         }
 
-        _LOGGER.debug("[API%s] → Set request headers to: %s", self._sfx, headers)
+        _LOGGER.debug("[API%s] → Using User-Agent: %s", self._sfx, user_agent)
+        _LOGGER.debug("[API%s] → Request headers: %s", self._sfx, headers)
+
         try:
             async with async_timeout.timeout(timeout.total):
                 async with self._session.get(
                     self._url,
                     timeout=timeout,
                     headers=headers,
-                    #                    headers={
-                    #                        "Accept-Encoding": "gzip",
-                    #                        "User-Agent": f"HomeAssistant/{VERSION} {DOMAIN}",
-                    #                    },
                 ) as resp:
-                    resp.raise_for_status()
-                    headers: dict = resp.headers
-                    content: dict = await resp.json()
-
-                    age_header: int = int(headers.get("Age", "0"))
-                    _LOGGER.debug("[API]   Age header: %s", age_header)
                     _LOGGER.debug("[API%s]   HTTP %s", self._sfx, resp.status)
+                    
                     if resp.status != 200:
                         _LOGGER.error(
                             "[API%s]   HTTP error: %s %s",
@@ -166,53 +200,50 @@ class BuienalarmApiClient:
                             resp.reason,
                         )
                         raise ApiError(f"HTTP error {resp.status}: {resp.reason}")
+                    
                     _LOGGER.debug("[API%s]   Response received", self._sfx)
                     _LOGGER.debug("[API%s]   Response headers: %s", self._sfx, dict(resp.headers))
                     _LOGGER.debug("[API%s]   Response content type: %s", self._sfx,
-                                  resp.headers.get("Content-Type", "unknown"))
+                                resp.headers.get("Content-Type", "unknown"))
                     _LOGGER.debug("[API%s]   Response content length: %s",
-                                  self._sfx, resp.headers.get("Content-Length", "?"))
-                    if resp.status == 200:
-                        data = await resp.json(content_type=None)
-                        _LOGGER.debug("[API%s]   Status OK (200), processing response", self._sfx)
-                        _LOGGER.debug("[API%s]   Response is expected to be JSON", self._sfx)
-                        _LOGGER.debug("[API%s]   Will parse response as JSON", self._sfx)
-                        _LOGGER.info(
-                            "[API%s]   Successfully fetched data from Buienalarm", self._sfx
-                        )
-                        _LOGGER.info("[API%s]   Response received", self._sfx)
-                        _LOGGER.info("[API%s]   ---------> Response data: %s", self._sfx, data)
-                        return {
-                            "timeseries": content,
-                            "retrieval_time": fetch_started_at,
-                            "cache_age": age_header,
-                        }
-                    if resp.status == 204:
-                        return {}
-                    await self._log_response_meta(resp)
-                    compressed = resp.headers.get("Content-Length", "?")
+                                self._sfx, resp.headers.get("Content-Length", "?"))
+                    
+                    # Parse JSON response
+                    data = await resp.json(content_type=None)
+                    age_header: int = int(resp.headers.get("Age", "0"))
+                    
+                    _LOGGER.debug("[API%s]   Cache Age header: %s", self._sfx, age_header)
+                    _LOGGER.debug("[API%s]   Status OK (200), processing response", self._sfx)
                     _LOGGER.debug(
-                        "[API%s]   compressed payload: %s bytes", self._sfx, compressed
-                    )
-                    _LOGGER.debug(
-                        "[API%s]   parsed JSON → %d top-level keys",
+                        "[API%s]   Parsed JSON → %d top-level keys",
                         self._sfx,
                         len(data) if isinstance(data, dict) else -1,
                     )
+                    
                     pretty = _dump_json(data).replace("\n", "\n    ")
-                    _LOGGER.debug("[API%s]   full JSON dump:\n    %s", self._sfx, pretty)
+                    _LOGGER.debug("[API%s]   Full JSON dump:\n    %s", self._sfx, pretty)
+                    
+                    _LOGGER.info(
+                        "[API%s]   Successfully fetched data from Buienalarm", self._sfx
+                    )
+                    
+                    await self._maybe_dismiss_notification()
+                    
+                    return {
+                        "timeseries": data,
+                        "retrieval_time": fetch_started_at,
+                        "cache_age": age_header,
+                    }
+                    
         except asyncio.TimeoutError as err:
             _LOGGER.error("[API%s]   TIMEOUT after %ss", self._sfx, timeout.total)
             raise ApiError("Timeout while requesting Buienalarm data") from err
         except (aiohttp.ClientError, socket.gaierror) as err:
             _LOGGER.error("[API%s]   HTTP error: %s", self._sfx, err)
-            raise ApiError(err) from err
+            raise ApiError(str(err)) from err
         except ValueError as err:
             _LOGGER.error("[API%s]   JSON decode error: %s", self._sfx, err)
             raise ApiError("Invalid JSON") from err
-
-        await self._maybe_dismiss_notification()
-        # return cast(dict[str, object], data)
 
     async def async_get_data(
         self,
@@ -225,10 +256,9 @@ class BuienalarmApiClient:
             _LOGGER.debug("[API%s] No timeout provided, using default: %ss", self._sfx, timeout.total)
         else:
             _LOGGER.debug("[API%s] Using provided timeout: %ss", self._sfx, timeout.total)
+        
         result = await self.async_get_nowcast(timeout=timeout)
-        _LOGGER.debug(
-            "[API%s] async_get_data() completed in %s", self._sfx, result.get("retrieval_time", "unknown")
-        )
+        
         _LOGGER.debug("[API%s] async_get_data → result type: %s", self._sfx, type(result).__name__)
         if isinstance(result, dict):
             _LOGGER.debug("[API%s] async_get_data → result keys: %s", self._sfx, list(result.keys()))
@@ -272,4 +302,5 @@ class BuienalarmApiClient:
     @property
     def _sfx(self) -> str:
         """Return a short suffix for logs/notifications: '' or f'‑{entry_id}'."""
+        return f" id={self._entry_id}" if self._entry_id else ""
         return f" id={self._entry_id}" if self._entry_id else ""
