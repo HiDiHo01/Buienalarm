@@ -21,7 +21,7 @@ jobs:
 
     steps:
       - name: 📥 Checkout code
-        uses: actions/checkout@v5  # Update naar v4
+        uses: actions/checkout@v6  # Update naar v4
 
       - name: 🐍 Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v6
