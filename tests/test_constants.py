@@ -24,7 +24,7 @@ from custom_components.buienalarm.const import (
 
 def test_api_constants():
     """Test the API-related constants."""
-    assert API_ENDPOINT == "https://imn-rust-lb.infoplaza.io/v4/nowcast/ba/timeseries/{}/{}"
+    assert API_ENDPOINT == "https://imn-rust-lb.infoplaza.io/v4/nowcast/ba/timeseries/{}/{}" 
     
     assert API_TIMEOUT == 30
     assert API_TIMEZONE == "Europe/Amsterdam"
