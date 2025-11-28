@@ -9,7 +9,7 @@ from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
 from homeassistant.const import UnitOfTime, UnitOfVolumetricFlux
 
 # API Configuration
-API_ENDPOINT: Final[str] = "https://cdn.buienalarm.nl/api/4.0/nowcast/timeseries/{}/{}"
+API_ENDPOINT: Final[str] = "https://imn-rust-lb.infoplaza.io/v4/nowcast/ba/timeseries/{}/{}"
 API_TIMEOUT: Final[int] = 30
 API_TIMEZONE: Final[str] = "Europe/Amsterdam"
 API_CONF_URL: Final[str] = "https://buienalarm.nl"
