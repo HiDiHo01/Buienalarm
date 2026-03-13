@@ -19,6 +19,8 @@ from homeassistant.util import dt
 from .const import API_CONF_URL, DOMAIN, NAME
 from .coordinator import BuienalarmDataUpdateCoordinator
 
+MAX_DURATION_MINUTES = 120
+
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
 _LOGGER.debug("[ENTITY] Start entity.py")
@@ -325,15 +327,15 @@ class BuienalarmEntity(CoordinatorEntity):
             return f"Neerslag begint om {self.format_time(rain_start_time)} en duurt {rain_duration} minuten"
         return f"Er wordt regen verwacht om {self.format_time(rain_start_time)} en duurt {rain_duration} minuten"
 
-    def get_precipitation_duration(self) -> int:
+    def old_get_precipitation_duration(self) -> int:
         """ Get the duration of the current precipitation event in minutes. """
-        # precip_data: list[dict[str, float]] = self.coordinator.data.get('data', [])
         precip_data = self._ensure_precip_data()
 
         # Check if the data is not empty and is in the expected format
         if not precip_data or not all(isinstance(entry, dict) for entry in precip_data):
             _LOGGER.error("[BUIENALARM ENTITY] Invalid or missing precipitation data")
-            raise ValueError("Invalid or missing precipitation data")
+            return 0
+            # raise ValueError("Invalid or missing precipitation data")
 
         current_time: datetime = datetime.now(timezone.utc)
         precip_started: bool = False
@@ -342,10 +344,12 @@ class BuienalarmEntity(CoordinatorEntity):
         for data_point in precip_data:
             timestamp = data_point.get("timestamp")
             if timestamp is None:
-                raise ValueError("Missing timestamp in precipitation data")
+                _LOGGER.debug("Skipping precipitation entry without timestamp")
+                continue
+                # raise ValueError("Missing timestamp in precipitation data")
             data_point_time: datetime = datetime.fromtimestamp(
                 timestamp, tz=timezone.utc)
-            precip_rate: float = data_point.get("precipitationrate", 0)
+            precip_rate = float(data_point.get("precipitationrate", 0))
 
             # Check if the current time is within the data point
             if data_point_time > current_time:
@@ -361,11 +365,50 @@ class BuienalarmEntity(CoordinatorEntity):
                             "Precipitation start time is not set.")
                     precip_duration: float = (
                         data_point_time - start_time).total_seconds() / 60
-                    return int(round(precip_duration))
+                    return min(MAX_DURATION_MINUTES, int(round(precip_duration)))
                 else:
                     return 0
 
         # If we reach here, there is no ongoing precipitation
+        return 0
+
+    def get_precipitation_duration(self) -> int:
+        """Return the duration of the current precipitation event in minutes."""
+        precip_data: list[dict[str, float]] = self._ensure_precip_data()
+
+        if not precip_data:
+            _LOGGER.debug("No precipitation data available")
+            return 0
+
+        current_time: datetime = datetime.now(timezone.utc)
+        start_time: datetime | None = None
+
+        for entry in precip_data:
+            timestamp = entry.get("timestamp")
+            if timestamp is None:
+                _LOGGER.debug("Skipping precipitation entry without timestamp")
+                continue
+
+            data_point_time = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+            precip_rate = float(entry.get("precipitationrate", 0))
+
+            # Only consider future forecast points
+            if data_point_time <= current_time:
+                continue
+
+            if precip_rate > 0:
+                if start_time is None:
+                    start_time = data_point_time
+            else:
+                if start_time is not None:
+                    duration = (data_point_time - start_time).total_seconds() / 60
+                    return min(MAX_DURATION_MINUTES, int(round(duration)))
+                return 0
+
+        if start_time is not None:
+            duration = (current_time - start_time).total_seconds() / 60
+            return min(MAX_DURATION_MINUTES, int(round(duration)))
+
         return 0
 
     def _validate_timestamps(self, start_time: datetime, end_time: datetime) -> None:
@@ -616,9 +659,11 @@ class BuienalarmEntity(CoordinatorEntity):
                     current_type = data_point.get("precipitationtype", "-")
                     if current_type == "rain":
                         return "Regen"
+                    elif current_type == "freezing rain":
+                        return "Ijzel"
                     elif current_type == "snow":
                         return "Sneeuw"
-                    elif current_type == "mix of rain and snow":
+                    elif current_type == "mix" or current_type == "mix of rain and snow":
                         return "Mix van regen en sneeuw"
 
         return current_type
