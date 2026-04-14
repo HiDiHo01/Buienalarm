@@ -18,7 +18,7 @@ addopts = "--tb=short --color=yes"
 
 [tool.poetry.dependencies]
 python = ">=3.13.2,<3.14"
-homeassistant = "^2025.6.2"
+homeassistant = "^2026.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest-homeassistant-custom-component = "^0.13.0"
