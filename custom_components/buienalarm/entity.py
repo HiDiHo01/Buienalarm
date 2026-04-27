@@ -382,6 +382,7 @@ class BuienalarmEntity(CoordinatorEntity):
 
         current_time: datetime = datetime.now(timezone.utc)
         start_time: datetime | None = None
+        last_time: datetime | None = None  # Track last processed forecast point
 
         for entry in precip_data:
             timestamp = entry.get("timestamp")
@@ -392,9 +393,10 @@ class BuienalarmEntity(CoordinatorEntity):
             data_point_time = datetime.fromtimestamp(timestamp, tz=timezone.utc)
             precip_rate = float(entry.get("precipitationrate", 0))
 
-            # Only consider future forecast points
             if data_point_time <= current_time:
                 continue
+
+            last_time = data_point_time  # Update on every valid future point
 
             if precip_rate > 0:
                 if start_time is None:
@@ -405,8 +407,9 @@ class BuienalarmEntity(CoordinatorEntity):
                     return min(MAX_DURATION_MINUTES, int(round(duration)))
                 return 0
 
-        if start_time is not None:
-            duration = (current_time - start_time).total_seconds() / 60
+        # Precipitation continued through all forecast points
+        if start_time is not None and last_time is not None:
+            duration = (last_time - start_time).total_seconds() / 60
             return min(MAX_DURATION_MINUTES, int(round(duration)))
 
         return 0
