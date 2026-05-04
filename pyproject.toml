@@ -17,7 +17,7 @@ python_files = ["test_*.py"]
 addopts = "--tb=short --color=yes"
 
 [tool.poetry.dependencies]
-python = ">=3.13.2,<3.14"
+python = ">=3.13.2,<3.15"
 homeassistant = ">=2026.01"
 
 [tool.poetry.group.dev.dependencies]
