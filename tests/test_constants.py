@@ -46,8 +46,9 @@ def test_refresh_constants():
 
 def test_platform_constants():
     """Test the platform-related constants."""
+    assert BINARY_SENSOR == "binary_sensor"
     assert SENSOR == "sensor"
-    assert PLATFORMS == ["sensor"]
+    assert PLATFORMS == ["binary_sensor", "sensor"]
 
 def test_sensors_structure():
     """Test the structure and content of the SENSORS list."""
