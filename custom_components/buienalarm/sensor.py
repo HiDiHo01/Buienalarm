@@ -131,12 +131,13 @@ old_SENSOR_DESCRIPTIONS: Final[list[SensorEntityDescription]] = [
 class BuienalarmDataUpdateCoordinator(DataUpdateCoordinator[dict[str, object]]):
     _LOGGER.debug("[SENSOR COORD] Initializing sync coordinator in sensor.py")
 
-    def __init__(self,
-                 hass: HomeAssistant,
-                 latitude: float,
-                 longitude: float,
-                 config_entry: ConfigEntry
-                 ) -> None:
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        latitude: float,
+        longitude: float,
+        config_entry: ConfigEntry
+    ) -> None:
         self.latitude = latitude
         self.longitude = longitude
         self.url = API_ENDPOINT.format(latitude, longitude)
@@ -161,7 +162,7 @@ class BuienalarmDataUpdateCoordinator(DataUpdateCoordinator[dict[str, object]]):
             # Get browser-like headers with random user agent
             headers = _get_browser_headers()
             _LOGGER.debug("[SENSOR COORD] Using User-Agent: %s", headers["User-Agent"])
-            
+
             # Use lambda to properly pass headers to requests.get
             response = await self.hass.async_add_executor_job(
                 lambda: requests.get(self.url, headers=headers, timeout=30)

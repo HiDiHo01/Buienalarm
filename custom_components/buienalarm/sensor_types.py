@@ -1,3 +1,11 @@
+"""Entity descriptions for Buienalarm sensors."""
+
+from typing import Final
+
+from homeassistant.components.binary_sensor import (
+    BinarySensorDeviceClass,
+    BinarySensorEntityDescription,
+)
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntityDescription,
@@ -69,11 +77,32 @@ SENSOR_KEYS: list[dict] = [
         "key": "precipitation_periods",
         "name": "Precipitation Periods",
         "icon": "mdi:weather-rainy",
-        "enabled_by_default": False,  # potentially verbose data
-    }
+        "enabled_by_default": False,
+    },
 ]
 
-# translation_key=entry.get("translation_key", entry["key"]),  # not needed if key is the same as translation_key
+BINARY_SENSOR_DESCRIPTIONS: Final[tuple[BinarySensorEntityDescription, ...]] = (
+    BinarySensorEntityDescription(
+        key="precipitation_expected",
+        translation_key="precipitation_expected",
+        name="Neerslag verwacht",
+        icon="mdi:weather-rainy",
+    ),
+    BinarySensorEntityDescription(
+        key="currently_raining",
+        translation_key="currently_raining",
+        name="Het regent nu",
+        icon="mdi:weather-rainy",
+        device_class=BinarySensorDeviceClass.MOISTURE,
+    ),
+    BinarySensorEntityDescription(
+        key="currently_snowing",
+        translation_key="currently_snowing",
+        name="Het sneeuwt nu",
+        icon="mdi:weather-snowy",
+        device_class=BinarySensorDeviceClass.MOISTURE,
+    ),
+)
 
 SENSOR_DESCRIPTIONS: list[SensorEntityDescription] = [
     SensorEntityDescription(

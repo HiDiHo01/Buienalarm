@@ -30,10 +30,9 @@ DATA_REFRESH_INTERVAL: Final[int] = 300
 DEFAULT_UPDATE_INTERVAL: Final[timedelta] = timedelta(minutes=5)
 
 # Supported platforms
-# BINARY_SENSOR: Final[str] = "binary_sensor"
+BINARY_SENSOR: Final[str] = "binary_sensor"
 SENSOR: Final[str] = "sensor"
-# PLATFORMS: Final[list[str]] = [BINARY_SENSOR, SENSOR]
-PLATFORMS: Final[list[str]] = [SENSOR]
+PLATFORMS: Final[list[str]] = [BINARY_SENSOR, SENSOR]
 
 # Icon templates (not in use)
 ICON_TEMPLATE: Final[str] = "mdi:weather-{}"
