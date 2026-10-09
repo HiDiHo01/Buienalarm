@@ -12,6 +12,7 @@ The flow follows Home Assistant best‑practices:
     • Employs lazy ``%`` interpolation for all logging calls
       (pylint‑warning W1203).
 """
+
 from __future__ import annotations
 
 import logging
@@ -37,7 +38,7 @@ _LOGGER: Final[logging.Logger] = logging.getLogger(__name__)
 DEFAULT_LATITUDE: Final[float] = 52.7875
 DEFAULT_LONGITUDE: Final[float] = 4.79861
 DEFAULT_REFRESH_INTERVAL: Final[int] = 300  # seconds (5 min)
-DEFAULT_NOTIFICATION_LIMIT: Final[int] = 0   # mm/h – notify on any value
+DEFAULT_NOTIFICATION_LIMIT: Final[int] = 0  # mm/h – notify on any value
 
 
 def _is_valid_coordinates(latitude: float | str, longitude: float | str) -> bool:
@@ -86,7 +87,9 @@ class BuienalarmConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self._abort_if_unique_id_configured()
 
                 _LOGGER.debug("Creating new config entry: %s", unique_id)
-                location_name = user_input.get(CONF_NAME, NAME)  # Default name if not provided
+                location_name = user_input.get(
+                    CONF_NAME, NAME
+                )  # Default name if not provided
 
                 return self.async_create_entry(
                     title=f"{location_name} ({latitude_raw}, {longitude_raw})",
@@ -120,9 +123,7 @@ class BuienalarmConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Optional(
                     "notification_limit", default=DEFAULT_NOTIFICATION_LIMIT
                 ): int,
-                vol.Optional(
-                    "refresh_interval", default=DEFAULT_REFRESH_INTERVAL
-                ): int,
+                vol.Optional("refresh_interval", default=DEFAULT_REFRESH_INTERVAL): int,
             }
         )
         return self.async_show_form(
