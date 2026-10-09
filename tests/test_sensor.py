@@ -15,7 +15,9 @@ def mock_requests():
         mock_resp = mock_get.return_value
         inner = {
             sensor["key"]: (
-                3.14 if sensor.get("device_class") or sensor.get("state_class") else "Test message"
+                3.14
+                if sensor.get("device_class") or sensor.get("state_class")
+                else "Test message"
             )
             for sensor in SENSORS
         }
@@ -28,7 +30,9 @@ def mock_aiohttp_get():
     """Mock aiohttp.ClientSession.get for Buienalarm."""
     inner = {
         sensor["key"]: (
-            3.14 if sensor.get("device_class") or sensor.get("state_class") else "Test message"
+            3.14
+            if sensor.get("device_class") or sensor.get("state_class")
+            else "Test message"
         )
         for sensor in SENSORS
     }
@@ -66,7 +70,9 @@ async def test_sensor_entities_created_and_populated(
     # Build expected data directly from SENSORS mock
     expected_data = {
         sensor["key"]: (
-            3.14 if sensor.get("device_class") or sensor.get("state_class") else "Test message"
+            3.14
+            if sensor.get("device_class") or sensor.get("state_class")
+            else "Test message"
         )
         for sensor in SENSORS
     }

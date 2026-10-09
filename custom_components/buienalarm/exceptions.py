@@ -1,4 +1,5 @@
 """Buienalarm exceptions."""
+
 # exceptions.py
 
 
