@@ -1,5 +1,6 @@
-"""Test Buienalarm sensor platform."""
+"""Test Buienalarm binary sensor platform."""
 
+import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -8,26 +9,23 @@ from homeassistant.helpers.entity_registry import async_get as async_get_entity_
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.buienalarm.const import DOMAIN
-from custom_components.buienalarm.sensor_types import SENSOR_DESCRIPTIONS
+from custom_components.buienalarm.sensor_types import BINARY_SENSOR_DESCRIPTIONS
 
 
 @pytest.fixture(autouse=True)
 def mock_aiohttp_get():
     """Mock aiohttp.ClientSession.get for Buienalarm API."""
+    now_ts = int(time.time())
     payload = {
         "data": [
             {
-                "precipitationrate": 1.2,
+                "precipitationrate": 2.5,
                 "precipitationtype": "rain",
                 "time": "2026-05-05T12:00:00Z",
-                "timestamp": 1777982400,
+                "timestamp": now_ts,
             }
         ],
-        "nowcastmessage": {
-            "de": "Kein Niederschlag",
-            "en": "No precipitation",
-            "nl": "Geen neerslag",
-        },
+        "nowcastmessage": {"nl": "Regen"},
     }
 
     mock_resp = AsyncMock()
@@ -49,10 +47,10 @@ def mock_aiohttp_get():
 
 
 @pytest.mark.asyncio
-async def test_sensor_entities_created_and_populated(
+async def test_binary_sensor_entities_created_and_populated(
     hass: HomeAssistant,
 ) -> None:
-    """Ensure sensors are created and populated from coordinator data."""
+    """Ensure binary sensors are created and reflect rainfall state."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         title="Buienalarm Test",
@@ -66,39 +64,16 @@ async def test_sensor_entities_created_and_populated(
 
     entity_registry = async_get_entity_registry(hass)
 
-    for desc in SENSOR_DESCRIPTIONS:
+    for desc in BINARY_SENSOR_DESCRIPTIONS:
         unique_id = f"{entry.unique_id}_{desc.key}"
-        entity_id = entity_registry.async_get_entity_id("sensor", DOMAIN, unique_id)
-        assert entity_id is not None, f"Entity for {desc.key} not found"
+        entity_id = entity_registry.async_get_entity_id(
+            "binary_sensor", DOMAIN, unique_id
+        )
+        assert entity_id is not None, f"Binary entity for {desc.key} not found"
 
-        if desc.entity_registry_enabled_default:
-            state = hass.states.get(entity_id)
-            assert state is not None, f"State for {entity_id} missing"
-            assert state.state != "unavailable"
-
-    # Test reload with empty data structure
-    bad_resp = AsyncMock()
-    bad_resp.__aenter__.return_value = bad_resp
-    bad_resp.status = 200
-    bad_resp.reason = "OK"
-    bad_resp.headers = {}
-    bad_resp.json = AsyncMock(return_value={})
-    bad_resp.raise_for_status = MagicMock()
-
-    bad_session = MagicMock()
-    bad_session.get.return_value = bad_resp
-
-    with patch("aiohttp.ClientSession.get", return_value=bad_resp), patch(
-        "custom_components.buienalarm.async_get_clientsession",
-        return_value=bad_session,
-    ):
-        await hass.config_entries.async_reload(entry.entry_id)
-        await hass.async_block_till_done()
-
-    for desc in SENSOR_DESCRIPTIONS:
-        unique_id = f"{entry.unique_id}_{desc.key}"
-        entity_id = entity_registry.async_get_entity_id("sensor", DOMAIN, unique_id)
-        assert entity_id is not None
+        state = hass.states.get(entity_id)
+        assert state is not None, f"State for {entity_id} missing"
+        assert state.state in ("on", "off")
 
     await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()

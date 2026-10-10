@@ -1,57 +1,33 @@
+"""Data processor module for Buienalarm API payloads."""
+
 import logging
 
 from homeassistant.util import dt as dt_util
-from homeassistant.util.dt import as_local
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class BuienalarmDataProcessor:
-    """Verwerkt ruwe Buienalarm API data naar bruikbare sensorwaarden."""
+    """Process raw Buienalarm API data into safe sensor values."""
 
     def __init__(self, raw: object) -> None:
-        """Initialiseer met ruwe data (object)."""
+        """Initialize with raw data."""
         self._raw = raw
         self._forecast: list[dict[str, object]] = []
 
     def process(self) -> dict[str, object]:
-        """
-        Verwerk API-data naar een veilig dict voor sensors.
-
-        Verwachte structuur:
-        {
-            "data": [
-                {
-                    "precipitationrate": float,
-                    "precipitationtype": str,
-                    "timestamp": int (epoch UTC),
-                    "time": str (ISO UTC),
-                },
-                ...
-            ],
-            "nowcastmessage": {
-                "nl": str,
-                "en": str,
-                "de": str,
-            }
-        }
-        """
+        """Process API data into a safe dict for sensors."""
         result: dict[str, object] = {}
 
         if not isinstance(self._raw, dict):
             _LOGGER.warning(
-                "Buienalarm: root is geen dict maar %s", type(self._raw).__name__
+                "Buienalarm: root is not a dict but %s", type(self._raw).__name__
             )
             return result
 
         data = self._raw.get("data")
         if isinstance(data, list):
             self._forecast = self._parse_forecast(data)
-        else:
-            _LOGGER.debug(
-                "Buienalarm: ontbrekende of ongeldige 'data' (type: %s)",
-                type(data).__name__,
-            )
 
         result["rain_expected"] = self._has_precipitation()
         result["precipitation_forecast"] = self._forecast
@@ -60,29 +36,25 @@ class BuienalarmDataProcessor:
         return result
 
     def _parse_forecast(self, data: list[object]) -> list[dict[str, object]]:
-        """Verwerk elk datapunt in forecast naar veilige dict."""
+        """Parse each data point into a safe forecast dictionary."""
         forecast: list[dict[str, object]] = []
 
         for i, item in enumerate(data):
             if not isinstance(item, dict):
-                _LOGGER.debug(
-                    "Buienalarm: overgeslagen datapunt [%s], geen dict: %s", i, item
-                )
                 continue
 
             rate = item.get("precipitationrate")
             if not isinstance(rate, (int, float)):
                 try:
-                    rate = float(rate)
+                    rate = float(rate) if rate is not None else 0.0
                 except (ValueError, TypeError):
-                    _LOGGER.debug("Buienalarm: ongeldig 'precipitationrate': %s", rate)
                     continue
 
             ts_str = item.get("time")
             timestamp = (
                 dt_util.parse_datetime(ts_str) if isinstance(ts_str, str) else None
             )
-            local_time = as_local(timestamp).isoformat() if timestamp else None
+            local_time = dt_util.as_local(timestamp).isoformat() if timestamp else None
 
             forecast.append(
                 {
@@ -100,7 +72,7 @@ class BuienalarmDataProcessor:
         return forecast
 
     def _has_precipitation(self) -> bool:
-        """Controleer of er neerslag wordt verwacht boven 0.0 mm/h."""
+        """Check if precipitation > 0.0 mm/h is expected."""
         for item in self._forecast:
             rate = item.get("precipitationrate")
             if isinstance(rate, (int, float)) and rate > 0:
@@ -108,8 +80,10 @@ class BuienalarmDataProcessor:
         return False
 
     def _parse_nowcast(self) -> dict[str, str]:
-        """Extract vertaalde nowcast boodschap, fallback op lege string."""
-        nowcast = self._raw.get("nowcastmessage")
+        """Extract translated nowcast messages."""
+        nowcast = (
+            self._raw.get("nowcastmessage") if isinstance(self._raw, dict) else None
+        )
         result: dict[str, str] = {}
 
         if isinstance(nowcast, dict):
@@ -117,4 +91,6 @@ class BuienalarmDataProcessor:
                 msg = nowcast.get(lang)
                 if isinstance(msg, str):
                     result[lang] = msg
+        elif isinstance(nowcast, str):
+            result["nl"] = nowcast
         return result
