@@ -44,11 +44,8 @@ class BuienalarmDataUpdateCoordinator(DataUpdateCoordinator):
         update_interval: timedelta = DEFAULT_UPDATE_INTERVAL,
     ) -> None:
         _LOGGER.debug(
-            "[COORD INIT] api=%s, entry_id=%s, update_interval=%s, device_info=%s",
-            api,
+            "[COORD INIT] DataUpdateCoordinator initialized for entry_id=%s",
             config_entry.entry_id,
-            update_interval,
-            device_info,
         )
 
         # Initialize coordinator attributes
