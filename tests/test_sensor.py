@@ -13,13 +13,17 @@ def mock_requests():
     """Prevent real HTTP calls by mocking requests.get with nested 'data' key."""
     with patch("requests.get") as mock_get:
         mock_resp = mock_get.return_value
-        inner = {
-            sensor["key"]: (
-                3.14
-                if sensor.get("device_class") or sensor.get("state_class")
-                else "Test message"
-            )
-            for sensor in SENSORS
+        inner = [
+            {
+                "timestamp": 1700000000,
+                "precipitationrate": 0.0,
+                "precipitationtype": "rain",
+                "time": "2023-11-14T10:00:00Z",
+            }
+        ]
+        mock_resp.json.return_value = {
+            "data": inner,
+            "nowcastmessage": {"nl": "Geen neerslag"},
         }
         yield
 
@@ -27,14 +31,14 @@ def mock_requests():
 @pytest.fixture(autouse=True)
 def mock_aiohttp_get():
     """Mock aiohttp.ClientSession.get for Buienalarm."""
-    inner = {
-        sensor["key"]: (
-            3.14
-            if sensor.get("device_class") or sensor.get("state_class")
-            else "Test message"
-        )
-        for sensor in SENSORS
-    }
+    inner = [
+        {
+            "timestamp": 1700000000,
+            "precipitationrate": 0.0,
+            "precipitationtype": "rain",
+            "time": "2023-11-14T10:00:00Z",
+        }
+    ]
 
     async def _mock_json(*args, **kwargs):
         return {
@@ -74,9 +78,7 @@ async def test_sensor_entities_created_and_populated(
     # Build expected data directly from SENSORS mock
     expected_data = {
         sensor["key"]: (
-            3.14
-            if sensor.get("device_class") or sensor.get("state_class")
-            else "Test message"
+            3.14 if sensor.get("device_class") or sensor.get("state_class") else "Test message"
         )
         for sensor in SENSORS
     }
