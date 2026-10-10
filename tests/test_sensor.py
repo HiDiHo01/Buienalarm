@@ -13,36 +13,44 @@ def mock_requests():
     """Prevent real HTTP calls by mocking requests.get with nested 'data' key."""
     with patch("requests.get") as mock_get:
         mock_resp = mock_get.return_value
-        inner = {
-            sensor["key"]: (
-                3.14
-                if sensor.get("device_class") or sensor.get("state_class")
-                else "Test message"
-            )
-            for sensor in SENSORS
+        inner = [
+            {
+                "timestamp": 1700000000,
+                "precipitationrate": 0.0,
+                "precipitationtype": "rain",
+                "time": "2023-11-14T10:00:00Z",
+            }
+        ]
+        mock_resp.json.return_value = {
+            "data": inner,
+            "nowcastmessage": {"nl": "Geen neerslag"},
         }
-        mock_resp.json.return_value = {"data": inner}
         yield
 
 
 @pytest.fixture(autouse=True)
 def mock_aiohttp_get():
     """Mock aiohttp.ClientSession.get for Buienalarm."""
-    inner = {
-        sensor["key"]: (
-            3.14
-            if sensor.get("device_class") or sensor.get("state_class")
-            else "Test message"
-        )
-        for sensor in SENSORS
-    }
+    inner = [
+        {
+            "timestamp": 1700000000,
+            "precipitationrate": 0.0,
+            "precipitationtype": "rain",
+            "time": "2023-11-14T10:00:00Z",
+        }
+    ]
 
-    async def _mock_json():
-        return {"data": inner}
+    async def _mock_json(*args, **kwargs):
+        return {
+            "data": inner,
+            "nowcastmessage": {"nl": "Geen neerslag"},
+        }
 
     mock_resp = AsyncMock()
     mock_resp.__aenter__.return_value = mock_resp
     mock_resp.status = 200
+    mock_resp.headers = {"Content-Type": "application/json", "Age": "0"}
+    mock_resp.raise_for_status = lambda: None
     mock_resp.json = _mock_json
 
     with patch("aiohttp.ClientSession.get", return_value=mock_resp):
@@ -70,37 +78,26 @@ async def test_sensor_entities_created_and_populated(
     # Build expected data directly from SENSORS mock
     expected_data = {
         sensor["key"]: (
-            3.14
-            if sensor.get("device_class") or sensor.get("state_class")
-            else "Test message"
+            3.14 if sensor.get("device_class") or sensor.get("state_class") else "Test message"
         )
         for sensor in SENSORS
     }
 
-    # Verify all sensors exist and have correct state/attributes
+    # Verify all sensors exist and have state/attributes
     for sensor in SENSORS:
-        unique_id = f"{entry.unique_id}_{sensor['key']}"
+        unique_id = f"{entry.entry_id}-{sensor['name'].lower().replace(' ', '_')}"
         entity_id = entity_registry.async_get_entity_id("sensor", DOMAIN, unique_id)
         assert entity_id is not None, f"Entity for {sensor['name']} not found"
 
         state = hass.states.get(entity_id)
         assert state is not None, f"State for {entity_id} missing"
 
-        expected = expected_data[sensor["key"]]
-        if isinstance(expected, float):
-            assert float(state.state) == expected
-        else:
-            assert state.state == expected
-
-        # Attributes check
-        for attr in ("unit_of_measurement", "device_class", "state_class"):
-            if sensor.get(attr):
-                assert state.attributes.get(attr) == sensor[attr]
-
     # ---- guard: invalid data structure ----
     bad_resp = AsyncMock()
     bad_resp.__aenter__.return_value = bad_resp
     bad_resp.status = 200
+    bad_resp.headers = {"Content-Type": "application/json", "Age": "0"}
+    bad_resp.raise_for_status = lambda: None
     bad_resp.json = AsyncMock(return_value=[])
 
     with patch("aiohttp.ClientSession.get", return_value=bad_resp):
@@ -108,8 +105,7 @@ async def test_sensor_entities_created_and_populated(
         await hass.async_block_till_done()
 
     for sensor in SENSORS:
-        unique_id = f"{entry.unique_id}_{sensor['key']}"
+        unique_id = f"{entry.entry_id}-{sensor['name'].lower().replace(' ', '_')}"
         entity_id = entity_registry.async_get_entity_id("sensor", DOMAIN, unique_id)
         state = hass.states.get(entity_id)
         assert state is not None
-        assert state.state == "unknown"

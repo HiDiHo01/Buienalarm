@@ -36,13 +36,13 @@ _LOGGER = logging.getLogger(__name__)
 #  User Agent rotation to avoid 403 errors
 # -----------------------------------------------------------------------------
 _USER_AGENT_LIST: Final[list[str]] = [
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36",
-    "Mozilla/5.0 (iPhone; CPU iPhone OS 14_4_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.3 Mobile/15E148 Safari/604.1",
-    "Mozilla/4.0 (compatible; MSIE 9.0; Windows NT 6.1)",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Safari/537.36 Edg/87.0.664.75",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.102 Safari/537.36 Edge/18.18363",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36",
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36',
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 14_4_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.3 Mobile/15E148 Safari/604.1',
+    'Mozilla/4.0 (compatible; MSIE 9.0; Windows NT 6.1)',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Safari/537.36 Edg/87.0.664.75',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.102 Safari/537.36 Edge/18.18363',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36',
 ]
 
 
@@ -72,7 +72,6 @@ def _dump_json(data: object) -> str:
     except (TypeError, ValueError) as err:
         _LOGGER.debug("Failed to serialize JSON: %s", err)
         return repr(data)
-
 
 # -----------------------------------------------------------------------------
 #  API Client
@@ -105,19 +104,12 @@ class BuienalarmApiClient:
 
         # Verbose diagnostics
         _LOGGER.debug("[API%s] Initialized BuienalarmApiClient", self._sfx)
-        _LOGGER.debug("[API%s] Latitude: %s", self._sfx, self.latitude)
-        _LOGGER.debug("[API%s] Longitude: %s", self._sfx, self.longitude)
-        _LOGGER.debug("[API%s] Formatted URL: %s", self._sfx, self._url)
         _LOGGER.debug("[API%s] Timeout: %ss", self._sfx, self._timeout.total)
         _LOGGER.debug("[API%s] Entry ID: %s", self._sfx, self._entry_id or "N/A")
         _LOGGER.debug(
             "[API%s] Session: %s (%s)",
             self._sfx,
-            (
-                "provided externally"
-                if session
-                else "created via async_get_clientsession()"
-            ),
+            "provided externally" if session else "created via async_get_clientsession()",
             type(self._session).__name__,
         )
         _LOGGER.debug("[API%s] Notification ID initialized as None", self._sfx)
@@ -147,27 +139,18 @@ class BuienalarmApiClient:
         _LOGGER.debug("[API%s] Using User-Agent: %s", self._sfx, user_agent)
 
         try:
-            async with self._session.get(
-                self._url, timeout=self._timeout, headers=headers
-            ) as resp:
-                _LOGGER.debug(
-                    "[API%s] Initial data response status: %s", self._sfx, resp.status
-                )
+            async with self._session.get(self._url, timeout=self._timeout, headers=headers) as resp:
+                _LOGGER.debug("[API%s] Initial data response status: %s", self._sfx, resp.status)
                 resp.raise_for_status()
                 data = await resp.json()
                 _LOGGER.debug(
-                    "[API%s] Retrieved metadata keys: %s", self._sfx, list(data.keys())
+                    "[API%s] Retrieved metadata keys: %s",
+                    self._sfx,
+                    list(data.keys()) if isinstance(data, dict) else type(data).__name__,
                 )
                 return data
         except aiohttp.ClientResponseError as err:
-            _LOGGER.error(
-                "[API%s] HTTP error fetching initial data: %s", self._sfx, err
-            )
-            _LOGGER.error(
-                "[API%s] Response headers: %s",
-                self._sfx,
-                dict(err.headers) if err.headers else "N/A",
-            )
+            _LOGGER.error("[API%s] HTTP error fetching initial data: %s", self._sfx, err)
             raise
 
     async def async_get_nowcast(
@@ -176,9 +159,7 @@ class BuienalarmApiClient:
     ) -> dict[str, object]:
         """Download raw JSON from Buienalarm endpoint with full debug tracing."""
         timeout = timeout or self._timeout
-        _LOGGER.debug(
-            "[API%s] → GET %s (timeout=%ss)", self._sfx, self._url, timeout.total
-        )
+        _LOGGER.debug("[API%s] → GET timeseries (timeout=%ss)", self._sfx, timeout.total)
 
         fetch_started_at: datetime = datetime.now(timezone.utc)
 
@@ -198,7 +179,6 @@ class BuienalarmApiClient:
         }
 
         _LOGGER.debug("[API%s] → Using User-Agent: %s", self._sfx, user_agent)
-        _LOGGER.debug("[API%s] → Request headers: %s", self._sfx, headers)
 
         try:
             async with async_timeout.timeout(timeout.total):
@@ -219,39 +199,21 @@ class BuienalarmApiClient:
                         raise ApiError(f"HTTP error {resp.status}: {resp.reason}")
 
                     _LOGGER.debug("[API%s]   Response received", self._sfx)
-                    _LOGGER.debug(
-                        "[API%s]   Response headers: %s", self._sfx, dict(resp.headers)
-                    )
-                    _LOGGER.debug(
-                        "[API%s]   Response content type: %s",
-                        self._sfx,
-                        resp.headers.get("Content-Type", "unknown"),
-                    )
-                    _LOGGER.debug(
-                        "[API%s]   Response content length: %s",
-                        self._sfx,
-                        resp.headers.get("Content-Length", "?"),
-                    )
+                    _LOGGER.debug("[API%s]   Response content type: %s", self._sfx,
+                                resp.headers.get("Content-Type", "unknown"))
+                    _LOGGER.debug("[API%s]   Response content length: %s",
+                                self._sfx, resp.headers.get("Content-Length", "?"))
 
                     # Parse JSON response
                     data = await resp.json(content_type=None)
                     age_header: int = int(resp.headers.get("Age", "0"))
 
-                    _LOGGER.debug(
-                        "[API%s]   Cache Age header: %s", self._sfx, age_header
-                    )
-                    _LOGGER.debug(
-                        "[API%s]   Status OK (200), processing response", self._sfx
-                    )
+                    _LOGGER.debug("[API%s]   Cache Age header: %s", self._sfx, age_header)
+                    _LOGGER.debug("[API%s]   Status OK (200), processing response", self._sfx)
                     _LOGGER.debug(
                         "[API%s]   Parsed JSON → %d top-level keys",
                         self._sfx,
                         len(data) if isinstance(data, dict) else -1,
-                    )
-
-                    pretty = _dump_json(data).replace("\n", "\n    ")
-                    _LOGGER.debug(
-                        "[API%s]   Full JSON dump:\n    %s", self._sfx, pretty
                     )
 
                     _LOGGER.info(
@@ -281,32 +243,18 @@ class BuienalarmApiClient:
         timeout: ClientTimeout | None = None,
     ) -> dict[str, Any]:
         """Alias for async_get_nowcast with extra tracing."""
-        _LOGGER.debug(
-            "[API%s] async_get_data() called with timeout: %s", self._sfx, timeout
-        )
+        _LOGGER.debug("[API%s] async_get_data() called with timeout: %s", self._sfx, timeout)
         if timeout is None:
             timeout = self._timeout
-            _LOGGER.debug(
-                "[API%s] No timeout provided, using default: %ss",
-                self._sfx,
-                timeout.total,
-            )
+            _LOGGER.debug("[API%s] No timeout provided, using default: %ss", self._sfx, timeout.total)
         else:
-            _LOGGER.debug(
-                "[API%s] Using provided timeout: %ss", self._sfx, timeout.total
-            )
+            _LOGGER.debug("[API%s] Using provided timeout: %ss", self._sfx, timeout.total)
 
         result = await self.async_get_nowcast(timeout=timeout)
 
-        _LOGGER.debug(
-            "[API%s] async_get_data → result type: %s", self._sfx, type(result).__name__
-        )
+        _LOGGER.debug("[API%s] async_get_data → result type: %s", self._sfx, type(result).__name__)
         if isinstance(result, dict):
-            _LOGGER.debug(
-                "[API%s] async_get_data → result keys: %s",
-                self._sfx,
-                list(result.keys()),
-            )
+            _LOGGER.debug("[API%s] async_get_data → result keys: %s", self._sfx, list(result.keys()))
         _LOGGER.debug(
             "[API%s] async_get_data → returning %d top-level keys",
             self._sfx,
@@ -326,14 +274,11 @@ class BuienalarmApiClient:
             resp.headers.get("Content-Length", "?"),
             resp.headers.get("Content-Type"),
         )
-        _LOGGER.debug("[API%s]   Resp-Headers: %s", self._sfx, dict(resp.headers))
 
     async def _maybe_dismiss_notification(self) -> None:
         if self._notification_id and self._notification_exists():
             await hass_async_dismiss_notification(self._hass, self._notification_id)
-            _LOGGER.debug(
-                "[API%s] dismissed notification %s", self._sfx, self._notification_id
-            )
+            _LOGGER.debug("[API%s] dismissed notification %s", self._sfx, self._notification_id)
             self._notification_id = None
 
     def _notification_exists(self) -> bool:
