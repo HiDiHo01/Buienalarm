@@ -30,7 +30,7 @@
         },
         "abort": {
             "single_instance_allowed": "Al geconfigureerd. Slechts één configuratie mogelijk.",
-            "already_configured" : "Een plaats met deze coördinaten is al geconfigureerd. Probeer een andere plaats of wijzig de coördinaten.",
+            "already_configured": "Een plaats met deze coördinaten is al geconfigureerd. Probeer een andere plaats of wijzig de coördinaten.",
             "invalid_coordinates": "De opgegeven coördinaten zijn ongeldig. Controleer de breedte- en lengtegraad en probeer het opnieuw.",
             "cannot_connect": "Kan geen verbinding maken met de Buienalarm API. Controleer je internetverbinding en probeer het later opnieuw."
         },
@@ -50,7 +50,10 @@
                     "latitude": "Breedtegraad",
                     "longitude": "Lengtegraad",
                     "notification_limit": "Limiet voor meldingen (mm/u)",
-                    "refresh_interval": "Interval voor verversen van data (sec)"
+                    "refresh_interval": "Interval voor verversen van data (sec)",
+                    "binary_sensor": "Binair sensor ingeschakeld",
+                    "sensor": "Sensor ingeschakeld",
+                    "weather": "Weer ingeschakeld"
                 },
                 "data_description": {
                     "name": "Naam",
@@ -70,7 +73,10 @@
                     "latitude": "Breedtegraad",
                     "longitude": "Lengtegraad",
                     "notification_limit": "Limiet voor meldingen (mm/u)",
-                    "refresh_interval": "Interval voor verversen van data (sec)"
+                    "refresh_interval": "Interval voor verversen van data (sec)",
+                    "binary_sensor": "Binair sensor ingeschakeld",
+                    "sensor": "Sensor ingeschakeld",
+                    "weather": "Weer ingeschakeld"
                 },
                 "data_description": {
                     "name": "Naam",
