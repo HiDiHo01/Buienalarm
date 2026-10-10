@@ -208,7 +208,9 @@ async def async_setup_entry(
     longitude = config_entry.data.get("longitude")
 
     _LOGGER.debug(
-        "[SENSOR SETUP] Coordinates from entry: lat=%s, lon=%s", latitude, longitude
+        "[SENSOR SETUP] Coordinates provided: lat_set=%s, lon_set=%s",
+        latitude is not None,
+        longitude is not None,
     )
     coordinator = BuienalarmDataUpdateCoordinator(
         hass, latitude, longitude, config_entry
