@@ -118,7 +118,6 @@ class BuienalarmDataUpdateCoordinator(DataUpdateCoordinator):
                 )
                 response.raise_for_status()
                 data = response.json()
-                _LOGGER.debug("[COORD] JSON data: %s", data)
                 return data
         except (requests.RequestException, ValueError) as error:
             _LOGGER.error("[COORD] Error updating data: %s", error)
@@ -134,7 +133,7 @@ class BuienalarmDataUpdateCoordinator(DataUpdateCoordinator):
         url = self.url
         for attempt in (1, 2):  # max 2 pogingen
             try:
-                _LOGGER.debug("[COORD UPDATE] Fetch try %s: %s", attempt, url)
+                _LOGGER.debug("[COORD UPDATE] Fetch try %s", attempt)
                 return await self.api.async_get_data(timeout=_API_TIMEOUT)
             except asyncio.TimeoutError:
                 _LOGGER.warning(

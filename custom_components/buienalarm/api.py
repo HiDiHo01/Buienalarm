@@ -151,7 +151,6 @@ class BuienalarmApiClient:
                 return data
         except aiohttp.ClientResponseError as err:
             _LOGGER.error("[API%s] HTTP error fetching initial data: %s", self._sfx, err)
-            _LOGGER.error("[API%s] Response headers: %s", self._sfx, dict(err.headers) if err.headers else "N/A")
             raise
 
     async def async_get_nowcast(
@@ -275,7 +274,6 @@ class BuienalarmApiClient:
             resp.headers.get("Content-Length", "?"),
             resp.headers.get("Content-Type"),
         )
-        _LOGGER.debug("[API%s]   Resp-Headers: %s", self._sfx, dict(resp.headers))
 
     async def _maybe_dismiss_notification(self) -> None:
         if self._notification_id and self._notification_exists():

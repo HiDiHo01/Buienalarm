@@ -676,7 +676,7 @@ class BuienalarmEntity(CoordinatorEntity):
         Return the number of **minutes from now** until the next precipitation event.
 
         Returns:
-            int | None: 
+            int | None:
                 - Returns 0 if precipitation is occurring now.
                 - Returns the number of minutes until the next precipitation bin.
                 - Returns None if no data is available or no precipitation is expected.
@@ -783,8 +783,6 @@ class BuienalarmEntity(CoordinatorEntity):
         """Check if the precipitation data is valid and non-empty."""
         precipitation_data = self.coordinator.data.get('data')
 
-        # Log the retrieved precipitation data for debugging purposes
-        _LOGGER.debug("[BUIENALARM ENTITY] Retrieved precipitation data: %s", precipitation_data)
 
         if not precipitation_data:
             _LOGGER.warning("[BUIENALARM ENTITY] Precipitation data is invalid or empty.")
@@ -918,7 +916,6 @@ class BuienalarmEntity(CoordinatorEntity):
             return []
 
         _LOGGER.debug("[BUIENALARM ENTITY] Verwerken van %d datapunt(en) voor neerslagperiodes", len(precipitation_data))
-        _LOGGER.debug("[BUIENALARM ENTITY] Ruwe neerslagdata: %s", precipitation_data)
 
         precipitation_periods_internal: list[tuple[datetime, datetime, list[float]]] = []
         in_precipitation = False
