@@ -33,10 +33,6 @@
             "already_configured": "A location with these coordinates is already configured. Please try another location or adjust coordinates.",
             "invalid_coordinates": "The provided coordinates are invalid. Please check latitude (-90 to 90) and longitude (-180 to 180) and try again.",
             "cannot_connect": "Unable to connect to Buienalarm API. Please check your internet connection and try again."
-        },
-        "base": {
-            "invalid_coordinates": "The provided coordinates are invalid. Please check latitude (-90 to 90) and longitude (-180 to 180) and try again.",
-            "cannot_connect": "Unable to connect to Buienalarm API. Please check your internet connection and try again."
         }
     },
     "options": {
@@ -110,8 +106,7 @@
                 "name": "Current precipitation"
             },
             "precipitationrate_now_description": {
-                "name": "Current precipitation description",
-                "description": "Description of the current precipitation intensity."
+                "name": "Current precipitation description"
             },
             "precipitationtype_now": {
                 "name": "Current precipitation type"
