@@ -12,6 +12,7 @@ import json
 import logging
 import random
 import socket
+from collections.abc import Mapping
 from datetime import datetime, timezone
 from typing import Any, Final, cast
 
@@ -219,23 +220,34 @@ class BuienalarmApiClient:
                         raise ApiError(f"HTTP error {resp.status}: {resp.reason}")
 
                     _LOGGER.debug("[API%s]   Response received", self._sfx)
+                    resp_headers = resp.headers if isinstance(resp.headers, Mapping) else {}
                     _LOGGER.debug(
-                        "[API%s]   Response headers: %s", self._sfx, dict(resp.headers)
+                        "[API%s]   Response headers: %s",
+                        self._sfx,
+                        dict(resp_headers) if resp_headers else str(resp.headers),
                     )
                     _LOGGER.debug(
                         "[API%s]   Response content type: %s",
                         self._sfx,
-                        resp.headers.get("Content-Type", "unknown"),
+                        resp_headers.get("Content-Type", "unknown"),
                     )
                     _LOGGER.debug(
                         "[API%s]   Response content length: %s",
                         self._sfx,
-                        resp.headers.get("Content-Length", "?"),
+                        resp_headers.get("Content-Length", "?"),
                     )
 
                     # Parse JSON response
-                    data = await resp.json(content_type=None)
-                    age_header: int = int(resp.headers.get("Age", "0"))
+                    try:
+                        data = await resp.json(content_type=None)
+                    except TypeError:
+                        data = await resp.json()
+
+                    age_str = resp_headers.get("Age", "0")
+                    try:
+                        age_header = int(age_str)
+                    except (ValueError, TypeError):
+                        age_header = 0
 
                     _LOGGER.debug(
                         "[API%s]   Cache Age header: %s", self._sfx, age_header
@@ -249,10 +261,13 @@ class BuienalarmApiClient:
                         len(data) if isinstance(data, dict) else -1,
                     )
 
-                    pretty = _dump_json(data).replace("\n", "\n    ")
-                    _LOGGER.debug(
-                        "[API%s]   Full JSON dump:\n    %s", self._sfx, pretty
-                    )
+                    # Performance optimization: Avoid expensive JSON formatting and string
+                    # allocations on every request when debug logging is disabled.
+                    if _LOGGER.isEnabledFor(logging.DEBUG):
+                        pretty = _dump_json(data).replace("\n", "\n    ")
+                        _LOGGER.debug(
+                            "[API%s]   Full JSON dump:\n    %s", self._sfx, pretty
+                        )
 
                     _LOGGER.info(
                         "[API%s]   Successfully fetched data from Buienalarm", self._sfx
@@ -349,5 +364,4 @@ class BuienalarmApiClient:
     @property
     def _sfx(self) -> str:
         """Return a short suffix for logs/notifications: '' or f'‑{entry_id}'."""
-        return f" id={self._entry_id}" if self._entry_id else ""
         return f" id={self._entry_id}" if self._entry_id else ""
