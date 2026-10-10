@@ -124,65 +124,6 @@ old_SENSOR_DESCRIPTIONS: Final[list[SensorEntityDescription]] = [
     ),
 ]
 
-# Sensor data update coordinator for Buienalarm
-# This coordinator fetches data from the Buienalarm API and provides it to sensor entities.
-
-
-class BuienalarmDataUpdateCoordinator(DataUpdateCoordinator[dict[str, object]]):
-    _LOGGER.debug("[SENSOR COORD] Initializing sync coordinator in sensor.py")
-
-    def __init__(
-        self,
-        hass: HomeAssistant,
-        latitude: float,
-        longitude: float,
-        config_entry: ConfigEntry
-    ) -> None:
-        self.latitude = latitude
-        self.longitude = longitude
-        self.url = API_ENDPOINT.format(latitude, longitude)
-        _LOGGER.debug("[SENSOR COORD] URL set to %s", self.url)
-        super().__init__(
-            hass,
-            _LOGGER,
-            name=DOMAIN,
-            update_interval=timedelta(minutes=5),  # set update interval
-            always_update=True,  # of False indien __eq__ kan vergelijken
-            config_entry=config_entry,
-        )
-        _LOGGER.debug("[SENSOR COORD] Initialized with URL: %s", self.url)
-
-    async def _async_update_data(self) -> dict[str, object]:
-        """
-            Fetch the latest data from Buienalarm.
-            Called automatically by the DataUpdateCoordinator on schedule.
-        """
-        _LOGGER.debug("[SENSOR COORD] _async_update_data called")
-        try:
-            # Get browser-like headers with random user agent
-            headers = _get_browser_headers()
-            _LOGGER.debug("[SENSOR COORD] Using User-Agent: %s", headers["User-Agent"])
-
-            # Use lambda to properly pass headers to requests.get
-            response = await self.hass.async_add_executor_job(
-                lambda: requests.get(self.url, headers=headers, timeout=30)
-            )
-            _LOGGER.debug(
-                "[SENSOR COORD] HTTP status: %s, headers: %s",
-                response.status_code,
-                response.headers,
-            )
-            response.raise_for_status()
-            data = response.json()
-            _LOGGER.debug("[SENSOR COORD] JSON data: %s", data)
-            self.api_last_updated = datetime.now(timezone.utc)
-            _LOGGER.debug("[SENSOR COORD] Fetched new Buienalarm data at %s", self.api_last_updated.isoformat())
-            return data
-        except (requests.RequestException, ValueError) as error:
-            _LOGGER.error("[SENSOR COORD] Error updating data: %s", error)
-            raise UpdateFailed(f"Error updating Buienalarm data: {error}") from error
-
-
 async def async_setup_entry(
     hass: HomeAssistant,
     config_entry: ConfigEntry,

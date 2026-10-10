@@ -103,11 +103,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     try:
         latitude = entry.data[CONF_LATITUDE]
         longitude = entry.data[CONF_LONGITUDE]
-        _LOGGER.debug(
-            "[INIT_SETUP_ENTRY] Coordinates loaded (latitude_set=%s, longitude_set=%s)",
-            latitude is not None,
-            longitude is not None,
-        )
+        _LOGGER.debug("[INIT_SETUP_ENTRY] Coordinates: latitude=%s, longitude=%s", latitude, longitude)
     except KeyError as e:
         _LOGGER.error("[INIT_SETUP_ENTRY] Missing required config: %s", e)
         return False
