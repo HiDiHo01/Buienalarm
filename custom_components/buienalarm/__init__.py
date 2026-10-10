@@ -158,10 +158,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # raise ConfigEntryNotReady(f"Failed to create coordinator for {entry.title}")
         raise ConfigEntryNotReady("Failed to create coordinator for %s" % entry.title) from err
 
-    # Store coordinator in hass.data so platform setups (binary_sensor, sensor) can find it
-    hass.data[DOMAIN][entry.entry_id] = coordinator
-    _LOGGER.debug("[INIT_SETUP_ENTRY] Coordinator stored in hass.data[%s][%s]", DOMAIN, entry.entry_id)
-
     # Configure refresh
     # Fetch the config entry options directly from the entry
     refresh_interval = int(entry.options.get("refresh_interval", SCAN_INTERVAL.total_seconds()))
