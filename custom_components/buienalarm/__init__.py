@@ -158,7 +158,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # raise ConfigEntryNotReady(f"Failed to create coordinator for {entry.title}")
         raise ConfigEntryNotReady("Failed to create coordinator for %s" % entry.title) from err
 
-    # Store coordinator in hass.data so platform setup (binary_sensor, sensor) can find it
+    # Store coordinator in hass.data so platform setups (binary_sensor, sensor) can find it
     hass.data[DOMAIN][entry.entry_id] = coordinator
     _LOGGER.debug("[INIT_SETUP_ENTRY] Coordinator stored in hass.data[%s][%s]", DOMAIN, entry.entry_id)
 

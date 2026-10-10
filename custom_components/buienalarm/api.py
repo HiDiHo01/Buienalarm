@@ -147,7 +147,9 @@ class BuienalarmApiClient:
                 resp.raise_for_status()
                 data = await resp.json()
                 _LOGGER.debug(
-                    "[API%s] Retrieved metadata keys: %s", self._sfx, list(data.keys())
+                    "[API%s] Retrieved metadata keys: %s",
+                    self._sfx,
+                    list(data.keys()) if isinstance(data, dict) else type(data).__name__,
                 )
                 return data
         except aiohttp.ClientResponseError as err:

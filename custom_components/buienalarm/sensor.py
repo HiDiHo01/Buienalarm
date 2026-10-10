@@ -188,46 +188,16 @@ async def async_setup_entry(
     config_entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """
-    Set up Buienalarm sensors from config entry.
-
-    This function creates a coordinator, fetches initial data,
-    and adds sensor entities.
-    """
+    """Set up Buienalarm sensors from config entry."""
     _LOGGER.debug("[SENSOR SETUP] Setting up Buienalarm sensors for %s", config_entry.unique_id)
     _LOGGER.debug("[SENSOR SETUP] async_setup_entry called for %s", config_entry.entry_id)
 
-    latitude = config_entry.data.get("latitude")
-    longitude = config_entry.data.get("longitude")
-
-    _LOGGER.debug(
-        "[SENSOR SETUP] Coordinates from entry: lat=%s, lon=%s", latitude, longitude
-    )
-    coordinator = BuienalarmDataUpdateCoordinator(hass, latitude, longitude, config_entry)
-    _LOGGER.debug("[SENSOR SETUP] Coordinator created: %s", coordinator)
-
-    # Perform initial refresh to warm up data
-    try:
-        # Prefer waiting – the tests and most users expect initial data
-        # await coordinator.async_config_entry_first_refresh()
-
-        # Start refresh as background task (niet awaiten!)
-        task = hass.async_create_task(coordinator.async_config_entry_first_refresh())
-        config_entry.async_on_unload(task.cancel)
-        _LOGGER.debug(
-            "[SENSOR SETUP] Initial refresh completed: success=%s",
-            coordinator.last_update_success,
+    coordinator = hass.data.get(DOMAIN, {}).get(config_entry.entry_id)
+    if not coordinator:
+        raise RuntimeError(
+            "Buienalarm coordinator is not available for config entry "
+            f"{config_entry.entry_id}"
         )
-    except UpdateFailed as err:
-        _LOGGER.error("[SENSOR SETUP] Initial data fetch failed: %s", err)
-        return False
-
-    """Store the coordinator in hass.data for later access."""
-    _LOGGER.debug("[SENSOR SETUP] Storing coordinator in hass.data for entry %s", config_entry.entry_id)
-    if DOMAIN not in hass.data:
-        _LOGGER.debug("[SENSOR SETUP] Initializing hass.data[%s]", DOMAIN)
-        # Persist the coordinator in hass.data
-        hass.data.setdefault(DOMAIN, {})[config_entry.entry_id] = coordinator
 
     # old_sensors
     sensors1: list[SensorEntity] = [
@@ -365,6 +335,10 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
             and self.coordinator.data.get(self._key) is not None
         )
 
+    @property
+    def unique_id(self) -> str:
+        """Return a unique ID to use for this entity."""
+        return f"{self.config_entry.entry_id}-{self.name.lower().replace(' ', '_')}"
 
     @property
     def name(self) -> str:

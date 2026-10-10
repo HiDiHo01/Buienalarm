@@ -16,8 +16,7 @@ def mock_api_calls():
     """Mock API calls to avoid socket connections during tests."""
     with patch("custom_components.buienalarm.api.BuienalarmApiClient.async_get_initial_data", return_value={}), \
          patch("custom_components.buienalarm.api.BuienalarmApiClient.async_get_data", return_value={"data": []}), \
-         patch("requests.get"), \
-         patch("socket.getaddrinfo"):
+         patch("requests.get"):
         yield
 
 
