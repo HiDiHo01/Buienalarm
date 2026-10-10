@@ -1,0 +1,3 @@
+## 2026-05-05 - Home Assistant Config and Options Flow Translation Parity
+**Learning:** Home Assistant configuration and options flows render raw unformatted input keys and error codes if `data_description`, `data`, or `error` keys are missing or mismatched in locale translation files (`en.json`, `nl.json`). Both `init` and `user` step keys must maintain exact structural parity across all supported language files.
+**Action:** Always check both `en.json` and `nl.json` for key symmetry (`data_description`, error codes, and step keys) and verify options flow schemas against `config_flow.py` when improving integration UI strings.
