@@ -1,25 +1,25 @@
-import pytest
 from datetime import timedelta
-from homeassistant.const import UnitOfTime, UnitOfVolumetricFlux
-from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
 
-# Import the constants from your const.py file
+from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
+from homeassistant.const import UnitOfTime, UnitOfVolumetricFlux
+
 from custom_components.buienalarm.const import (
+    API_CONF_URL,
     API_ENDPOINT,
     API_TIMEOUT,
     API_TIMEZONE,
-    API_CONF_URL,
-    DATA_KEY,
-    NAME,
-    DOMAIN,
-    VERSION,
     ATTR_ATTRIBUTION,
-    DEFAULT_NAME,
-    SCAN_INTERVAL,
+    BINARY_SENSOR,
+    DATA_KEY,
     DATA_REFRESH_INTERVAL,
-    SENSOR,
+    DEFAULT_NAME,
+    DOMAIN,
+    NAME,
     PLATFORMS,
+    SCAN_INTERVAL,
+    SENSOR,
     SENSORS,
+    VERSION,
 )
 
 
@@ -61,9 +61,8 @@ def test_platform_constants():
 def test_sensors_structure():
     """Test the structure and content of the SENSORS list."""
     assert isinstance(SENSORS, list)
-    assert len(SENSORS) > 0  # Check if there is at least one sensor
+    assert len(SENSORS) > 0
 
-    # Check the structure of each sensor in the list
     for sensor in SENSORS:
         assert isinstance(sensor, dict)
         assert "name" in sensor
@@ -73,12 +72,10 @@ def test_sensors_structure():
         assert isinstance(sensor["icon"], str)
         assert isinstance(sensor["key"], str)
 
-        # Check that unit_of_measurement is either None or a valid unit
         assert sensor["unit_of_measurement"] is None or isinstance(
             sensor["unit_of_measurement"], str
         )
 
-        # Check if device_class and state_class are valid if provided
         if sensor["device_class"]:
             assert isinstance(sensor["device_class"], SensorDeviceClass)
         if sensor["state_class"]:

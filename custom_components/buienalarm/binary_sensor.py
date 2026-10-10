@@ -10,7 +10,7 @@ from homeassistant.components.binary_sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
@@ -43,7 +43,6 @@ class BuienalarmBinarySensor(
     """Represent a Buienalarm rain-related binary sensor."""
 
     _attr_has_entity_name = True
-    # entity_description: BinarySensorEntityDescription
 
     def __init__(
         self,
@@ -52,9 +51,10 @@ class BuienalarmBinarySensor(
         description: BinarySensorEntityDescription,
     ) -> None:
         """Initialize a Buienalarm binary sensor."""
-        CoordinatorEntity.__init__(self, coordinator)  # type: ignore[arg-type]
+        super().__init__(coordinator)
         self.entity_description = description
-        self._attr_unique_id = f"{config_entry.entry_id}_{description.key}"
+        base_id = config_entry.unique_id or config_entry.entry_id
+        self._attr_unique_id = f"{base_id}_{description.key}"
         self._attr_device_info = coordinator.device_info
         self._update_state()
 
@@ -175,11 +175,16 @@ def _as_float(value: object) -> float | None:
 async def async_setup_entry(
     hass: HomeAssistant,
     config_entry: ConfigEntry,
-    async_add_entities: AddConfigEntryEntitiesCallback,
+    async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up Buienalarm binary sensors from their descriptions."""
-    coordinator = hass.data.get(DOMAIN, {}).get(config_entry.entry_id)
-    if not isinstance(coordinator, BuienalarmDataUpdateCoordinator):
+    coordinator: BuienalarmDataUpdateCoordinator | None = getattr(
+        config_entry, "runtime_data", None
+    )
+    if coordinator is None:
+        coordinator = hass.data.get(DOMAIN, {}).get(config_entry.entry_id)
+
+    if coordinator is None:
         raise RuntimeError(
             "Buienalarm coordinator is not available for config entry "
             f"{config_entry.entry_id}"
