@@ -179,7 +179,7 @@ async def async_setup_entry(
 ) -> None:
     """Set up Buienalarm binary sensors from their descriptions."""
     coordinator = hass.data.get(DOMAIN, {}).get(config_entry.entry_id)
-    if not isinstance(coordinator, BuienalarmDataUpdateCoordinator):
+    if coordinator is None:
         raise RuntimeError(
             "Buienalarm coordinator is not available for config entry "
             f"{config_entry.entry_id}"
