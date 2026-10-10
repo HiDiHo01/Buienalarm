@@ -69,6 +69,5 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
     def available(self) -> bool:
         """Return True if entity is available."""
         return (
-            self.coordinator.last_update_success
-            and self.coordinator.data is not None
+            self.coordinator.last_update_success and self.coordinator.data is not None
         )

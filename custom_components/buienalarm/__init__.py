@@ -147,9 +147,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: BuienalarmConfigEntry) -
     return True
 
 
-async def async_unload_entry(
-    hass: HomeAssistant, entry: BuienalarmConfigEntry
-) -> bool:
+async def async_unload_entry(hass: HomeAssistant, entry: BuienalarmConfigEntry) -> bool:
     """Handle removal of an entry."""
     _LOGGER.debug("Unloading entry_id=%s", entry.entry_id)
     if unloaded := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
@@ -158,8 +156,6 @@ async def async_unload_entry(
     return False
 
 
-async def async_reload_entry(
-    hass: HomeAssistant, entry: BuienalarmConfigEntry
-) -> None:
+async def async_reload_entry(hass: HomeAssistant, entry: BuienalarmConfigEntry) -> None:
     """Handle reload of a config entry."""
     await hass.config_entries.async_reload(entry.entry_id)

@@ -459,9 +459,7 @@ class BuienalarmEntity(CoordinatorEntity[BuienalarmDataUpdateCoordinator]):
                 continue
 
             if rate > 0:
-                delta_minutes = int(
-                    round((point_time - now_utc).total_seconds() / 60)
-                )
+                delta_minutes = int(round((point_time - now_utc).total_seconds() / 60))
                 return max(delta_minutes, 0)
 
         return None
@@ -493,10 +491,7 @@ class BuienalarmEntity(CoordinatorEntity[BuienalarmDataUpdateCoordinator]):
                         rain_start_time_utc = pt_time
                     if rain_stop_time_utc is None:
                         rain_duration += 5
-                    if (
-                        rain_restart_time_utc is None
-                        and rain_stop_time_utc is not None
-                    ):
+                    if rain_restart_time_utc is None and rain_stop_time_utc is not None:
                         rain_restart_time_utc = pt_time
                 elif rain_start_time_utc is not None and rain_stop_time_utc is None:
                     rain_stop_time_utc = pt_time

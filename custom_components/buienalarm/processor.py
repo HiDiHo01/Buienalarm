@@ -54,9 +54,7 @@ class BuienalarmDataProcessor:
             timestamp = (
                 dt_util.parse_datetime(ts_str) if isinstance(ts_str, str) else None
             )
-            local_time = (
-                dt_util.as_local(timestamp).isoformat() if timestamp else None
-            )
+            local_time = dt_util.as_local(timestamp).isoformat() if timestamp else None
 
             forecast.append(
                 {
@@ -83,7 +81,9 @@ class BuienalarmDataProcessor:
 
     def _parse_nowcast(self) -> dict[str, str]:
         """Extract translated nowcast messages."""
-        nowcast = self._raw.get("nowcastmessage") if isinstance(self._raw, dict) else None
+        nowcast = (
+            self._raw.get("nowcastmessage") if isinstance(self._raw, dict) else None
+        )
         result: dict[str, str] = {}
 
         if isinstance(nowcast, dict):
