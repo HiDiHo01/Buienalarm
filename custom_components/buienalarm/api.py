@@ -249,10 +249,13 @@ class BuienalarmApiClient:
                         len(data) if isinstance(data, dict) else -1,
                     )
 
-                    pretty = _dump_json(data).replace("\n", "\n    ")
-                    _LOGGER.debug(
-                        "[API%s]   Full JSON dump:\n    %s", self._sfx, pretty
-                    )
+                    # Performance optimization: Avoid expensive JSON formatting and string
+                    # allocations on every request when debug logging is disabled.
+                    if _LOGGER.isEnabledFor(logging.DEBUG):
+                        pretty = _dump_json(data).replace("\n", "\n    ")
+                        _LOGGER.debug(
+                            "[API%s]   Full JSON dump:\n    %s", self._sfx, pretty
+                        )
 
                     _LOGGER.info(
                         "[API%s]   Successfully fetched data from Buienalarm", self._sfx
@@ -349,5 +352,4 @@ class BuienalarmApiClient:
     @property
     def _sfx(self) -> str:
         """Return a short suffix for logs/notifications: '' or f'‑{entry_id}'."""
-        return f" id={self._entry_id}" if self._entry_id else ""
         return f" id={self._entry_id}" if self._entry_id else ""
