@@ -17,7 +17,6 @@ from custom_components.buienalarm.const import (
     DEFAULT_NAME,
     SCAN_INTERVAL,
     DATA_REFRESH_INTERVAL,
-    BINARY_SENSOR,
     SENSOR,
     PLATFORMS,
     SENSORS,
