@@ -17,14 +17,14 @@ jobs:
 
     strategy:
       matrix:
-        python-version: ["3.14.2"]
+        python-version: ["3.12"]
 
     steps:
       - name: 📥 Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
 
       - name: 🐍 Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -35,12 +35,11 @@ jobs:
 
       - name: ⚙️ Configure Poetry environment
         run: |
-          poetry lock
           poetry env use "${{ matrix.python-version }}"
           poetry install --no-interaction --no-ansi
 
       - name: 🧠 Set PYTHONPATH
-        run: echo "PYTHONPATH=$GITHUB_WORKSPACE/Buienalarm" >> $GITHUB_ENV
+        run: echo "PYTHONPATH=$GITHUB_WORKSPACE" >> $GITHUB_ENV
       - name: Set up configuration
         run: |
           mkdir -p ./config
@@ -55,13 +54,13 @@ jobs:
         run: poetry run pytest --color=yes --tb=short
 
       - name: 🎨 Format code (Black)
-        run: poetry run black .
+        run: poetry run black --check .
 
       - name: 📦 Build integration package
         run: poetry build
 
       - name: ⬆️ Upload Package / built wheel
-        uses: actions/upload-artifact@v7  # Update van v3 naar v4
+        uses: actions/upload-artifact@v4
         with:
           name: buienalarm-package
           path: dist/*.whl

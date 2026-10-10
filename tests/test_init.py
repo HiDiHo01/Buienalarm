@@ -38,7 +38,9 @@ def mock_api_calls():
 @pytest.mark.asyncio
 @patch("custom_components.buienalarm.BuienalarmDataUpdateCoordinator")
 async def test_async_setup_entry_success(
-    mock_coordinator: AsyncMock, hass: HomeAssistant, config_data: dict[str, float | str]
+    mock_coordinator: AsyncMock,
+    hass: HomeAssistant,
+    config_data: dict[str, float | str],
 ) -> None:
     """Test successful setup of config entry."""
     coordinator = mock_coordinator.return_value
@@ -61,7 +63,9 @@ async def test_async_setup_entry_success(
 @pytest.mark.asyncio
 @patch("custom_components.buienalarm.BuienalarmDataUpdateCoordinator")
 async def test_async_setup_entry_failure(
-    mock_coordinator: AsyncMock, hass: HomeAssistant, config_data: dict[str, float | str]
+    mock_coordinator: AsyncMock,
+    hass: HomeAssistant,
+    config_data: dict[str, float | str],
 ) -> None:
     """Test setup fails if coordinator update was unsuccessful."""
     coordinator = mock_coordinator.return_value
@@ -79,7 +83,9 @@ async def test_async_setup_entry_failure(
 @patch("custom_components.buienalarm.BuienalarmDataUpdateCoordinator")
 @patch("custom_components.buienalarm.PLATFORMS", ["sensor"])  # test dynamic platforms
 async def test_async_unload_entry(
-    mock_coordinator: AsyncMock, hass: HomeAssistant, config_data: dict[str, float | str]
+    mock_coordinator: AsyncMock,
+    hass: HomeAssistant,
+    config_data: dict[str, float | str],
 ) -> None:
     """Test successful unloading of an entry."""
     coordinator = mock_coordinator.return_value
@@ -127,7 +133,9 @@ async def test_async_reload_entry(
 @pytest.mark.asyncio
 @patch("custom_components.buienalarm.BuienalarmDataUpdateCoordinator")
 async def test_async_setup_entry_exception(
-    mock_coordinator: AsyncMock, hass: HomeAssistant, config_data: dict[str, float | str]
+    mock_coordinator: AsyncMock,
+    hass: HomeAssistant,
+    config_data: dict[str, float | str],
 ) -> None:
     """Test setup fails due to unexpected exception in coordinator."""
     mock_coordinator.side_effect = Exception("Unexpected failure")

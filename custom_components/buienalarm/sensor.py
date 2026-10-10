@@ -32,13 +32,13 @@ _LOGGER = logging.getLogger(__name__)
 #  User Agent rotation to avoid 403 errors
 # -----------------------------------------------------------------------------
 _USER_AGENT_LIST: Final[list[str]] = [
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36',
-    'Mozilla/5.0 (iPhone; CPU iPhone OS 14_4_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.3 Mobile/15E148 Safari/604.1',
-    'Mozilla/4.0 (compatible; MSIE 9.0; Windows NT 6.1)',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Safari/537.36 Edg/87.0.664.75',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.102 Safari/537.36 Edge/18.18363',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36',
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36",
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 14_4_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.3 Mobile/15E148 Safari/604.1",
+    "Mozilla/4.0 (compatible; MSIE 9.0; Windows NT 6.1)",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Safari/537.36 Edg/87.0.664.75",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.102 Safari/537.36 Edge/18.18363",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36",
 ]
 
 
@@ -124,21 +124,122 @@ old_SENSOR_DESCRIPTIONS: Final[list[SensorEntityDescription]] = [
     ),
 ]
 
+# Sensor data update coordinator for Buienalarm
+# This coordinator fetches data from the Buienalarm API and provides it to sensor entities.
+
+
+class BuienalarmDataUpdateCoordinator(DataUpdateCoordinator[dict[str, object]]):
+    _LOGGER.debug("[SENSOR COORD] Initializing sync coordinator in sensor.py")
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        latitude: float,
+        longitude: float,
+        config_entry: ConfigEntry,
+    ) -> None:
+        self.latitude = latitude
+        self.longitude = longitude
+        self.url = API_ENDPOINT.format(latitude, longitude)
+        _LOGGER.debug("[SENSOR COORD] URL set to %s", self.url)
+        super().__init__(
+            hass,
+            _LOGGER,
+            name=DOMAIN,
+            update_interval=timedelta(minutes=5),  # set update interval
+            always_update=True,  # of False indien __eq__ kan vergelijken
+            config_entry=config_entry,
+        )
+        _LOGGER.debug("[SENSOR COORD] Initialized with URL: %s", self.url)
+
+    async def _async_update_data(self) -> dict[str, object]:
+        """
+        Fetch the latest data from Buienalarm.
+        Called automatically by the DataUpdateCoordinator on schedule.
+        """
+        _LOGGER.debug("[SENSOR COORD] _async_update_data called")
+        try:
+            # Get browser-like headers with random user agent
+            headers = _get_browser_headers()
+            _LOGGER.debug("[SENSOR COORD] Using User-Agent: %s", headers["User-Agent"])
+
+            # Use lambda to properly pass headers to requests.get
+            response = await self.hass.async_add_executor_job(
+                lambda: requests.get(self.url, headers=headers, timeout=30)
+            )
+            _LOGGER.debug(
+                "[SENSOR COORD] HTTP status: %s, headers: %s",
+                response.status_code,
+                response.headers,
+            )
+            response.raise_for_status()
+            data = response.json()
+            _LOGGER.debug("[SENSOR COORD] JSON data: %s", data)
+            self.api_last_updated = datetime.now(timezone.utc)
+            _LOGGER.debug(
+                "[SENSOR COORD] Fetched new Buienalarm data at %s",
+                self.api_last_updated.isoformat(),
+            )
+            return data
+        except (requests.RequestException, ValueError) as error:
+            _LOGGER.error("[SENSOR COORD] Error updating data: %s", error)
+            raise UpdateFailed(f"Error updating Buienalarm data: {error}") from error
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     config_entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up Buienalarm sensors from config entry."""
-    _LOGGER.debug("[SENSOR SETUP] Setting up Buienalarm sensors for %s", config_entry.unique_id)
-    _LOGGER.debug("[SENSOR SETUP] async_setup_entry called for %s", config_entry.entry_id)
+    """
+    Set up Buienalarm sensors from config entry.
 
-    coordinator = hass.data.get(DOMAIN, {}).get(config_entry.entry_id)
-    if not coordinator:
-        raise RuntimeError(
-            "Buienalarm coordinator is not available for config entry "
-            f"{config_entry.entry_id}"
+    This function creates a coordinator, fetches initial data,
+    and adds sensor entities.
+    """
+    _LOGGER.debug(
+        "[SENSOR SETUP] Setting up Buienalarm sensors for %s", config_entry.unique_id
+    )
+    _LOGGER.debug(
+        "[SENSOR SETUP] async_setup_entry called for %s", config_entry.entry_id
+    )
+
+    latitude = config_entry.data.get("latitude")
+    longitude = config_entry.data.get("longitude")
+
+    _LOGGER.debug(
+        "[SENSOR SETUP] Coordinates from entry: lat=%s, lon=%s", latitude, longitude
+    )
+    coordinator = BuienalarmDataUpdateCoordinator(
+        hass, latitude, longitude, config_entry
+    )
+    _LOGGER.debug("[SENSOR SETUP] Coordinator created: %s", coordinator)
+
+    # Perform initial refresh to warm up data
+    try:
+        # Prefer waiting – the tests and most users expect initial data
+        # await coordinator.async_config_entry_first_refresh()
+
+        # Start refresh as background task (niet awaiten!)
+        task = hass.async_create_task(coordinator.async_config_entry_first_refresh())
+        config_entry.async_on_unload(task.cancel)
+        _LOGGER.debug(
+            "[SENSOR SETUP] Initial refresh completed: success=%s",
+            coordinator.last_update_success,
         )
+    except UpdateFailed as err:
+        _LOGGER.error("[SENSOR SETUP] Initial data fetch failed: %s", err)
+        return False
+
+    """Store the coordinator in hass.data for later access."""
+    _LOGGER.debug(
+        "[SENSOR SETUP] Storing coordinator in hass.data for entry %s",
+        config_entry.entry_id,
+    )
+    if DOMAIN not in hass.data:
+        _LOGGER.debug("[SENSOR SETUP] Initializing hass.data[%s]", DOMAIN)
+        # Persist the coordinator in hass.data
+        hass.data.setdefault(DOMAIN, {})[config_entry.entry_id] = coordinator
 
     # old_sensors
     sensors1: list[SensorEntity] = [
@@ -147,22 +248,38 @@ async def async_setup_entry(
     ]
 
     sensors2 = [
-        BuienalarmSensorEntity(coordinator, config_entry, description,
-                               location_id=config_entry.data.get("location_id", "unknown"),
-                               location_name=config_entry.data.get("location_name", "unknown"))
+        BuienalarmSensorEntity(
+            coordinator,
+            config_entry,
+            description,
+            location_id=config_entry.data.get("location_id", "unknown"),
+            location_name=config_entry.data.get("location_name", "unknown"),
+        )
         for description in SENSOR_DESCRIPTIONS
     ]
 
     sensors3: list[SensorEntity] = [
-        BuienalarmSensorEntity(coordinator, config_entry, description,
-                               location_id=config_entry.data.get("location_id", "unknown"),
-                               location_name=config_entry.data.get("location_name", "unknown"))
+        BuienalarmSensorEntity(
+            coordinator,
+            config_entry,
+            description,
+            location_id=config_entry.data.get("location_id", "unknown"),
+            location_name=config_entry.data.get("location_name", "unknown"),
+        )
         for description in SENSOR_DESCRIPTIONS
     ]
 
     sensors4 = [
-        BuienalarmSensor(coordinator, config_entry, description.name, description.native_unit_of_measurement,
-                         description.icon, description.device_class, description.state_class, description.key)
+        BuienalarmSensor(
+            coordinator,
+            config_entry,
+            description.name,
+            description.native_unit_of_measurement,
+            description.icon,
+            description.device_class,
+            description.state_class,
+            description.key,
+        )
         for description in SENSOR_DESCRIPTIONS
     ]
 
@@ -172,7 +289,9 @@ async def async_setup_entry(
     ]
 
     _LOGGER.debug("[SENSOR SETUP] Adding %d sensors", len(sensors1))
-    async_add_entities(sensors1, update_before_add=False)  # sensors van de oude setup *werkt*
+    async_add_entities(
+        sensors1, update_before_add=False
+    )  # sensors van de oude setup *werkt*
     # async_add_entities(sensors2, update_before_add=True)  # sensors van SENSOR_DESCRIPTIONS *raw Nowcast Message*
     # async_add_entities(sensors3, update_before_add=True)  # sensors van SENSOR_DESCRIPTIONS met SensorEntity
     # async_add_entities(sensors4, update_before_add=True)  # sensors van SENSOR_DESCRIPTIONS met BuienalarmSensor
@@ -214,7 +333,9 @@ class BuienalarmTestSensor(BuienalarmEntity, SensorEntity):
     def native_value(self) -> object:
         """Return the state of the sensor."""
         if not self.coordinator.data:
-            _LOGGER.debug("[TEST SENSOR] No data available for %s", self.entity_description.key)
+            _LOGGER.debug(
+                "[TEST SENSOR] No data available for %s", self.entity_description.key
+            )
             return None
         # return self.coordinator.data.get(self.entity_description.key)
         value = self.get_data(self.entity_description.key)
@@ -345,11 +466,15 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
             # attributes["api_last_updated"] = self._api_last_updated.isoformat() if self._api_last_updated else None
             # Add API timestamp from coordinator
             if getattr(self.coordinator, "api_last_updated", None):
-                attributes["api_last_updated"] = self.coordinator.api_last_updated.isoformat()
+                attributes["api_last_updated"] = (
+                    self.coordinator.api_last_updated.isoformat()
+                )
 
             # Only include precipitation_data for one specific sensor
             if self._key == "precipitationrate_total":
-                attributes["precipitation_data"] = getattr(self, "data_points_as_list", [])
+                attributes["precipitation_data"] = getattr(
+                    self, "data_points_as_list", []
+                )
 
             attributes["attribution"] = ATTR_ATTRIBUTION
             return attributes
