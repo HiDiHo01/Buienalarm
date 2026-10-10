@@ -8,6 +8,12 @@ import pytest
 from aiohttp import ClientTimeout
 from unittest.mock import AsyncMock, patch
 
+try:
+    import pycares
+    pycares._shutdown_manager.start()
+except Exception:
+    pass
+
 repo_root = Path(__file__).parent.parent
 sys.path.insert(0, str(repo_root))
 

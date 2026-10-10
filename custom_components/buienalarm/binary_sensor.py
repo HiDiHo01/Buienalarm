@@ -10,7 +10,7 @@ from homeassistant.components.binary_sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
@@ -92,13 +92,13 @@ class BuienalarmBinarySensor(
                 )
             case "currently_raining":
                 self._attr_is_on = any(
-                    _is_current_precipitation_period(period, current_time)
-                    for period in periods if period.get("precipitationtype") in _RAIN_TYPES
+                    _is_current_precipitation_period(period, current_time) and _is_rain_period(period)
+                    for period in periods
                 )
             case "currently_snowing":
                 self._attr_is_on = any(
-                    _is_current_precipitation_period(period, current_time)
-                    for period in periods if period.get("precipitationtype") in _SNOW_TYPES
+                    _is_current_precipitation_period(period, current_time) and _is_snow_period(period)
+                    for period in periods
                 )
             case _:
                 self._attr_is_on = False
@@ -109,6 +109,11 @@ def _get_precipitation_periods(
 ) -> list[Mapping[str, object]] | None:
     """Return validated precipitation periods from coordinator data."""
     raw_periods = data.get("data")
+    if not isinstance(raw_periods, list):
+        timeseries = data.get("timeseries")
+        if isinstance(timeseries, Mapping):
+            raw_periods = timeseries.get("data")
+
     if not isinstance(raw_periods, list) or not raw_periods:
         return None
 
@@ -126,15 +131,26 @@ def _get_precipitation_periods(
 def _is_precipitation_period(period: Mapping[str, object]) -> bool:
     """Return whether a precipitation period indicates precipitation."""
     precipitation_rate = _as_float(period.get("precipitationrate"))
-    precipitation_type = period.get("precipitationtype")
-
     if precipitation_rate is None or precipitation_rate <= 0:
         return False
 
+    return _is_rain_period(period) or _is_snow_period(period)
+
+
+def _is_rain_period(period: Mapping[str, object]) -> bool:
+    """Return whether a period precipitation type matches rain types."""
+    precipitation_type = period.get("precipitationtype")
     if not isinstance(precipitation_type, str):
         return False
+    return precipitation_type.strip().lower() in _RAIN_TYPES
 
-    return precipitation_type.strip().lower() in _RAIN_TYPES or precipitation_type.strip().lower() in _SNOW_TYPES
+
+def _is_snow_period(period: Mapping[str, object]) -> bool:
+    """Return whether a period precipitation type matches snow types."""
+    precipitation_type = period.get("precipitationtype")
+    if not isinstance(precipitation_type, str):
+        return False
+    return precipitation_type.strip().lower() in _SNOW_TYPES
 
 
 def _is_current_precipitation_period(
@@ -175,7 +191,7 @@ def _as_float(value: object) -> float | None:
 async def async_setup_entry(
     hass: HomeAssistant,
     config_entry: ConfigEntry,
-    async_add_entities: AddConfigEntryEntitiesCallback,
+    async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up Buienalarm binary sensors from their descriptions."""
     coordinator = hass.data.get(DOMAIN, {}).get(config_entry.entry_id)

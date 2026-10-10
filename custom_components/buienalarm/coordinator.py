@@ -73,10 +73,6 @@ class BuienalarmDataUpdateCoordinator(DataUpdateCoordinator):
         )
         _LOGGER.debug("[COORD INIT] DataUpdateCoordinator initialized")
 
-    async def async_add_listener(self, listener, update_supported=True):
-        # Implement the logic to add a listener here
-        # This method allows entities to register themselves as listeners to receive updates
-        pass
 
     async def fetch_data(self):
         """Fetch data from the Buienalarm API asynchronously.

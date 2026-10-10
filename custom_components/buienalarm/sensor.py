@@ -365,10 +365,6 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
             and self.coordinator.data.get(self._key) is not None
         )
 
-    @property
-    def unique_id(self) -> str:
-        """Return a unique ID to use for this entity."""
-        return f"{self.config_entry.entry_id}-{self.name.lower().replace(' ', '_')}"
 
     @property
     def name(self) -> str:
