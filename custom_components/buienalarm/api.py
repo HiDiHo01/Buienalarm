@@ -104,9 +104,6 @@ class BuienalarmApiClient:
 
         # Verbose diagnostics
         _LOGGER.debug("[API%s] Initialized BuienalarmApiClient", self._sfx)
-        _LOGGER.debug("[API%s] Latitude: %s", self._sfx, self.latitude)
-        _LOGGER.debug("[API%s] Longitude: %s", self._sfx, self.longitude)
-        _LOGGER.debug("[API%s] Formatted URL: %s", self._sfx, self._url)
         _LOGGER.debug("[API%s] Timeout: %ss", self._sfx, self._timeout.total)
         _LOGGER.debug("[API%s] Entry ID: %s", self._sfx, self._entry_id or "N/A")
         _LOGGER.debug(
@@ -163,7 +160,7 @@ class BuienalarmApiClient:
     ) -> dict[str, object]:
         """Download raw JSON from Buienalarm endpoint with full debug tracing."""
         timeout = timeout or self._timeout
-        _LOGGER.debug("[API%s] → GET %s (timeout=%ss)", self._sfx, self._url, timeout.total)
+        _LOGGER.debug("[API%s] → GET timeseries (timeout=%ss)", self._sfx, timeout.total)
 
         fetch_started_at: datetime = datetime.now(timezone.utc)
 
@@ -183,7 +180,6 @@ class BuienalarmApiClient:
         }
 
         _LOGGER.debug("[API%s] → Using User-Agent: %s", self._sfx, user_agent)
-        _LOGGER.debug("[API%s] → Request headers: %s", self._sfx, headers)
 
         try:
             async with async_timeout.timeout(timeout.total):
@@ -204,7 +200,6 @@ class BuienalarmApiClient:
                         raise ApiError(f"HTTP error {resp.status}: {resp.reason}")
                     
                     _LOGGER.debug("[API%s]   Response received", self._sfx)
-                    _LOGGER.debug("[API%s]   Response headers: %s", self._sfx, dict(resp.headers))
                     _LOGGER.debug("[API%s]   Response content type: %s", self._sfx,
                                 resp.headers.get("Content-Type", "unknown"))
                     _LOGGER.debug("[API%s]   Response content length: %s",
@@ -221,9 +216,6 @@ class BuienalarmApiClient:
                         self._sfx,
                         len(data) if isinstance(data, dict) else -1,
                     )
-                    
-                    pretty = _dump_json(data).replace("\n", "\n    ")
-                    _LOGGER.debug("[API%s]   Full JSON dump:\n    %s", self._sfx, pretty)
                     
                     _LOGGER.info(
                         "[API%s]   Successfully fetched data from Buienalarm", self._sfx

@@ -57,7 +57,6 @@ class BuienalarmDataUpdateCoordinator(DataUpdateCoordinator):
         self.device_info = device_info
         self.config_entry = config_entry
         self.url = API_ENDPOINT.format(api.latitude, api.longitude)
-        _LOGGER.debug("[COORD INIT] Using API URL: %s", self.url)
         self.entities = []  # Create an empty list to store associated entities
         self.api_last_updated: datetime | None = None
         # self.last_update_success = False
@@ -103,7 +102,7 @@ class BuienalarmDataUpdateCoordinator(DataUpdateCoordinator):
             raise ConfigEntryNotReady from err
 
     async def _async_update_data(self):
-        _LOGGER.debug("[COORD UPDATE] Starting _async_update_data for URL: %s with timeout: %s", self.url, _API_TIMEOUT)
+        _LOGGER.debug("[COORD UPDATE] Starting _async_update_data with timeout: %s", _API_TIMEOUT)
         try:
             async with async_timeout.timeout(30):
                 data = await self.api.async_get_data()
@@ -130,12 +129,7 @@ class BuienalarmDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def old_async_update_data(self) -> dict[str, object]:
         """Query de Buienalarm‑API (1 retry)."""
-        _LOGGER.debug("[COORD UPDATE] Starting _async_update_data for URL: %s", self.url)
-        _LOGGER.debug(
-            "[COORDINATOR] Will fetch URL: %s using %s",
-            self.url,
-            self.hass.loop.is_running(),
-        )
+        _LOGGER.debug("[COORD UPDATE] Starting _async_update_data")
         _LOGGER.debug(f"Type of client_session: {type(self.api)}")
         url = self.url
         for attempt in (1, 2):  # max 2 pogingen
@@ -225,7 +219,7 @@ async def old_create_buienalarm_coordinator(
     device_info: DeviceInfo,
 ) -> DataUpdateCoordinator:
     """Create and configure the Buienalarm coordinator."""
-    _LOGGER.debug("Received latitude: %s, longitude: %s", latitude, longitude)
+    _LOGGER.debug("Creating Buienalarm coordinator")
     # Define the update interval (e.g., 15 minutes)
     update_interval = timedelta(minutes=5)
 
