@@ -257,6 +257,7 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
             or config_entry.data.get("location_name")
             or config_entry.data.get(CONF_NAME)
         )
+        self._name = name
         self._unit_of_measurement = unit_of_measurement
         self._icon = icon
         self._device_class = device_class
@@ -294,7 +295,8 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
     @property
     def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
-        return f"{self.config_entry.entry_id}-{self._key}"
+        name_str = f"{self._name} {self.entry_place}" if self.entry_place else self._name
+        return f"{self.config_entry.entry_id}-{name_str.lower().replace(' ', '_')}"
 
     # StateType = str | int | float | None
     @property
