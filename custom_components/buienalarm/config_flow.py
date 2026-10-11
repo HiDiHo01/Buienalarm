@@ -173,30 +173,39 @@ class BuienalarmOptionsFlow(config_entries.OptionsFlow):
     # --------------------------------------------------------------
     def _options_schema(self) -> vol.Schema:  # noqa: D401
         """Return schema for the options form."""
-        existing = self._entry.options
+        options = self._entry.options
+        data = self._entry.data
         return vol.Schema(
             {
                 vol.Required(
                     CONF_NAME,
-                    default=existing.get(CONF_NAME, NAME),
+                    default=options.get(CONF_NAME, data.get(CONF_NAME, NAME)),
                 ): str,
                 vol.Required(
                     CONF_LATITUDE,
-                    default=existing.get(CONF_LATITUDE, DEFAULT_LATITUDE),
+                    default=options.get(
+                        CONF_LATITUDE, data.get(CONF_LATITUDE, DEFAULT_LATITUDE)
+                    ),
                 ): float,
                 vol.Required(
                     CONF_LONGITUDE,
-                    default=existing.get(CONF_LONGITUDE, DEFAULT_LONGITUDE),
+                    default=options.get(
+                        CONF_LONGITUDE, data.get(CONF_LONGITUDE, DEFAULT_LONGITUDE)
+                    ),
                 ): float,
                 vol.Required(
                     "notification_limit",
-                    default=existing.get(
-                        "notification_limit", DEFAULT_NOTIFICATION_LIMIT
+                    default=options.get(
+                        "notification_limit",
+                        data.get("notification_limit", DEFAULT_NOTIFICATION_LIMIT),
                     ),
                 ): int,
                 vol.Required(
                     "refresh_interval",
-                    default=existing.get("refresh_interval", DEFAULT_REFRESH_INTERVAL),
+                    default=options.get(
+                        "refresh_interval",
+                        data.get("refresh_interval", DEFAULT_REFRESH_INTERVAL),
+                    ),
                 ): int,
             }
         )
