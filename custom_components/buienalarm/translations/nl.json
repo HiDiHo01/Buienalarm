@@ -105,7 +105,7 @@
             "precipitationrate_now": {
                 "name": "Huidige neerslag"
             },
-            "precipitationrate_now_description": {
+            "precipitationrate_now_desc": {
                 "name": "Huidige neerslag beschrijving"
             },
             "precipitationtype_now": {
@@ -114,7 +114,7 @@
             "next_precipitation": {
                 "name": "Volgende neerslag over"
             },
-            "rain_periods": {
+            "precipitation_periods": {
                 "name": "Regenperiodes"
             }
         }
