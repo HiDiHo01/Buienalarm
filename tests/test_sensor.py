@@ -236,3 +236,40 @@ async def test_buienalarm_entity_invalid_precipitation_rates(hass: HomeAssistant
     assert entity.get_mycastmessage() != "Geen data"
     assert entity.get_current_precipitation_rate_desc() in ("Geen neerslag", "Lichte regen", "Motregen")
     assert entity.get_current_precipitation_type() in ("Geen neerslag", "Regen")
+
+
+@pytest.mark.asyncio
+async def test_buienalarm_sensor_entity_availability(hass: HomeAssistant) -> None:
+    """Test BuienalarmSensorEntity available property returns False when coordinator data is empty."""
+    from unittest.mock import MagicMock
+    from homeassistant.components.sensor import SensorEntityDescription
+    from custom_components.buienalarm.entity import BuienalarmSensorEntity
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Buienalarm Availability Test",
+        unique_id="test_availability",
+        data={"latitude": 52.3702, "longitude": 4.8952},
+    )
+
+    coordinator = MagicMock()
+    coordinator.last_update_success = True
+    desc = SensorEntityDescription(key="nowcastmessage", name="Test Sensor")
+    sensor_entity = BuienalarmSensorEntity(coordinator, entry, desc, "loc_123", "Test Location")
+
+    # When coordinator data is valid dict
+    coordinator.data = {"nowcastmessage": "Rain expected"}
+    assert sensor_entity.available is True
+
+    # When coordinator data is empty dict
+    coordinator.data = {}
+    assert sensor_entity.available is False
+
+    # When coordinator data is None or non-mapping
+    coordinator.data = None
+    assert sensor_entity.available is False
+
+    # When last_update_success is False
+    coordinator.last_update_success = False
+    coordinator.data = {"nowcastmessage": "Rain expected"}
+    assert sensor_entity.available is False

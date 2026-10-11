@@ -1093,9 +1093,9 @@ class BuienalarmSensorEntity(CoordinatorEntity, SensorEntity):
         """Geeft aan of de sensor data heeft opgehaald."""
         if not self.coordinator.last_update_success:
             return False
-        if not isinstance(self.coordinator.data, Mapping):
+        if not isinstance(self.coordinator.data, Mapping) or not self.coordinator.data:
             _LOGGER.debug(
-                "[SENSOR ENTITY] Coordinator data is not a Mapping: %s",
+                "[SENSOR ENTITY] Coordinator data is empty or not a Mapping: %s",
                 type(self.coordinator.data).__name__,
             )
             return False
