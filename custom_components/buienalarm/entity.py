@@ -133,13 +133,20 @@ class BuienalarmEntity(CoordinatorEntity):
         """Return device information for this entity.
         Wordt uitgevoerd"""
         _LOGGER.debug("[ENTITY] device_info config_entry: %s", self.config_entry.as_dict())
+        place = (
+            self.config_entry.data.get("place")
+            or self.config_entry.data.get("location_name")
+            or self.config_entry.data.get("name")
+        )
+        device_name = f"{NAME} {place}" if place and place != NAME else NAME
+
         return {
             "identifiers": {(DOMAIN, self.config_entry.entry_id)},
-            "name": NAME,
+            "name": device_name,
             "model": "Neerslag data",
             "manufacturer": NAME,
             "entry_type": DeviceEntryType.SERVICE,
-            "suggested_area": self.config_entry.data.get("place", None),
+            "suggested_area": place,
             "configuration_url": API_CONF_URL,
         }
 
