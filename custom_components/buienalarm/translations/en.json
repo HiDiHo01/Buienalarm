@@ -86,6 +86,17 @@
         }
     },
     "entity": {
+        "binary_sensor": {
+            "precipitation_expected": {
+                "name": "Precipitation expected"
+            },
+            "currently_raining": {
+                "name": "Currently raining"
+            },
+            "currently_snowing": {
+                "name": "Currently snowing"
+            }
+        },
         "sensor": {
             "nowcastmessage": {
                 "name": "Weather message"
