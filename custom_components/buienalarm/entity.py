@@ -53,9 +53,11 @@ class BuienalarmEntity(CoordinatorEntity):
         # =======================================
 
     @property
-    def data(self) -> dict[str, object]:
-        """Convenience property to access coordinator data."""
-        return self.coordinator.data or {}
+    def data(self) -> Mapping[str, object]:
+        """Convenience property to access coordinator data safely."""
+        if isinstance(self.coordinator.data, Mapping):
+            return self.coordinator.data
+        return {}
 
     def get_data(self, key: str) -> str | int | float | datetime | None:
         """
@@ -70,7 +72,7 @@ class BuienalarmEntity(CoordinatorEntity):
         Returns:
             One of str, int, float, datetime, or None if data is missing or invalid.
         """
-        data: dict[str, object] = self.coordinator.data
+        data: Mapping[str, object] = self.data
 
         if not data:
             _LOGGER.error("[BUIENALARM ENTITY] No data available for sensor '%s'", self.name)
@@ -118,7 +120,7 @@ class BuienalarmEntity(CoordinatorEntity):
 
     def _ensure_precip_data(self) -> list[dict[str, object]]:
         """Return precip list or raise ValueError for empty data."""
-        data = self.coordinator.data.get("data", [])
+        data = self.data.get("data", [])
         if not isinstance(data, list) or not data:
             raise ValueError("Precipitation data missing or empty")
         return data
@@ -247,10 +249,10 @@ class BuienalarmEntity(CoordinatorEntity):
 
     def get_nowcastmessage(self) -> str | None:
         """Generate a user-friendly message for the current weather forecast."""
-        if not isinstance(self.coordinator.data, Mapping):
+        if not self.data:
             return None
 
-        nowcastmessage = self.coordinator.data.get("nowcastmessage")
+        nowcastmessage = self.data.get("nowcastmessage")
         if not isinstance(nowcastmessage, Mapping):
             return None
 
@@ -293,9 +295,9 @@ class BuienalarmEntity(CoordinatorEntity):
 
     def get_mycastmessage(self) -> str | None:
         """Generate a user-friendly message for the precipitation forecast."""
-        rain_data: list[dict[str, int | float | datetime | None]] | None = self.coordinator.data.get('data')
+        rain_data: object = self.data.get('data')
 
-        if not rain_data:
+        if not isinstance(rain_data, list) or not rain_data:
             return "Geen data"
 
         rain_start_time, rain_stop_time, rain_restart_time, rain_duration, rain_stopped = self.get_rain_start_time_and_duration(
@@ -385,7 +387,11 @@ class BuienalarmEntity(CoordinatorEntity):
 
     def get_precipitation_duration(self) -> int:
         """Return the duration of the current precipitation event in minutes."""
-        precip_data: list[dict[str, float]] = self._ensure_precip_data()
+        try:
+            precip_data: list[dict[str, float]] = self._ensure_precip_data()
+        except ValueError:
+            _LOGGER.debug("No precipitation data available")
+            return 0
 
         if not precip_data:
             _LOGGER.debug("No precipitation data available")
@@ -528,7 +534,9 @@ class BuienalarmEntity(CoordinatorEntity):
 
     def get_total_precipitation_rate(self) -> float:
         """ Get total precipitation rate rounded to one decimal place for the next 2 hours """
-        data: list[dict[str, object]] = self.coordinator.data.get('data', [])
+        data: object = self.data.get('data', [])
+        if not isinstance(data, list):
+            return 0.0
         current_time: datetime = datetime.now(timezone.utc)
         end_time: datetime = current_time + timedelta(hours=2)
         return self.calculate_total_precipitation_rate(data, current_time, end_time)
@@ -536,7 +544,9 @@ class BuienalarmEntity(CoordinatorEntity):
     def get_total_precipitation_rate_for_next_hour(self) -> float:
         """Calculate the total precipitation rate in mm/h for the upcoming hour."""
         # Fetch the precipitation data; expecting a list of dictionaries
-        data: list[dict[str, object]] = self.coordinator.data.get('data', [])
+        data: object = self.data.get('data', [])
+        if not isinstance(data, list):
+            return 0.0
         current_time: datetime = datetime.now(timezone.utc)  # Use UTC time
         end_time: datetime = current_time + timedelta(hours=1)
 
@@ -553,12 +563,12 @@ class BuienalarmEntity(CoordinatorEntity):
 
     def get_current_precipitation(self) -> float:
         """Get the current precipitation rate."""
-        data: list[dict[str, object]] = self.coordinator.data.get('data', [])
+        data: object = self.data.get('data', [])
         # Bolt performance optimization: use epoch timestamps for rapid interval check
         current_ts: float = datetime.now(timezone.utc).timestamp()
         current_precipitation_rate: float = 0.0
 
-        if data is not None:
+        if isinstance(data, list):
             for data_point in data:
                 if not isinstance(data_point, dict):
                     _LOGGER.error(
@@ -609,12 +619,15 @@ class BuienalarmEntity(CoordinatorEntity):
 
     def get_current_precipitation_rate_desc(self) -> str:
         """Get the description of the current precipitation rate."""
-        data: list[dict[str, object]] = self.coordinator.data.get('data', [])
+        data: object = self.data.get('data', [])
         current_ts: float = datetime.now(timezone.utc).timestamp()
         current_precipitation_rate_desc: str = self.NO_PRECIPITATION
 
         # Log the current timestamp for debugging
         _LOGGER.debug("[BUIENALARM ENTITY] Current timestamp for precipitation check: %s", current_ts)
+
+        if not isinstance(data, list):
+            return current_precipitation_rate_desc
 
         for data_point in data:
             ts = data_point.get("timestamp", 0)
@@ -650,9 +663,12 @@ class BuienalarmEntity(CoordinatorEntity):
 
     def get_current_precipitation_type(self) -> str:
         """Get the type of current precipitation (rain, snow, etc.)."""
-        precipitation_data: list[dict[str, object]] = self.coordinator.data.get("data", [])
+        precipitation_data: object = self.data.get("data", [])
         current_ts: float = datetime.now(timezone.utc).timestamp()
         current_type: str = self.NO_PRECIPITATION
+
+        if not isinstance(precipitation_data, list):
+            return current_type
 
         for data_point in precipitation_data:
             timestamp = data_point.get("timestamp", 0.0)
@@ -690,10 +706,10 @@ class BuienalarmEntity(CoordinatorEntity):
             )
             return 0
 
-        precip_data: list[dict[str, object]] = self.coordinator.data.get("data", [])
+        precip_data: object = self.data.get("data", [])
 
         # ── quick sanity‑check ────────────────────────────────────────────────
-        if not precip_data:
+        if not isinstance(precip_data, list) or not precip_data:
             _LOGGER.warning(
                 "[BUIENALARM ENTITY] No precipitation data available for %s",
                 self.name,
@@ -777,10 +793,9 @@ class BuienalarmEntity(CoordinatorEntity):
 
     def check_rain_data_validity(self) -> bool:
         """Check if the precipitation data is valid and non-empty."""
-        precipitation_data = self.coordinator.data.get('data')
+        precipitation_data = self.data.get('data')
 
-
-        if not precipitation_data:
+        if not precipitation_data or not isinstance(precipitation_data, list):
             _LOGGER.warning("[BUIENALARM ENTITY] Precipitation data is invalid or empty.")
             return False
 
@@ -859,7 +874,7 @@ class BuienalarmEntity(CoordinatorEntity):
                 - duration (int|None): duur van de periode in minuten
                 - precipitationrate (float|None): gemiddelde neerslagsnelheid in mm/u
         """
-        precipitation_data: object = self.coordinator.data.get("data")
+        precipitation_data: object = self.data.get("data")
         periods_list: list[dict[str, str | int | float | None]] = []
 
         if not isinstance(precipitation_data, list):
@@ -908,7 +923,7 @@ class BuienalarmEntity(CoordinatorEntity):
                 - duration_minutes (int): duur van de periode in minuten
                 - precipitationrate (float): gemiddelde neerslagsnelheid in mm/u
         """
-        precipitation_data: list[object] = self.coordinator.data.get("data", [])
+        precipitation_data: object = self.data.get("data", [])
         now_utc = datetime.now(timezone.utc)
 
         if not isinstance(precipitation_data, list):
@@ -1027,9 +1042,9 @@ class BuienalarmSensorEntity(CoordinatorEntity, SensorEntity):
     @property
     def native_value(self) -> str | int | float | None:
         """Return the state of the sensor."""
-        if not self.coordinator.last_update_success:
+        if not self.coordinator.last_update_success or not isinstance(self.coordinator.data, Mapping):
             _LOGGER.debug(
-                "[SENSOR ENTITY] Last update not successful for %s, returning None",
+                "[SENSOR ENTITY] Last update not successful or data invalid for %s, returning None",
                 self.name,
             )
             return None
@@ -1041,16 +1056,12 @@ class BuienalarmSensorEntity(CoordinatorEntity, SensorEntity):
         """Geeft aan of de sensor data heeft opgehaald."""
         if not self.coordinator.last_update_success:
             return False
-        if not self.coordinator.data:
-            return False
-        if not isinstance(self.coordinator.data, dict):
+        if not isinstance(self.coordinator.data, Mapping):
             _LOGGER.debug(
-                "[SENSOR ENTITY] Coordinator data is not a dict: %s",
+                "[SENSOR ENTITY] Coordinator data is not a Mapping: %s",
                 type(self.coordinator.data).__name__,
             )
             return False
-        # if self.coordinator.data.get(self._key, None) is None:
-        #     return False
         return True
 
     @property

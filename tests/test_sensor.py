@@ -156,3 +156,46 @@ async def test_nowcastmessage_edge_cases(hass: HomeAssistant) -> None:
     # 7. Valid nowcastmessage without placeholders
     coordinator.data = {"nowcastmessage": {"nl": "Geen neerslag"}}
     assert entity.get_nowcastmessage() == "Geen neerslag"
+
+
+@pytest.mark.asyncio
+async def test_buienalarm_entity_untrusted_data_handling(hass: HomeAssistant) -> None:
+    """Test BuienalarmEntity methods with untrusted, None, or malformed coordinator data."""
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.entity import BuienalarmEntity
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Buienalarm Untrusted Data Test",
+        unique_id="test_untrusted_data",
+        data={"latitude": 52.3702, "longitude": 4.8952},
+    )
+
+    coordinator = MagicMock()
+    entity = BuienalarmEntity(coordinator, entry, "test_sensor")
+
+    invalid_data_samples = [
+        None,
+        {},
+        "invalid string data",
+        [1, 2, 3],
+        {"data": "not a list"},
+        {"data": None},
+    ]
+
+    for sample in invalid_data_samples:
+        coordinator.data = sample
+
+        assert entity.get_mycastmessage() == "Geen data"
+        assert entity.get_precipitation_duration() == 0
+        assert entity.get_total_precipitation_rate() == 0.0
+        assert entity.get_total_precipitation_rate_for_next_hour() == 0.0
+        assert entity.get_current_precipitation() == 0.0
+        assert entity.get_current_precipitation_rate_desc() == "Geen neerslag"
+        assert entity.get_current_precipitation_type() == "Geen neerslag"
+        assert entity.get_next_precipitation() is None
+        assert entity.check_rain_data_validity() is False
+        assert entity.get_precipitation_periods_as_dict() == []
+        assert entity._get_precipitation_periods() == []
+        assert entity.data_points_as_list == []
+        assert entity.get_data("non_existent_key") is None
