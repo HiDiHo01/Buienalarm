@@ -142,7 +142,17 @@ async def async_setup_entry(
 
     # old_sensors
     sensors1: list[SensorEntity] = [
-        BuienalarmSensor(coordinator, config_entry, **sensor_data)
+        BuienalarmSensor(
+            coordinator,
+            config_entry,
+            name=sensor_data["name"],
+            unit_of_measurement=sensor_data["unit_of_measurement"],
+            icon=sensor_data["icon"],
+            device_class=sensor_data["device_class"],
+            state_class=sensor_data["state_class"],
+            key=sensor_data["key"],
+            translation_key=sensor_data.get("translation_key", sensor_data["key"]),
+        )
         for sensor_data in SENSORS
     ]
 
@@ -237,18 +247,24 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
         device_class: str,
         state_class: str,
         key: str,
+        translation_key: str | None = None,
     ) -> None:
-        _LOGGER.debug("[SENSOR ENTITY] __init__ for %s", name)
+        _LOGGER.debug("[SENSOR ENTITY] __init__ for %s", key)
         super().__init__(coordinator, config_entry, key)
         self.entry_name = config_entry.data.get(CONF_NAME, "no_name")
-        self.entry_place = config_entry.data.get("place", None)
+        self.entry_place = (
+            config_entry.data.get("place")
+            or config_entry.data.get("location_name")
+            or config_entry.data.get(CONF_NAME)
+        )
         self._name = name
         self._unit_of_measurement = unit_of_measurement
         self._icon = icon
         self._device_class = device_class
         self._state_class = state_class
         self._key = key
-        _LOGGER.debug("[SENSOR ENTITY] Initialized sensor: %s", self.name)
+        self._attr_translation_key = translation_key or key
+        _LOGGER.debug("[SENSOR ENTITY] Initialized sensor with translation key: %s", self._attr_translation_key)
 
     @property
     def available(self) -> bool:
@@ -279,14 +295,8 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
     @property
     def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
-        return f"{self.config_entry.entry_id}-{self.name.lower().replace(' ', '_')}"
-
-    @property
-    def name(self) -> str:
-        """Return the sensor name."""
-        if self.entry_place:
-            return f"{self._name} {self.entry_place}"
-        return self._name
+        name_str = f"{self._name} {self.entry_place}" if self.entry_place else self._name
+        return f"{self.config_entry.entry_id}-{name_str.lower().replace(' ', '_')}"
 
     # StateType = str | int | float | None
     @property

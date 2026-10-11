@@ -105,7 +105,7 @@
             "precipitationrate_now": {
                 "name": "Current precipitation"
             },
-            "precipitationrate_now_description": {
+            "precipitationrate_now_desc": {
                 "name": "Current precipitation description"
             },
             "precipitationrate_now_desc": {
@@ -117,7 +117,7 @@
             "next_precipitation": {
                 "name": "Next precipitation in"
             },
-            "rain_periods": {
+            "precipitation_periods": {
                 "name": "Rain periods"
             },
             "precipitation_periods": {
