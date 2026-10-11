@@ -237,6 +237,18 @@ async def test_buienalarm_entity_invalid_precipitation_rates(hass: HomeAssistant
     assert entity.get_current_precipitation_rate_desc() in ("Geen neerslag", "Lichte regen", "Motregen")
     assert entity.get_current_precipitation_type() in ("Geen neerslag", "Regen")
 
+    # Ensure payload where the last item is malformed/non-dict does not break get_mycastmessage()
+    coordinator.data = {
+        "data": [
+            {"timestamp": now_ts + 60, "precipitationrate": 2.0, "precipitationtype": "rain"},
+            {"timestamp": now_ts + 120, "precipitationrate": 1.0, "precipitationtype": "rain"},
+            "invalid_final_item_not_dict",
+        ]
+    }
+    msg = entity.get_mycastmessage()
+    assert msg is not None
+    assert msg != "Geen data"
+
 
 @pytest.mark.asyncio
 async def test_buienalarm_sensor_entity_availability(hass: HomeAssistant) -> None:

@@ -844,7 +844,12 @@ class BuienalarmEntity(CoordinatorEntity):
         rain_duration: int = 0
         rain_stopped: bool = True
 
+        last_valid_time: datetime | None = None
+
         for data_point in precipitation_data:
+            if not isinstance(data_point, Mapping) and not hasattr(data_point, "get"):
+                continue
+
             timestamp = data_point.get("timestamp")
             raw_rate = data_point.get("precipitationrate", 0.0)
 
@@ -852,15 +857,17 @@ class BuienalarmEntity(CoordinatorEntity):
                 continue  # Skip invalid entries
 
             try:
-                precipitation_rate = float(raw_rate)
-            except (ValueError, TypeError):
-                precipitation_rate = 0.0
-
-            try:
                 data_point_timestamp = datetime.fromtimestamp(float(timestamp),
                                                               tz=timezone.utc)
             except (ValueError, TypeError):
                 continue
+
+            last_valid_time = data_point_timestamp
+
+            try:
+                precipitation_rate = float(raw_rate)
+            except (ValueError, TypeError):
+                precipitation_rate = 0.0
 
             # Check if there's precipitation at this data point and it's later than the current time
             if data_point_timestamp >= current_time_utc:
@@ -883,15 +890,9 @@ class BuienalarmEntity(CoordinatorEntity):
             if rain_stop_time_utc is not None:
                 rain_duration = int((rain_stop_time_utc -
                                      rain_start_time_utc).total_seconds() / 60)
-            else:
-                # Rain has started but no explicit stop time, use end of data time
-                end_of_data_timestamp = precipitation_data[-1].get("timestamp")
-                if end_of_data_timestamp is not None:
-                    end_of_data_time = datetime.fromtimestamp(
-                        end_of_data_timestamp, tz=timezone.utc)
-                    rain_duration = int((end_of_data_time -
-                                         rain_start_time_utc).total_seconds()
-                                        / 60)
+            elif last_valid_time is not None:
+                rain_duration = int((last_valid_time -
+                                     rain_start_time_utc).total_seconds() / 60)
             rain_duration = int(rain_duration)
 
         return rain_start_time_utc, rain_stop_time_utc, rain_restart_time_utc, rain_duration, rain_stopped
