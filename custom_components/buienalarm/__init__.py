@@ -136,9 +136,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Prevent duplicates based on effective coordinates
     if _has_duplicate_entry(hass, entry, latitude, longitude):
         _LOGGER.warning(
-            "[INIT_SETUP_ENTRY] Duplicate config entry detected for (%s, %s): %s",
-            latitude,
-            longitude,
+            "[INIT_SETUP_ENTRY] Duplicate config entry detected for entry_id=%s, title=%s",
+            entry.entry_id,
             entry.title,
         )
         return False
