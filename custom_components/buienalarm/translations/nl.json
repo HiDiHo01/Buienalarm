@@ -86,6 +86,17 @@
         }
     },
     "entity": {
+        "binary_sensor": {
+            "precipitation_expected": {
+                "name": "Neerslag verwacht"
+            },
+            "currently_raining": {
+                "name": "Het regent nu"
+            },
+            "currently_snowing": {
+                "name": "Het sneeuwt nu"
+            }
+        },
         "sensor": {
             "nowcastmessage": {
                 "name": "Weermelding"
@@ -105,7 +116,7 @@
             "precipitationrate_now": {
                 "name": "Huidige neerslag"
             },
-            "precipitationrate_now_description": {
+            "precipitationrate_now_desc": {
                 "name": "Huidige neerslag beschrijving"
             },
             "precipitationtype_now": {
@@ -114,7 +125,7 @@
             "next_precipitation": {
                 "name": "Volgende neerslag over"
             },
-            "rain_periods": {
+            "precipitation_periods": {
                 "name": "Regenperiodes"
             }
         }

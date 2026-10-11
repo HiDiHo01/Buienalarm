@@ -3,6 +3,11 @@
 import json
 from pathlib import Path
 
+from custom_components.buienalarm.sensor_types import (
+    BINARY_SENSOR_DESCRIPTIONS,
+    SENSOR_DESCRIPTIONS,
+)
+
 TRANSLATIONS_DIR = Path("custom_components/buienalarm/translations")
 
 
@@ -35,3 +40,31 @@ def test_translation_files_exist_and_valid_json():
         # Check error keys
         assert "error" in data["config"]
         assert "invalid_coordinates" in data["config"]["error"]
+
+
+def test_entity_translation_parity():
+    """Verify that all binary sensors and sensors defined in code have entity translations in en.json and nl.json."""
+    for lang in ["en", "nl"]:
+        path = TRANSLATIONS_DIR / f"{lang}.json"
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        entity_data = data.get("entity", {})
+        assert "binary_sensor" in entity_data
+        assert "sensor" in entity_data
+
+        binary_sensor_translations = entity_data["binary_sensor"]
+        for bs in BINARY_SENSOR_DESCRIPTIONS:
+            translation_key = bs.translation_key or bs.key
+            assert (
+                translation_key in binary_sensor_translations
+            ), f"Missing binary_sensor translation key '{translation_key}' in {lang}.json"
+            assert "name" in binary_sensor_translations[translation_key]
+
+        sensor_translations = entity_data["sensor"]
+        for s in SENSOR_DESCRIPTIONS:
+            translation_key = s.translation_key or s.key
+            assert (
+                translation_key in sensor_translations
+            ), f"Missing sensor translation key '{translation_key}' in {lang}.json"
+            assert "name" in sensor_translations[translation_key]
