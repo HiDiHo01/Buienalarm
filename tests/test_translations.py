@@ -41,6 +41,14 @@ def test_translation_files_exist_and_valid_json():
         assert "error" in data["config"]
         assert "invalid_coordinates" in data["config"]["error"]
 
+        # Check binary sensor entity translations
+        assert "binary_sensor" in data["entity"]
+        assert "currently_raining" in data["entity"]["binary_sensor"]
+        assert "precipitation_expected" in data["entity"]["binary_sensor"]
+
+        # Check sensor entity translations
+        assert "precipitation_periods" in data["entity"]["sensor"]
+        assert "precipitationrate_now_desc" in data["entity"]["sensor"]
 
 def test_entity_translation_parity():
     """Verify that all binary sensors and sensors defined in code have entity translations in en.json and nl.json."""

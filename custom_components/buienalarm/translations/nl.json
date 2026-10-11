@@ -119,6 +119,9 @@
             "precipitationrate_now_desc": {
                 "name": "Huidige neerslag beschrijving"
             },
+            "precipitationrate_now_desc": {
+                "name": "Neerslag omschrijving"
+            },
             "precipitationtype_now": {
                 "name": "Huidig neerslagtype"
             },
@@ -127,6 +130,20 @@
             },
             "precipitation_periods": {
                 "name": "Regenperiodes"
+            },
+            "precipitation_periods": {
+                "name": "Neerslag periodes"
+            }
+        },
+        "binary_sensor": {
+            "precipitation_expected": {
+                "name": "Neerslag verwacht"
+            },
+            "currently_raining": {
+                "name": "Het regent nu"
+            },
+            "currently_snowing": {
+                "name": "Het sneeuwt nu"
             }
         }
     }
