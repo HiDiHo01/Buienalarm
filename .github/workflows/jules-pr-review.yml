@@ -1,0 +1,125 @@
+
+name: Jules PR Review
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: jules-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: Start Jules review
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    # Do not expose the API key to pull requests from forks.
+    if: >-
+      github.event.pull_request.head.repo.full_name ==
+      github.repository
+
+    steps:
+      - name: Create Jules review session
+        id: jules
+        env:
+          JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          OWNER="${REPOSITORY%%/*}"
+          REPO="${REPOSITORY#*/}"
+          SOURCE="sources/github/${OWNER}/${REPO}"
+
+          PROMPT=$(cat <<EOF
+          Review pull request #${PR_NUMBER}:
+          ${PR_URL}
+
+          This is a review-only task for a Home Assistant custom integration.
+
+          Read AGENTS.md and the repository's applicable instructions first.
+          Inspect the actual pull request diff and relevant surrounding code.
+          Verify every finding against the implementation.
+
+          Prioritize:
+          - Functional defects and regressions
+          - Home Assistant API compatibility
+          - Async correctness and blocking I/O
+          - Entity lifecycle, availability, and coordinator behavior
+          - Error handling, security, and data integrity
+          - Missing regression tests
+
+          Report only actionable findings. For each finding, include severity,
+          file and line, the concrete failure scenario, and a concise fix.
+
+          Do not modify files, commit changes, create a branch, or create a PR.
+          Do not report speculative issues or style preferences as defects.
+          If there are no verified findings, say so explicitly.
+          EOF
+          )
+
+          PAYLOAD=$(jq -n \
+            --arg prompt "$PROMPT" \
+            --arg source "$SOURCE" \
+            --arg branch "$PR_BRANCH" \
+            --arg title "Review PR #${PR_NUMBER}" \
+            '{
+              prompt: $prompt,
+              title: $title,
+              sourceContext: {
+                source: $source,
+                githubRepoContext: {
+                  startingBranch: $branch
+                }
+              }
+            }')
+
+          RESPONSE=$(curl --fail-with-body --silent --show-error \
+            --request POST \
+            --url "https://jules.googleapis.com/v1alpha/sessions" \
+            --header "X-Goog-Api-Key: ${JULES_API_KEY}" \
+            --header "Content-Type: application/json" \
+            --data "$PAYLOAD")
+
+          SESSION=$(jq -er '.name' <<< "$RESPONSE")
+
+          echo "session=$SESSION" >> "$GITHUB_OUTPUT"
+
+      - name: Notify pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          SESSION: ${{ steps.jules.outputs.session }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          gh api \
+            "repos/${REPOSITORY}/issues/${PR_NUMBER}/comments" \
+            --method POST \
+            --field body="$(cat <<EOF
+          **Jules review started**
+
+          Jules session: \`${SESSION}\`
+
+          The review is instructed to verify findings against the code and
+          report actionable defects without modifying the pull request.
+
+          Review the session in [Jules](https://jules.google/).
+          EOF
+          )"
