@@ -1,7 +1,6 @@
 # const.py
 """Constants for Buienalarm."""
 
-
 from datetime import timedelta
 from typing import Final
 
@@ -9,7 +8,9 @@ from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
 from homeassistant.const import UnitOfTime, UnitOfVolumetricFlux
 
 # API Configuration
-API_ENDPOINT: Final[str] = "https://imn-rust-lb.infoplaza.io/v4/nowcast/ba/timeseries/{}/{}"
+API_ENDPOINT: Final[str] = (
+    "https://imn-rust-lb.infoplaza.io/v4/nowcast/ba/timeseries/{}/{}"
+)
 API_TIMEOUT: Final[int] = 30
 API_TIMEZONE: Final[str] = "Europe/Amsterdam"
 API_CONF_URL: Final[str] = "https://buienalarm.nl"

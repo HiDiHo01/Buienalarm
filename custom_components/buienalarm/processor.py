@@ -39,14 +39,19 @@ class BuienalarmDataProcessor:
         result: dict[str, object] = {}
 
         if not isinstance(self._raw, dict):
-            _LOGGER.warning("Buienalarm: root is geen dict maar %s", type(self._raw).__name__)
+            _LOGGER.warning(
+                "Buienalarm: root is geen dict maar %s", type(self._raw).__name__
+            )
             return result
 
         data = self._raw.get("data")
         if isinstance(data, list):
             self._forecast = self._parse_forecast(data)
         else:
-            _LOGGER.debug("Buienalarm: ontbrekende of ongeldige 'data' (type: %s)", type(data).__name__)
+            _LOGGER.debug(
+                "Buienalarm: ontbrekende of ongeldige 'data' (type: %s)",
+                type(data).__name__,
+            )
 
         result["rain_expected"] = self._has_precipitation()
         result["precipitation_forecast"] = self._forecast
@@ -60,7 +65,9 @@ class BuienalarmDataProcessor:
 
         for i, item in enumerate(data):
             if not isinstance(item, dict):
-                _LOGGER.debug("Buienalarm: overgeslagen datapunt [%s], geen dict: %s", i, item)
+                _LOGGER.debug(
+                    "Buienalarm: overgeslagen datapunt [%s], geen dict: %s", i, item
+                )
                 continue
 
             rate = item.get("precipitationrate")
@@ -72,13 +79,19 @@ class BuienalarmDataProcessor:
                     continue
 
             ts_str = item.get("time")
-            timestamp = dt_util.parse_datetime(ts_str) if isinstance(ts_str, str) else None
+            timestamp = (
+                dt_util.parse_datetime(ts_str) if isinstance(ts_str, str) else None
+            )
             local_time = as_local(timestamp).isoformat() if timestamp else None
 
             forecast.append(
                 {
                     "precipitationrate": round(rate, 2),
-                    "precipitationtype": item.get("precipitationtype") if isinstance(item.get("precipitationtype"), str) else "unknown",
+                    "precipitationtype": (
+                        item.get("precipitationtype")
+                        if isinstance(item.get("precipitationtype"), str)
+                        else "unknown"
+                    ),
                     "timestamp_utc": ts_str or "",
                     "timestamp_local": local_time or "",
                 }

@@ -1,4 +1,5 @@
 """BuienalarmEntity class"""
+
 # entity.py
 
 import logging
@@ -24,7 +25,7 @@ MAX_DURATION_MINUTES = 120
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
 # Bolt: Pre-compiled regex pattern for nowcast message timestamp placeholders to avoid re-compilation per call
-_NOWCAST_PLACEHOLDER_RE: Final[re.Pattern[str]] = re.compile(r'\{(\d+)\}')
+_NOWCAST_PLACEHOLDER_RE: Final[re.Pattern[str]] = re.compile(r"\{(\d+)\}")
 
 _LOGGER.debug("[ENTITY] Start entity.py")
 
@@ -37,7 +38,7 @@ class BuienalarmEntity(CoordinatorEntity):
         self,
         coordinator: DataUpdateCoordinator[dict[str, object]],
         config_entry: ConfigEntry,
-        sensor_key: str
+        sensor_key: str,
     ) -> None:
         super().__init__(coordinator)
         self.config_entry: ConfigEntry = config_entry
@@ -75,19 +76,26 @@ class BuienalarmEntity(CoordinatorEntity):
         data: Mapping[str, object] = self.data
 
         if not data:
-            _LOGGER.error("[BUIENALARM ENTITY] No data available for sensor '%s'", self.name)
+            _LOGGER.error(
+                "[BUIENALARM ENTITY] No data available for sensor '%s'", self.name
+            )
             return None
 
-        key_methods: Final[dict[str, Callable[[], str | int | float | datetime | dict[str, object] | None]]] = {
-            'nowcastmessage': self.get_nowcastmessage,
-            'mycastmessage': self.get_mycastmessage,
-            'precipitation_duration': self.get_precipitation_duration,
-            'precipitationrate_total': self.get_total_precipitation_rate,
-            'precipitationrate_hour': self.get_total_precipitation_rate_for_next_hour,
-            'precipitationrate_now': self.get_current_precipitation,
-            'precipitationrate_now_desc': self.get_current_precipitation_rate_desc,
-            'precipitationtype_now': self.get_current_precipitation_type,
-            'next_precipitation': self.get_next_precipitation,
+        key_methods: Final[
+            dict[
+                str,
+                Callable[[], str | int | float | datetime | dict[str, object] | None],
+            ]
+        ] = {
+            "nowcastmessage": self.get_nowcastmessage,
+            "mycastmessage": self.get_mycastmessage,
+            "precipitation_duration": self.get_precipitation_duration,
+            "precipitationrate_total": self.get_total_precipitation_rate,
+            "precipitationrate_hour": self.get_total_precipitation_rate_for_next_hour,
+            "precipitationrate_now": self.get_current_precipitation,
+            "precipitationrate_now_desc": self.get_current_precipitation_rate_desc,
+            "precipitationtype_now": self.get_current_precipitation_type,
+            "next_precipitation": self.get_next_precipitation,
             # Bolt optimization: Directly get period count without computing ISO formatted dicts twice
             "precipitation_periods": self._get_precipitation_periods_count,
             # 'precipitation_periods_as_list': self.get_precipitation_periods_as_list,
@@ -97,7 +105,12 @@ class BuienalarmEntity(CoordinatorEntity):
         if key in key_methods:
             try:
                 value = key_methods[key]()
-                _LOGGER.debug("[BUIENALARM ENTITY] Data for key '%s' (%s): %s", key, self.name, value)
+                _LOGGER.debug(
+                    "[BUIENALARM ENTITY] Data for key '%s' (%s): %s",
+                    key,
+                    self.name,
+                    value,
+                )
                 return value
             except Exception as err:
                 _LOGGER.error(
@@ -112,10 +125,14 @@ class BuienalarmEntity(CoordinatorEntity):
         if isinstance(data, dict) and key in data:
             value: object = data.get(key)
             if isinstance(value, (str, int, float, datetime)):
-                _LOGGER.debug("[BUIENALARM ENTITY] Raw fallback data for key '%s': %s", key, value)
+                _LOGGER.debug(
+                    "[BUIENALARM ENTITY] Raw fallback data for key '%s': %s", key, value
+                )
                 return value
 
-        _LOGGER.warning("[BUIENALARM ENTITY] Key '%s' not found in data or methods", key)
+        _LOGGER.warning(
+            "[BUIENALARM ENTITY] Key '%s' not found in data or methods", key
+        )
         return None
 
     def _ensure_precip_data(self) -> list[dict[str, object]]:
@@ -134,7 +151,9 @@ class BuienalarmEntity(CoordinatorEntity):
     def device_info(self) -> dict[str, object]:
         """Return device information for this entity.
         Wordt uitgevoerd"""
-        _LOGGER.debug("[ENTITY] device_info config_entry: %s", self.config_entry.as_dict())
+        _LOGGER.debug(
+            "[ENTITY] device_info config_entry: %s", self.config_entry.as_dict()
+        )
         place = (
             self.config_entry.data.get("place")
             or self.config_entry.data.get("location_name")
@@ -161,20 +180,22 @@ class BuienalarmEntity(CoordinatorEntity):
             return attributes
 
         try:
-            attributes.update({
-                "location": self._location_name,
-                # "updated_at": self.coordinator.data.get("updated_at", "Unknown"),
-                "next_precipitation": self.get_next_precipitation(),
-                "precipitationrate_now": self.get_current_precipitation(),
-                "precipitationrate_now_desc": self.get_current_precipitation_rate_desc(),
-                "precipitationrate_hour": self.get_total_precipitation_rate_for_next_hour(),
-                "precipitationrate_total": self.get_total_precipitation_rate(),
-                "precipitation_duration": self.get_precipitation_duration(),
-                "precipitationtype_now": self.get_current_precipitation_type(),
-                "nowcastmessage": self.get_nowcastmessage(),
-                "mycastmessage": self.get_mycastmessage(),
-                "precipitation_periods": self.get_precipitation_periods_as_dict(),
-            })
+            attributes.update(
+                {
+                    "location": self._location_name,
+                    # "updated_at": self.coordinator.data.get("updated_at", "Unknown"),
+                    "next_precipitation": self.get_next_precipitation(),
+                    "precipitationrate_now": self.get_current_precipitation(),
+                    "precipitationrate_now_desc": self.get_current_precipitation_rate_desc(),
+                    "precipitationrate_hour": self.get_total_precipitation_rate_for_next_hour(),
+                    "precipitationrate_total": self.get_total_precipitation_rate(),
+                    "precipitation_duration": self.get_precipitation_duration(),
+                    "precipitationtype_now": self.get_current_precipitation_type(),
+                    "nowcastmessage": self.get_nowcastmessage(),
+                    "mycastmessage": self.get_mycastmessage(),
+                    "precipitation_periods": self.get_precipitation_periods_as_dict(),
+                }
+            )
         except (KeyError, ValueError, TypeError) as err:
             _LOGGER.error(
                 "[BUIENALARM ENTITY] Failed to build attributes for '%s': %s",
@@ -265,8 +286,7 @@ class BuienalarmEntity(CoordinatorEntity):
             return nowcastmessage_data
 
         datetimes_local = [
-            dt.as_local(dt.utc_from_timestamp(int(timestamp)))
-            for timestamp in matches
+            dt.as_local(dt.utc_from_timestamp(int(timestamp))) for timestamp in matches
         ]
 
         for timestamp, local_dt in zip(matches, datetimes_local):
@@ -278,7 +298,7 @@ class BuienalarmEntity(CoordinatorEntity):
         return nowcastmessage_data
 
     def timestamp_to_local(self, timestamp: float) -> datetime:
-        """ Convert a Unix timestamp to local time."""
+        """Convert a Unix timestamp to local time."""
         utc_time = datetime.fromtimestamp(timestamp, tz=timezone.utc)
         return dt.as_local(utc_time)
 
@@ -295,13 +315,18 @@ class BuienalarmEntity(CoordinatorEntity):
 
     def get_mycastmessage(self) -> str | None:
         """Generate a user-friendly message for the precipitation forecast."""
-        rain_data: object = self.data.get('data')
+        rain_data: object = self.data.get("data")
 
         if not isinstance(rain_data, list) or not rain_data:
             return "Geen data"
 
-        rain_start_time, rain_stop_time, rain_restart_time, rain_duration, rain_stopped = self.get_rain_start_time_and_duration(
-            rain_data)
+        (
+            rain_start_time,
+            rain_stop_time,
+            rain_restart_time,
+            rain_duration,
+            rain_stopped,
+        ) = self.get_rain_start_time_and_duration(rain_data)
 
         if rain_start_time is None:
             _LOGGER.debug("[BUIENALARM ENTITY] rain_start_time is None")
@@ -311,11 +336,15 @@ class BuienalarmEntity(CoordinatorEntity):
             _LOGGER.debug("[BUIENALARM ENTITY] rain_duration is None")
             return "Ongeldige rain_duration tijd"
 
-        _LOGGER.debug("[BUIENALARM ENTITY] Neerslag start om: %s",
-                      self.format_time(rain_start_time))
+        _LOGGER.debug(
+            "[BUIENALARM ENTITY] Neerslag start om: %s",
+            self.format_time(rain_start_time),
+        )
         if rain_stop_time:
-            _LOGGER.debug("[BUIENALARM ENTITY] Neerslag stopt om: %s",
-                          self.format_time(rain_stop_time))
+            _LOGGER.debug(
+                "[BUIENALARM ENTITY] Neerslag stopt om: %s",
+                self.format_time(rain_stop_time),
+            )
         _LOGGER.debug("[BUIENALARM ENTITY] Neerslag duurt: %s minuten", rain_duration)
         _LOGGER.debug("[BUIENALARM ENTITY] Neerslag gestopt: %s", rain_stopped)
 
@@ -326,10 +355,12 @@ class BuienalarmEntity(CoordinatorEntity):
             message_parts = [f"Neerslag duurt nog {rain_duration} minuten"]
             if rain_stop_time:
                 message_parts.append(
-                    f"en stopt rond {self.format_time(rain_stop_time)}")
+                    f"en stopt rond {self.format_time(rain_stop_time)}"
+                )
             if rain_restart_time:
                 message_parts.append(
-                    f"en begint weer om {self.format_time(rain_restart_time)}")
+                    f"en begint weer om {self.format_time(rain_restart_time)}"
+                )
             return " ".join(message_parts)
 
         now_utc = datetime.now(timezone.utc)
@@ -341,7 +372,7 @@ class BuienalarmEntity(CoordinatorEntity):
         return f"Er wordt regen verwacht om {self.format_time(rain_start_time)} en duurt {rain_duration} minuten"
 
     def old_get_precipitation_duration(self) -> int:
-        """ Get the duration of the current precipitation event in minutes. """
+        """Get the duration of the current precipitation event in minutes."""
         precip_data = self._ensure_precip_data()
 
         # Check if the data is not empty and is in the expected format
@@ -361,7 +392,8 @@ class BuienalarmEntity(CoordinatorEntity):
                 continue
                 # raise ValueError("Missing timestamp in precipitation data")
             data_point_time: datetime = datetime.fromtimestamp(
-                timestamp, tz=timezone.utc)
+                timestamp, tz=timezone.utc
+            )
             precip_rate = float(data_point.get("precipitationrate", 0))
 
             # Check if the current time is within the data point
@@ -374,10 +406,10 @@ class BuienalarmEntity(CoordinatorEntity):
                 elif precip_started:
                     # Precipitation has reached 0
                     if start_time is None:
-                        raise ValueError(
-                            "Precipitation start time is not set.")
+                        raise ValueError("Precipitation start time is not set.")
                     precip_duration: float = (
-                        data_point_time - start_time).total_seconds() / 60
+                        data_point_time - start_time
+                    ).total_seconds() / 60
                     return min(MAX_DURATION_MINUTES, int(round(precip_duration)))
                 else:
                     return 0
@@ -408,9 +440,13 @@ class BuienalarmEntity(CoordinatorEntity):
                 continue
 
             try:
-                data_point_time = datetime.fromtimestamp(float(timestamp), tz=timezone.utc)
+                data_point_time = datetime.fromtimestamp(
+                    float(timestamp), tz=timezone.utc
+                )
             except (ValueError, TypeError):
-                _LOGGER.debug("Skipping invalid timestamp in precipitation entry: %s", timestamp)
+                _LOGGER.debug(
+                    "Skipping invalid timestamp in precipitation entry: %s", timestamp
+                )
                 continue
 
             try:
@@ -500,9 +536,7 @@ class BuienalarmEntity(CoordinatorEntity):
 
             ts = data_point.get("timestamp")
             if ts is None:
-                _LOGGER.debug(
-                    "Skipping data point without 'timestamp': %s", data_point
-                )
+                _LOGGER.debug("Skipping data point without 'timestamp': %s", data_point)
                 continue
             if not isinstance(ts, (int, float)):
                 _LOGGER.debug(
@@ -517,10 +551,7 @@ class BuienalarmEntity(CoordinatorEntity):
         return filtered
 
     def calculate_total_precipitation_rate(
-        self,
-        data: list[dict[str, object]],
-        start_time: datetime,
-        end_time: datetime
+        self, data: list[dict[str, object]], start_time: datetime, end_time: datetime
     ) -> float:
         filtered_data = self._filter_data_by_time(data, start_time, end_time)
 
@@ -545,13 +576,14 @@ class BuienalarmEntity(CoordinatorEntity):
             return 0.0
 
         # Gemiddelde per uur
-        average_precipitation_rate = sum(
-            total_precipitation_rates) / (total_time_seconds / 3600)
+        average_precipitation_rate = sum(total_precipitation_rates) / (
+            total_time_seconds / 3600
+        )
         return round(average_precipitation_rate, 1)
 
     def get_total_precipitation_rate(self) -> float:
-        """ Get total precipitation rate rounded to one decimal place for the next 2 hours """
-        data: object = self.data.get('data', [])
+        """Get total precipitation rate rounded to one decimal place for the next 2 hours"""
+        data: object = self.data.get("data", [])
         if not isinstance(data, list):
             return 0.0
         current_time: datetime = datetime.now(timezone.utc)
@@ -561,26 +593,32 @@ class BuienalarmEntity(CoordinatorEntity):
     def get_total_precipitation_rate_for_next_hour(self) -> float:
         """Calculate the total precipitation rate in mm/h for the upcoming hour."""
         # Fetch the precipitation data; expecting a list of dictionaries
-        data: object = self.data.get('data', [])
+        data: object = self.data.get("data", [])
         if not isinstance(data, list):
             return 0.0
         current_time: datetime = datetime.now(timezone.utc)  # Use UTC time
         end_time: datetime = current_time + timedelta(hours=1)
 
         _LOGGER.debug(
-            "[BUIENALARM ENTITY] Calculating total precipitation rate from %s to %s", current_time, end_time)
+            "[BUIENALARM ENTITY] Calculating total precipitation rate from %s to %s",
+            current_time,
+            end_time,
+        )
 
         # Call the method to calculate the total precipitation rate
         total_precipitation = self.calculate_total_precipitation_rate(
-            data, current_time, end_time)
+            data, current_time, end_time
+        )
 
         _LOGGER.debug(
-            "[BUIENALARM ENTITY] Total precipitation rate for the next hour: %s mm/h", total_precipitation)
+            "[BUIENALARM ENTITY] Total precipitation rate for the next hour: %s mm/h",
+            total_precipitation,
+        )
         return total_precipitation
 
     def get_current_precipitation(self) -> float:
         """Get the current precipitation rate."""
-        data: object = self.data.get('data', [])
+        data: object = self.data.get("data", [])
         # Bolt performance optimization: use epoch timestamps for rapid interval check
         current_ts: float = datetime.now(timezone.utc).timestamp()
         current_precipitation_rate: float = 0.0
@@ -589,21 +627,32 @@ class BuienalarmEntity(CoordinatorEntity):
             for data_point in data:
                 if not isinstance(data_point, dict):
                     _LOGGER.error(
-                        "[BUIENALARM ENTITY] Data point is not a dictionary: %s", data_point)
+                        "[BUIENALARM ENTITY] Data point is not a dictionary: %s",
+                        data_point,
+                    )
                     continue
 
                 timestamp = data_point.get("timestamp")
                 precipitation_rate = data_point.get("precipitationrate")
                 precipitation_type = data_point.get("precipitationtype")
 
-                if timestamp is not None and precipitation_rate is not None and precipitation_type is not None:
+                if (
+                    timestamp is not None
+                    and precipitation_rate is not None
+                    and precipitation_type is not None
+                ):
                     _LOGGER.debug(
                         "[BUIENALARM ENTITY] Checking data point at timestamp %s with precipitation rate %s and type %s",
-                        timestamp, precipitation_rate, precipitation_type
+                        timestamp,
+                        precipitation_rate,
+                        precipitation_type,
                     )
 
                     # Check if current time is within the 5-minute forecast bin [timestamp, timestamp + 300)
-                    if isinstance(timestamp, (int, float)) and timestamp <= current_ts < timestamp + 300:
+                    if (
+                        isinstance(timestamp, (int, float))
+                        and timestamp <= current_ts < timestamp + 300
+                    ):
                         try:
                             current_precipitation_rate = float(precipitation_rate)
                             return current_precipitation_rate
@@ -639,12 +688,15 @@ class BuienalarmEntity(CoordinatorEntity):
 
     def get_current_precipitation_rate_desc(self) -> str:
         """Get the description of the current precipitation rate."""
-        data: object = self.data.get('data', [])
+        data: object = self.data.get("data", [])
         current_ts: float = datetime.now(timezone.utc).timestamp()
         current_precipitation_rate_desc: str = self.NO_PRECIPITATION
 
         # Log the current timestamp for debugging
-        _LOGGER.debug("[BUIENALARM ENTITY] Current timestamp for precipitation check: %s", current_ts)
+        _LOGGER.debug(
+            "[BUIENALARM ENTITY] Current timestamp for precipitation check: %s",
+            current_ts,
+        )
 
         if not isinstance(data, list):
             return current_precipitation_rate_desc
@@ -660,7 +712,8 @@ class BuienalarmEntity(CoordinatorEntity):
                     current_precipitation_rate = 0.0
 
                 current_precipitation_type: str = data_point.get(
-                    "precipitationtype", self.NO_PRECIPITATION)
+                    "precipitationtype", self.NO_PRECIPITATION
+                )
 
                 categories = self.PRECIPITATION_RAIN_CATEGORIES
                 if current_precipitation_type == "snow":
@@ -671,7 +724,8 @@ class BuienalarmEntity(CoordinatorEntity):
                 # Log the found precipitation type and rate for debugging
                 _LOGGER.debug(
                     "[BUIENALARM ENTITY] Found precipitation type: %s with rate: %s",
-                    current_precipitation_type, current_precipitation_rate
+                    current_precipitation_type,
+                    current_precipitation_rate,
                 )
 
                 for threshold, category in categories:
@@ -679,7 +733,7 @@ class BuienalarmEntity(CoordinatorEntity):
                         current_precipitation_rate_desc = category
                         _LOGGER.debug(
                             "[BUIENALARM ENTITY] Current precipitation rate description: %s",
-                            current_precipitation_rate_desc
+                            current_precipitation_rate_desc,
                         )
                         return current_precipitation_rate_desc  # Early return if found
 
@@ -697,7 +751,10 @@ class BuienalarmEntity(CoordinatorEntity):
         for data_point in precipitation_data:
             timestamp = data_point.get("timestamp", 0.0)
             # Bolt performance optimization: direct numeric epoch check
-            if isinstance(timestamp, (int, float)) and timestamp <= current_ts < timestamp + 300:
+            if (
+                isinstance(timestamp, (int, float))
+                and timestamp <= current_ts < timestamp + 300
+            ):
                 raw_rate = data_point.get("precipitationrate", 0)
                 try:
                     current_rate = float(raw_rate)
@@ -712,7 +769,9 @@ class BuienalarmEntity(CoordinatorEntity):
                         return "Ijzel"
                     elif current_type == "snow":
                         return "Sneeuw"
-                    elif current_type == "mix" or current_type == "mix of rain and snow":
+                    elif (
+                        current_type == "mix" or current_type == "mix of rain and snow"
+                    ):
                         return "Mix van regen en sneeuw"
 
         return current_type
@@ -822,10 +881,12 @@ class BuienalarmEntity(CoordinatorEntity):
 
     def check_rain_data_validity(self) -> bool:
         """Check if the precipitation data is valid and non-empty."""
-        precipitation_data = self.data.get('data')
+        precipitation_data = self.data.get("data")
 
         if not precipitation_data or not isinstance(precipitation_data, list):
-            _LOGGER.warning("[BUIENALARM ENTITY] Precipitation data is invalid or empty.")
+            _LOGGER.warning(
+                "[BUIENALARM ENTITY] Precipitation data is invalid or empty."
+            )
             return False
 
         _LOGGER.info("[BUIENALARM ENTITY] Precipitation data is valid.")
@@ -857,8 +918,9 @@ class BuienalarmEntity(CoordinatorEntity):
                 continue  # Skip invalid entries
 
             try:
-                data_point_timestamp = datetime.fromtimestamp(float(timestamp),
-                                                              tz=timezone.utc)
+                data_point_timestamp = datetime.fromtimestamp(
+                    float(timestamp), tz=timezone.utc
+                )
             except (ValueError, TypeError):
                 continue
 
@@ -888,20 +950,30 @@ class BuienalarmEntity(CoordinatorEntity):
         # Calculate rain duration if precipitation has started
         if rain_start_time_utc is not None:
             if rain_stop_time_utc is not None:
-                rain_duration = int((rain_stop_time_utc -
-                                     rain_start_time_utc).total_seconds() / 60)
+                rain_duration = int(
+                    (rain_stop_time_utc - rain_start_time_utc).total_seconds() / 60
+                )
             elif last_valid_time is not None:
-                rain_duration = int((last_valid_time -
-                                     rain_start_time_utc).total_seconds() / 60)
+                rain_duration = int(
+                    (last_valid_time - rain_start_time_utc).total_seconds() / 60
+                )
             rain_duration = int(rain_duration)
 
-        return rain_start_time_utc, rain_stop_time_utc, rain_restart_time_utc, rain_duration, rain_stopped
+        return (
+            rain_start_time_utc,
+            rain_stop_time_utc,
+            rain_restart_time_utc,
+            rain_duration,
+            rain_stopped,
+        )
 
     def _get_precipitation_periods_count(self) -> int:
         """Bolt optimization: Return count of precipitation periods directly without string conversions."""
         return len(self._get_precipitation_periods())
 
-    def get_precipitation_periods_as_dict(self) -> list[dict[str, str | int | float | None]]:
+    def get_precipitation_periods_as_dict(
+        self,
+    ) -> list[dict[str, str | int | float | None]]:
         """
         Geef toekomstige neerslagperiodes terug als een lijst van dicts met ISO 8601 timestamps.
 
@@ -916,7 +988,10 @@ class BuienalarmEntity(CoordinatorEntity):
         periods_list: list[dict[str, str | int | float | None]] = []
 
         if not isinstance(precipitation_data, list):
-            _LOGGER.warning("[BUIENALARM ENTITY] 'data' ontbreekt of is geen lijst voor '%s'", self.name)
+            _LOGGER.warning(
+                "[BUIENALARM ENTITY] 'data' ontbreekt of is geen lijst voor '%s'",
+                self.name,
+            )
             return periods_list
 
         try:
@@ -935,7 +1010,9 @@ class BuienalarmEntity(CoordinatorEntity):
         for period in precipitation_periods:
             periods_list.append(
                 {
-                    "start": period["start"].isoformat() if period.get("start") else None,
+                    "start": (
+                        period["start"].isoformat() if period.get("start") else None
+                    ),
                     "stop": period["stop"].isoformat() if period.get("stop") else None,
                     "duration": period.get("duration_minutes"),
                     "precipitationrate": period.get("precipitationrate"),
@@ -965,12 +1042,19 @@ class BuienalarmEntity(CoordinatorEntity):
         now_utc = datetime.now(timezone.utc)
 
         if not isinstance(precipitation_data, list):
-            _LOGGER.warning("[BUIENALARM ENTITY] 'data' is geen lijst voor '%s'", self.name)
+            _LOGGER.warning(
+                "[BUIENALARM ENTITY] 'data' is geen lijst voor '%s'", self.name
+            )
             return []
 
-        _LOGGER.debug("[BUIENALARM ENTITY] Verwerken van %d datapunt(en) voor neerslagperiodes", len(precipitation_data))
+        _LOGGER.debug(
+            "[BUIENALARM ENTITY] Verwerken van %d datapunt(en) voor neerslagperiodes",
+            len(precipitation_data),
+        )
 
-        precipitation_periods_internal: list[tuple[datetime, datetime, list[float]]] = []
+        precipitation_periods_internal: list[tuple[datetime, datetime, list[float]]] = (
+            []
+        )
         in_precipitation = False
         precipitation_start: datetime | None = None
         current_rates: list[float] = []
@@ -978,7 +1062,9 @@ class BuienalarmEntity(CoordinatorEntity):
 
         for i, item in enumerate(precipitation_data):
             if not isinstance(item, dict):
-                _LOGGER.warning("[BUIENALARM ENTITY] Ongeldig datapunt op index %d: geen dict", i)
+                _LOGGER.warning(
+                    "[BUIENALARM ENTITY] Ongeldig datapunt op index %d: geen dict", i
+                )
                 continue
 
             raw_timestamp = item.get("timestamp")
@@ -993,7 +1079,11 @@ class BuienalarmEntity(CoordinatorEntity):
                 continue
 
             if not isinstance(raw_timestamp, (int, float)):
-                _LOGGER.warning("[BUIENALARM ENTITY] Ongeldige timestamp op index %d: %s", i, raw_timestamp)
+                _LOGGER.warning(
+                    "[BUIENALARM ENTITY] Ongeldige timestamp op index %d: %s",
+                    i,
+                    raw_timestamp,
+                )
                 continue
 
             try:
@@ -1018,15 +1108,28 @@ class BuienalarmEntity(CoordinatorEntity):
                     precipitation_start = data_time
                     in_precipitation = True
             else:
-                if in_precipitation and precipitation_start is not None and current_rates:
-                    precipitation_periods_internal.append((precipitation_start, data_time, current_rates.copy()))
+                if (
+                    in_precipitation
+                    and precipitation_start is not None
+                    and current_rates
+                ):
+                    precipitation_periods_internal.append(
+                        (precipitation_start, data_time, current_rates.copy())
+                    )
                     current_rates.clear()
                     precipitation_start = None
                     in_precipitation = False
 
         # Bolt optimization: Use last_valid_time tracked in loop instead of O(N) reverse search
-        if in_precipitation and precipitation_start is not None and current_rates and last_valid_time is not None:
-            precipitation_periods_internal.append((precipitation_start, last_valid_time, current_rates.copy()))
+        if (
+            in_precipitation
+            and precipitation_start is not None
+            and current_rates
+            and last_valid_time is not None
+        ):
+            precipitation_periods_internal.append(
+                (precipitation_start, last_valid_time, current_rates.copy())
+            )
             current_rates.clear()
 
         # omzetten naar HA-formaat met lokale tijd en gemiddelde neerslagsnelheid
@@ -1080,7 +1183,9 @@ class BuienalarmSensorEntity(CoordinatorEntity, SensorEntity):
     @property
     def native_value(self) -> str | int | float | None:
         """Return the state of the sensor."""
-        if not self.coordinator.last_update_success or not isinstance(self.coordinator.data, Mapping):
+        if not self.coordinator.last_update_success or not isinstance(
+            self.coordinator.data, Mapping
+        ):
             _LOGGER.debug(
                 "[SENSOR ENTITY] Last update not successful or data invalid for %s, returning None",
                 self.name,

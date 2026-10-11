@@ -31,15 +31,22 @@ def config_data() -> dict[str, float | str]:
 @pytest.fixture(autouse=True)
 def mock_api_calls():
     """Mock API calls to avoid socket error during test_async_reload_entry."""
-    with patch("custom_components.buienalarm.api.BuienalarmApiClient.async_get_initial_data", return_value={}), \
-         patch("custom_components.buienalarm.api.BuienalarmApiClient.async_get_data", return_value={"data": []}):
+    with patch(
+        "custom_components.buienalarm.api.BuienalarmApiClient.async_get_initial_data",
+        return_value={},
+    ), patch(
+        "custom_components.buienalarm.api.BuienalarmApiClient.async_get_data",
+        return_value={"data": []},
+    ):
         yield
 
 
 @pytest.mark.asyncio
 @patch("custom_components.buienalarm.BuienalarmDataUpdateCoordinator")
 async def test_async_setup_entry_success(
-    mock_coordinator: AsyncMock, hass: HomeAssistant, config_data: dict[str, float | str]
+    mock_coordinator: AsyncMock,
+    hass: HomeAssistant,
+    config_data: dict[str, float | str],
 ) -> None:
     """Test successful setup of config entry."""
     coordinator = mock_coordinator.return_value
@@ -62,11 +69,15 @@ async def test_async_setup_entry_success(
 @pytest.mark.asyncio
 @patch("custom_components.buienalarm.BuienalarmDataUpdateCoordinator")
 async def test_async_setup_entry_failure(
-    mock_coordinator: AsyncMock, hass: HomeAssistant, config_data: dict[str, float | str]
+    mock_coordinator: AsyncMock,
+    hass: HomeAssistant,
+    config_data: dict[str, float | str],
 ) -> None:
     """Test setup fails if coordinator update was unsuccessful."""
     coordinator = mock_coordinator.return_value
-    coordinator.async_config_entry_first_refresh = AsyncMock(side_effect=ConfigEntryNotReady("Failed to fetch initial data for Mock Title"))
+    coordinator.async_config_entry_first_refresh = AsyncMock(
+        side_effect=ConfigEntryNotReady("Failed to fetch initial data for Mock Title")
+    )
     coordinator.last_update_success = False
 
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
@@ -80,7 +91,9 @@ async def test_async_setup_entry_failure(
 @patch("custom_components.buienalarm.BuienalarmDataUpdateCoordinator")
 @patch("custom_components.buienalarm.PLATFORMS", ["sensor"])  # test dynamic platforms
 async def test_async_unload_entry(
-    mock_coordinator: AsyncMock, hass: HomeAssistant, config_data: dict[str, float | str]
+    mock_coordinator: AsyncMock,
+    hass: HomeAssistant,
+    config_data: dict[str, float | str],
 ) -> None:
     """Test successful unloading of an entry."""
     coordinator = mock_coordinator.return_value
@@ -166,7 +179,9 @@ async def test_async_reload_entry(
 @pytest.mark.asyncio
 @patch("custom_components.buienalarm.BuienalarmDataUpdateCoordinator")
 async def test_async_setup_entry_exception(
-    mock_coordinator: AsyncMock, hass: HomeAssistant, config_data: dict[str, float | str]
+    mock_coordinator: AsyncMock,
+    hass: HomeAssistant,
+    config_data: dict[str, float | str],
 ) -> None:
     """Test setup fails due to unexpected exception in coordinator."""
     mock_coordinator.side_effect = Exception("Unexpected failure")

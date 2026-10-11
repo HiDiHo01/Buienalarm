@@ -78,7 +78,9 @@ async def test_sensor_entities_created_and_populated(
     # Build expected data directly from SENSORS mock
     expected_data = {
         sensor["key"]: (
-            3.14 if sensor.get("device_class") or sensor.get("state_class") else "Test message"
+            3.14
+            if sensor.get("device_class") or sensor.get("state_class")
+            else "Test message"
         )
         for sensor in SENSORS
     }
@@ -202,7 +204,9 @@ async def test_buienalarm_entity_untrusted_data_handling(hass: HomeAssistant) ->
 
 
 @pytest.mark.asyncio
-async def test_buienalarm_entity_invalid_precipitation_rates(hass: HomeAssistant) -> None:
+async def test_buienalarm_entity_invalid_precipitation_rates(
+    hass: HomeAssistant,
+) -> None:
     """Test BuienalarmEntity calculations with nonnumeric/invalid precipitationrate and timestamp fields."""
     from datetime import datetime, timezone
     from unittest.mock import MagicMock
@@ -222,11 +226,31 @@ async def test_buienalarm_entity_invalid_precipitation_rates(hass: HomeAssistant
 
     coordinator.data = {
         "data": [
-            {"timestamp": now_ts + 60, "precipitationrate": "invalid_string", "precipitationtype": "rain"},
-            {"timestamp": now_ts + 120, "precipitationrate": None, "precipitationtype": "rain"},
-            {"timestamp": "bad_timestamp", "precipitationrate": 2.5, "precipitationtype": "rain"},
-            {"timestamp": now_ts + 180, "precipitationrate": "1.5", "precipitationtype": "rain"},
-            {"timestamp": now_ts + 240, "precipitationrate": 0.5, "precipitationtype": "rain"},
+            {
+                "timestamp": now_ts + 60,
+                "precipitationrate": "invalid_string",
+                "precipitationtype": "rain",
+            },
+            {
+                "timestamp": now_ts + 120,
+                "precipitationrate": None,
+                "precipitationtype": "rain",
+            },
+            {
+                "timestamp": "bad_timestamp",
+                "precipitationrate": 2.5,
+                "precipitationtype": "rain",
+            },
+            {
+                "timestamp": now_ts + 180,
+                "precipitationrate": "1.5",
+                "precipitationtype": "rain",
+            },
+            {
+                "timestamp": now_ts + 240,
+                "precipitationrate": 0.5,
+                "precipitationtype": "rain",
+            },
         ]
     }
 
@@ -234,14 +258,26 @@ async def test_buienalarm_entity_invalid_precipitation_rates(hass: HomeAssistant
     assert entity.get_total_precipitation_rate() >= 0.0
     assert entity.get_precipitation_duration() >= 0
     assert entity.get_mycastmessage() != "Geen data"
-    assert entity.get_current_precipitation_rate_desc() in ("Geen neerslag", "Lichte regen", "Motregen")
+    assert entity.get_current_precipitation_rate_desc() in (
+        "Geen neerslag",
+        "Lichte regen",
+        "Motregen",
+    )
     assert entity.get_current_precipitation_type() in ("Geen neerslag", "Regen")
 
     # Ensure payload where the last item is malformed/non-dict does not break get_mycastmessage()
     coordinator.data = {
         "data": [
-            {"timestamp": now_ts + 60, "precipitationrate": 2.0, "precipitationtype": "rain"},
-            {"timestamp": now_ts + 120, "precipitationrate": 1.0, "precipitationtype": "rain"},
+            {
+                "timestamp": now_ts + 60,
+                "precipitationrate": 2.0,
+                "precipitationtype": "rain",
+            },
+            {
+                "timestamp": now_ts + 120,
+                "precipitationrate": 1.0,
+                "precipitationtype": "rain",
+            },
             "invalid_final_item_not_dict",
         ]
     }
@@ -267,7 +303,9 @@ async def test_buienalarm_sensor_entity_availability(hass: HomeAssistant) -> Non
     coordinator = MagicMock()
     coordinator.last_update_success = True
     desc = SensorEntityDescription(key="nowcastmessage", name="Test Sensor")
-    sensor_entity = BuienalarmSensorEntity(coordinator, entry, desc, "loc_123", "Test Location")
+    sensor_entity = BuienalarmSensorEntity(
+        coordinator, entry, desc, "loc_123", "Test Location"
+    )
 
     # When coordinator data is valid dict
     coordinator.data = {"nowcastmessage": "Rain expected"}
