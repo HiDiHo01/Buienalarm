@@ -252,7 +252,11 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
         _LOGGER.debug("[SENSOR ENTITY] __init__ for %s", key)
         super().__init__(coordinator, config_entry, key)
         self.entry_name = config_entry.data.get(CONF_NAME, "no_name")
-        self.entry_place = config_entry.data.get("place", None)
+        self.entry_place = (
+            config_entry.data.get("place")
+            or config_entry.data.get("location_name")
+            or config_entry.data.get(CONF_NAME)
+        )
         self._unit_of_measurement = unit_of_measurement
         self._icon = icon
         self._device_class = device_class
