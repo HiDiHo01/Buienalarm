@@ -247,28 +247,33 @@ class BuienalarmEntity(CoordinatorEntity):
 
     def get_nowcastmessage(self) -> str | None:
         """Generate a user-friendly message for the current weather forecast."""
-        nowcastmessage = self.coordinator.data.get('nowcastmessage')
-        if nowcastmessage is None:
+        if not isinstance(self.coordinator.data, Mapping):
             return None
 
-        if nowcastmessage is not None:
-            nowcastmessage_data = nowcastmessage["nl"]
-            if nowcastmessage_data:
-                # Bolt optimization: Use pre-compiled module-level regex pattern
-                matches = _NOWCAST_PLACEHOLDER_RE.findall(nowcastmessage_data)
+        nowcastmessage = self.coordinator.data.get("nowcastmessage")
+        if not isinstance(nowcastmessage, Mapping):
+            return None
 
-                # Convert the found timestamps to datetime in local time
-                datetimes_local = [
-                    dt.as_local(dt.utc_from_timestamp(int(timestamp)))
-                    for timestamp in matches
-                ]
+        nowcastmessage_data = nowcastmessage.get("nl")
+        if not isinstance(nowcastmessage_data, str) or not nowcastmessage_data:
+            return None
 
-                # Replace the timestamp placeholders with formatted datetime strings
-                for timestamp, local_dt in zip(matches, datetimes_local):
-                    formatted_time = f"{local_dt.hour}:{local_dt.minute:02d}"  # Remove leading zero
-                    nowcastmessage_data = nowcastmessage_data.replace(f"{{{timestamp}}}", formatted_time)
+        matches = _NOWCAST_PLACEHOLDER_RE.findall(nowcastmessage_data)
+        if not matches:
+            return nowcastmessage_data
 
-                return nowcastmessage_data
+        datetimes_local = [
+            dt.as_local(dt.utc_from_timestamp(int(timestamp)))
+            for timestamp in matches
+        ]
+
+        for timestamp, local_dt in zip(matches, datetimes_local):
+            formatted_time = f"{local_dt.hour}:{local_dt.minute:02d}"
+            nowcastmessage_data = nowcastmessage_data.replace(
+                f"{{{timestamp}}}", formatted_time
+            )
+
+        return nowcastmessage_data
 
     def timestamp_to_local(self, timestamp: float) -> datetime:
         """ Convert a Unix timestamp to local time."""

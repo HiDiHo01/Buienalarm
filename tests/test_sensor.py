@@ -109,3 +109,50 @@ async def test_sensor_entities_created_and_populated(
         entity_id = entity_registry.async_get_entity_id("sensor", DOMAIN, unique_id)
         state = hass.states.get(entity_id)
         assert state is not None
+
+
+@pytest.mark.asyncio
+async def test_nowcastmessage_edge_cases(hass: HomeAssistant) -> None:
+    """Test get_nowcastmessage edge cases such as missing 'nl' key, non-dict payloads, and None coordinator data."""
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.entity import BuienalarmEntity
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Buienalarm Edge Case Test",
+        unique_id="test_nowcast_edge",
+        data={"latitude": 52.3702, "longitude": 4.8952},
+    )
+
+    coordinator = MagicMock()
+    entity = BuienalarmEntity(coordinator, entry, "nowcastmessage")
+
+    # 1. Missing 'nl' key in dict
+    coordinator.data = {"nowcastmessage": {"en": "No rain"}}
+    assert entity.get_nowcastmessage() is None
+
+    # 2. Empty nowcastmessage dict
+    coordinator.data = {"nowcastmessage": {}}
+    assert entity.get_nowcastmessage() is None
+
+    # 3. Non-mapping nowcastmessage (e.g. string or list)
+    coordinator.data = {"nowcastmessage": "invalid_string"}
+    assert entity.get_nowcastmessage() is None
+
+    # 4. None nowcastmessage
+    coordinator.data = {"nowcastmessage": None}
+    assert entity.get_nowcastmessage() is None
+
+    # 5. Coordinator data is None
+    coordinator.data = None
+    assert entity.get_nowcastmessage() is None
+
+    # 6. Valid nowcastmessage with timestamp substitution
+    coordinator.data = {"nowcastmessage": {"nl": "Regen om {1700000000}"}}
+    result = entity.get_nowcastmessage()
+    assert result is not None
+    assert "Regen om" in result
+
+    # 7. Valid nowcastmessage without placeholders
+    coordinator.data = {"nowcastmessage": {"nl": "Geen neerslag"}}
+    assert entity.get_nowcastmessage() == "Geen neerslag"
