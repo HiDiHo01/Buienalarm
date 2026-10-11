@@ -85,20 +85,17 @@ BINARY_SENSOR_DESCRIPTIONS: Final[tuple[BinarySensorEntityDescription, ...]] = (
     BinarySensorEntityDescription(
         key="precipitation_expected",
         translation_key="precipitation_expected",
-        name="Neerslag verwacht",
         icon="mdi:weather-rainy",
     ),
     BinarySensorEntityDescription(
         key="currently_raining",
         translation_key="currently_raining",
-        name="Het regent nu",
         icon="mdi:weather-rainy",
         device_class=BinarySensorDeviceClass.MOISTURE,
     ),
     BinarySensorEntityDescription(
         key="currently_snowing",
         translation_key="currently_snowing",
-        name="Het sneeuwt nu",
         icon="mdi:weather-snowy",
         device_class=BinarySensorDeviceClass.MOISTURE,
     ),

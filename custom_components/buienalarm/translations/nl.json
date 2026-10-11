@@ -86,6 +86,17 @@
         }
     },
     "entity": {
+        "binary_sensor": {
+            "precipitation_expected": {
+                "name": "Neerslag verwacht"
+            },
+            "currently_raining": {
+                "name": "Het regent nu"
+            },
+            "currently_snowing": {
+                "name": "Het sneeuwt nu"
+            }
+        },
         "sensor": {
             "nowcastmessage": {
                 "name": "Weermelding"
