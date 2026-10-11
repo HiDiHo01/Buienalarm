@@ -1,5 +1,6 @@
 """Test initialization of the Buienalarm integration."""
 
+from datetime import timedelta
 import pytest
 from unittest.mock import AsyncMock, patch
 
@@ -104,6 +105,47 @@ async def test_async_unload_entry(
 
 
 @pytest.mark.asyncio
+async def test_refresh_interval_update_interval(
+    hass: HomeAssistant,
+    config_data: dict[str, float | str],
+) -> None:
+    """Test that coordinator update_interval matches refresh_interval from options or data."""
+    # 1. Custom refresh_interval in options (600 seconds)
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data=config_data,
+        options={"refresh_interval": 600},
+        unique_id="test_refresh_opt",
+    )
+    entry.add_to_hass(hass)
+
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    coordinator = hass.data[DOMAIN][entry.entry_id]
+    assert coordinator.update_interval == timedelta(seconds=600)
+
+    # Clean up
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
+
+    # 2. Custom refresh_interval in data (450 seconds), no options
+    data_with_refresh = dict(config_data)
+    data_with_refresh["refresh_interval"] = 450
+    entry2 = MockConfigEntry(
+        domain=DOMAIN,
+        data=data_with_refresh,
+        options={},
+        unique_id="test_refresh_data",
+    )
+    entry2.add_to_hass(hass)
+
+    assert await hass.config_entries.async_setup(entry2.entry_id)
+    await hass.async_block_till_done()
+    coordinator2 = hass.data[DOMAIN][entry2.entry_id]
+    assert coordinator2.update_interval == timedelta(seconds=450)
+
+
+@pytest.mark.asyncio
 async def test_async_reload_entry(
     hass: HomeAssistant,
     config_data: dict[str, float | str],
@@ -113,15 +155,12 @@ async def test_async_reload_entry(
     entry.add_to_hass(hass)
 
     with patch(
-        "homeassistant.config_entries.ConfigEntries.async_unload_platforms",
+        "homeassistant.config_entries.ConfigEntries.async_reload",
         new_callable=AsyncMock,
         return_value=True,
-    ), patch(
-        "homeassistant.config_entries.ConfigEntries.async_forward_entry_setups",
-        new_callable=AsyncMock,
-        return_value=True,
-    ):
+    ) as mock_reload:
         await async_reload_entry(hass, entry)
+        mock_reload.assert_called_once_with(entry.entry_id)
 
 
 @pytest.mark.asyncio

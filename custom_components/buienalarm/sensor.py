@@ -182,23 +182,10 @@ async def async_setup_entry(
     ]
 
     _LOGGER.debug("[SENSOR SETUP] Adding %d sensors", len(sensors1))
-    async_add_entities(sensors1, update_before_add=False)  # sensors van de oude setup *werkt*
-    # async_add_entities(sensors2, update_before_add=True)  # sensors van SENSOR_DESCRIPTIONS *raw Nowcast Message*
-    # async_add_entities(sensors3, update_before_add=True)  # sensors van SENSOR_DESCRIPTIONS met SensorEntity
-    # async_add_entities(sensors4, update_before_add=True)  # sensors van SENSOR_DESCRIPTIONS met BuienalarmSensor
-    # async_add_entities(sensors5, update_before_add=True)  # sensors van SENSOR_DESCRIPTIONS met BuienalarmTestSensor
+    async_add_entities(sensors1, update_before_add=False)
     _LOGGER.debug("[SENSOR SETUP] %d sensors added", len(sensors1))
 
-    # await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    # ValueError: Config entry Schagen (1ba2a3d11e3e38b8e768ad5ceb4df8bf) for buienalarm.sensor has already been setup!
-    config_entry.async_on_unload(config_entry.add_update_listener(async_reload_entry))
 
-    return True
-
-
-async def async_reload_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> None:
-    """Reload config entry when options are changed."""
-    await hass.config_entries.async_reload(config_entry.entry_id)
 
 
 # class BuienalarmTestSensor(CoordinatorEntity[BuienalarmDataUpdateCoordinator], SensorEntity):
