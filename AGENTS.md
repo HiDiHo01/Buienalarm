@@ -20,8 +20,6 @@ Deliver the single best implementation. Avoid unnecessary alternatives, speculat
 
 ## 1.5. Repository context
 
-**Mandatory Buienalarm-specific instructions:** Before any task involving this integration, read the repository-root `home-assistant.md` in full and follow it together with this file. Treat `home-assistant.md` as the authoritative project-specific guidance for Buienalarm sensor semantics, API payload handling, precipitation calculations, binary-sensor behavior, availability, timestamps, and tests. Do not proceed based on its filename or a partial excerpt; inspect the complete file first.
-
 This repository contains a custom integration for Home Assistant that retrieves Buienalarm weather and precipitation data and exposes it through Home Assistant entities.
 
 * **Platform:** Home Assistant Core, using the latest APIs supported by the project.
@@ -38,11 +36,6 @@ Do not assume that the integration uses a particular API endpoint, coordinator s
 ## 2. Repository inspection and instructions
 
 Before changing any code:
-
-1. **Read `home-assistant.md` in the repository root in full. This is mandatory for every agent and every task, including reviews, debugging, refactoring, and test-only changes.**
-2. Follow the Buienalarm-specific requirements in `home-assistant.md` alongside the general standards in this `AGENTS.md`.
-3. If instructions appear to conflict, follow the applicable higher-priority instructions; use `home-assistant.md` for Buienalarm-specific behavior and domain semantics, unless that conflicts with a higher-priority instruction or verified current Home Assistant requirements.
-4. Do not claim compliance with `home-assistant.md` unless the relevant implementation and tests have actually been checked.
 
 1. Inspect the repository structure and identify the integration domain.
 2. Read the root `AGENTS.md`, if present, and all applicable nested `AGENTS.md` files.

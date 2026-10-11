@@ -6,7 +6,7 @@ from datetime import timedelta
 
 import aiohttp
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_LATITUDE, CONF_LONGITUDE
+from homeassistant.const import CONF_LATITUDE, CONF_LONGITUDE, CONF_NAME
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -47,8 +47,8 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     if old_version == 1:
         # 1️⃣ Uniek ID op basis van lat/lon bepalen
-        lat = entry.data.get(CONF_LATITUDE)
-        lon = entry.data.get(CONF_LONGITUDE)
+        lat = entry.options.get(CONF_LATITUDE, entry.data.get(CONF_LATITUDE))
+        lon = entry.options.get(CONF_LONGITUDE, entry.data.get(CONF_LONGITUDE))
         if lat is None or lon is None:
             _LOGGER.error(
                 "Cannot migrate entry %s: missing latitude/longitude", entry.entry_id
@@ -81,14 +81,32 @@ async def async_setup(hass: HomeAssistant, _: dict[str, object]) -> bool:
     return True
 
 
-def _has_duplicate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+def _has_duplicate_entry(
+    hass: HomeAssistant, entry: ConfigEntry, latitude: float, longitude: float
+) -> bool:
     """Return True if an identical entry already exists."""
+    target_unique_id = f"{latitude}_{longitude}"
     dup = any(
-        existing.entry_id != entry.entry_id and existing.data == entry.data
+        existing.entry_id != entry.entry_id
+        and (
+            existing.unique_id == target_unique_id
+            or (
+                existing.options.get(CONF_LATITUDE, existing.data.get(CONF_LATITUDE))
+                == latitude
+                and existing.options.get(
+                    CONF_LONGITUDE, existing.data.get(CONF_LONGITUDE)
+                )
+                == longitude
+            )
+        )
         for existing in hass.config_entries.async_entries(DOMAIN)
     )
     _LOGGER.debug(
-        "[INIT_SETUP_ENTRY] Duplicate entry check for %s: %s", entry.entry_id, dup
+        "[INIT_SETUP_ENTRY] Duplicate entry check for %s (%s, %s): %s",
+        entry.entry_id,
+        latitude,
+        longitude,
+        dup,
     )
     return dup
 
@@ -101,24 +119,69 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         entry.title,
     )
 
-    # Prevent duplicates
-    if _has_duplicate_entry(hass, entry):
-        _LOGGER.warning(
-            "[INIT_SETUP_ENTRY] Duplicate config entry detected: %s", entry.title
-        )
-        return False
-
     # Ensure storage
     hass.data.setdefault(DOMAIN, {})
 
-    # Read coordinates
-    try:
-        latitude = entry.options.get(CONF_LATITUDE, entry.data[CONF_LATITUDE])
-        longitude = entry.options.get(CONF_LONGITUDE, entry.data[CONF_LONGITUDE])
-        _LOGGER.debug("[INIT_SETUP_ENTRY] Coordinates loaded")
-    except KeyError as e:
-        _LOGGER.error("[INIT_SETUP_ENTRY] Missing required config: %s", e)
+    # Read coordinates safely
+    lat_val = entry.options.get(CONF_LATITUDE, entry.data.get(CONF_LATITUDE))
+    lon_val = entry.options.get(CONF_LONGITUDE, entry.data.get(CONF_LONGITUDE))
+    if lat_val is None or lon_val is None:
+        _LOGGER.error("[INIT_SETUP_ENTRY] Missing required latitude or longitude")
         return False
+
+    latitude = float(lat_val)
+    longitude = float(lon_val)
+    _LOGGER.debug("[INIT_SETUP_ENTRY] Coordinates loaded: %s, %s", latitude, longitude)
+
+    # Prevent duplicates based on effective coordinates
+    if _has_duplicate_entry(hass, entry, latitude, longitude):
+        _LOGGER.warning(
+            "[INIT_SETUP_ENTRY] Duplicate config entry detected for (%s, %s): %s",
+            latitude,
+            longitude,
+            entry.title,
+        )
+        return False
+
+    name = entry.options.get(CONF_NAME, entry.data.get(CONF_NAME, NAME))
+    unique_id = f"{latitude}_{longitude}"
+    title = f"{name} ({latitude}, {longitude})"
+
+    # Check if entry options altered location/identity or if data is missing coordinates
+    options_lat = entry.options.get(CONF_LATITUDE)
+    options_lon = entry.options.get(CONF_LONGITUDE)
+    options_name = entry.options.get(CONF_NAME)
+
+    if (
+        (options_lat is not None and options_lat != entry.data.get(CONF_LATITUDE))
+        or (options_lon is not None and options_lon != entry.data.get(CONF_LONGITUDE))
+        or (options_name is not None and options_name != entry.data.get(CONF_NAME))
+        or (entry.data.get(CONF_LATITUDE) is None)
+        or (entry.data.get(CONF_LONGITUDE) is None)
+    ):
+        new_data = dict(entry.data)
+        new_data[CONF_LATITUDE] = latitude
+        new_data[CONF_LONGITUDE] = longitude
+        new_data[CONF_NAME] = name
+        new_data["location_id"] = unique_id
+        new_data["location_name"] = name
+        if "notification_limit" in entry.options:
+            new_data["notification_limit"] = entry.options["notification_limit"]
+        if "refresh_interval" in entry.options:
+            new_data["refresh_interval"] = entry.options["refresh_interval"]
+
+        _LOGGER.debug(
+            "[INIT_SETUP_ENTRY] Updating entry identity for %s (%s, %s)",
+            entry.entry_id,
+            latitude,
+            longitude,
+        )
+        hass.config_entries.async_update_entry(
+            entry,
+            title=title,
+            unique_id=unique_id,
+            data=new_data,
+        )
 
     # refresh_interval = entry.data.get("refresh_interval")
     # refresh_interval = entry.options.get("refresh_interval")

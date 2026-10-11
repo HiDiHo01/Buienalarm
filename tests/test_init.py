@@ -142,8 +142,11 @@ async def test_refresh_interval_update_interval(
     await hass.async_block_till_done()
 
     # 2. Custom refresh_interval in data (450 seconds), no options
-    data_with_refresh = dict(config_data)
-    data_with_refresh["refresh_interval"] = 450
+    data_with_refresh = {
+        CONF_LATITUDE: 52.2,
+        CONF_LONGITUDE: 5.2,
+        "refresh_interval": 450,
+    }
     entry2 = MockConfigEntry(
         domain=DOMAIN,
         data=data_with_refresh,
@@ -191,3 +194,103 @@ async def test_async_setup_entry_exception(
 
     with pytest.raises(ConfigEntryNotReady, match="Failed to create coordinator"):
         await async_setup_entry(hass, entry)
+
+
+@pytest.mark.asyncio
+async def test_setup_entry_options_missing_from_data(hass: HomeAssistant) -> None:
+    """Test setup succeeds when coordinates are present in entry.options but missing in entry.data."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={"name": "Options Only Location"},
+        options={
+            "name": "Options Only Location",
+            CONF_LATITUDE: 52.5,
+            CONF_LONGITUDE: 4.8,
+        },
+        unique_id="options_only",
+    )
+    entry.add_to_hass(hass)
+
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert entry.data[CONF_LATITUDE] == 52.5
+    assert entry.data[CONF_LONGITUDE] == 4.8
+    assert entry.unique_id == "52.5_4.8"
+    assert entry.title == "Options Only Location (52.5, 4.8)"
+
+
+@pytest.mark.asyncio
+async def test_setup_entry_updates_identity_when_options_change(
+    hass: HomeAssistant,
+) -> None:
+    """Test setup updates entry data, unique_id, and title when options have new coordinates."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            "name": "Old Location",
+            CONF_LATITUDE: 51.0,
+            CONF_LONGITUDE: 4.0,
+            "location_id": "51.0_4.0",
+            "location_name": "Old Location",
+        },
+        options={
+            "name": "New Location",
+            CONF_LATITUDE: 52.0,
+            CONF_LONGITUDE: 5.0,
+        },
+        title="Old Location (51.0, 4.0)",
+        unique_id="51.0_4.0",
+    )
+    entry.add_to_hass(hass)
+
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert entry.data[CONF_LATITUDE] == 52.0
+    assert entry.data[CONF_LONGITUDE] == 5.0
+    assert entry.data["name"] == "New Location"
+    assert entry.data["location_id"] == "52.0_5.0"
+    assert entry.data["location_name"] == "New Location"
+    assert entry.unique_id == "52.0_5.0"
+    assert entry.title == "New Location (52.0, 5.0)"
+
+
+@pytest.mark.asyncio
+async def test_setup_entry_prevents_duplicate_coordinates(
+    hass: HomeAssistant,
+) -> None:
+    """Test setup returns False if another entry already polls the target coordinates."""
+    entry1 = MockConfigEntry(
+        domain=DOMAIN,
+        version=2,
+        data={
+            "name": "First Entry",
+            CONF_LATITUDE: 53.5,
+            CONF_LONGITUDE: 6.5,
+        },
+        unique_id="53.5_6.5",
+    )
+    entry1.add_to_hass(hass)
+
+    assert await hass.config_entries.async_setup(entry1.entry_id)
+    await hass.async_block_till_done()
+
+    entry2 = MockConfigEntry(
+        domain=DOMAIN,
+        version=2,
+        data={
+            "name": "Second Entry",
+            CONF_LATITUDE: 54.5,
+            CONF_LONGITUDE: 7.5,
+        },
+        options={
+            CONF_LATITUDE: 53.5,
+            CONF_LONGITUDE: 6.5,
+        },
+        unique_id="54.5_7.5",
+    )
+    entry2.add_to_hass(hass)
+
+    assert not await hass.config_entries.async_setup(entry2.entry_id)
+    await hass.async_block_till_done()
