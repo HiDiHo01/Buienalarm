@@ -85,7 +85,7 @@ async def test_sensor_entities_created_and_populated(
 
     # Verify all sensors exist and have state/attributes
     for sensor in SENSORS:
-        unique_id = f"{entry.entry_id}-{sensor['key']}"
+        unique_id = f"{entry.entry_id}-{sensor['name'].lower().replace(' ', '_')}"
         entity_id = entity_registry.async_get_entity_id("sensor", DOMAIN, unique_id)
         assert entity_id is not None, f"Entity for {sensor['name']} not found"
 
@@ -105,7 +105,7 @@ async def test_sensor_entities_created_and_populated(
         await hass.async_block_till_done()
 
     for sensor in SENSORS:
-        unique_id = f"{entry.entry_id}-{sensor['key']}"
+        unique_id = f"{entry.entry_id}-{sensor['name'].lower().replace(' ', '_')}"
         entity_id = entity_registry.async_get_entity_id("sensor", DOMAIN, unique_id)
         state = hass.states.get(entity_id)
         assert state is not None
