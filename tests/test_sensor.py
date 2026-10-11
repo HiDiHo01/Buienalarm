@@ -159,35 +159,129 @@ async def test_nowcastmessage_edge_cases(hass: HomeAssistant) -> None:
 
 
 @pytest.mark.asyncio
-async def test_invalid_timestamp_handling(hass: HomeAssistant) -> None:
-    """Test that out-of-range or invalid timestamps do not raise exceptions."""
+async def test_buienalarm_entity_untrusted_data_handling(hass: HomeAssistant) -> None:
+    """Test BuienalarmEntity methods with untrusted, None, or malformed coordinator data."""
     from unittest.mock import MagicMock
     from custom_components.buienalarm.entity import BuienalarmEntity
 
     entry = MockConfigEntry(
         domain=DOMAIN,
-        title="Buienalarm Timestamp Edge Test",
-        unique_id="test_timestamp_edge",
+        title="Buienalarm Untrusted Data Test",
+        unique_id="test_untrusted_data",
         data={"latitude": 52.3702, "longitude": 4.8952},
     )
 
     coordinator = MagicMock()
-    entity = BuienalarmEntity(coordinator, entry, "precipitation_duration")
+    entity = BuienalarmEntity(coordinator, entry, "test_sensor")
 
-    # Data point with out-of-range timestamp (causes OverflowError/OSError)
+    invalid_data_samples = [
+        None,
+        {},
+        "invalid string data",
+        [1, 2, 3],
+        {"data": "not a list"},
+        {"data": None},
+    ]
+
+    for sample in invalid_data_samples:
+        coordinator.data = sample
+
+        assert entity.get_mycastmessage() == "Geen data"
+        assert entity.get_precipitation_duration() == 0
+        assert entity.get_total_precipitation_rate() == 0.0
+        assert entity.get_total_precipitation_rate_for_next_hour() == 0.0
+        assert entity.get_current_precipitation() == 0.0
+        assert entity.get_current_precipitation_rate_desc() == "Geen neerslag"
+        assert entity.get_current_precipitation_type() == "Geen neerslag"
+        assert entity.get_next_precipitation() is None
+        assert entity.check_rain_data_validity() is False
+        assert entity.get_precipitation_periods_as_dict() == []
+        assert entity._get_precipitation_periods() == []
+        assert entity.data_points_as_list == []
+        assert entity.get_data("non_existent_key") is None
+
+
+@pytest.mark.asyncio
+async def test_buienalarm_entity_invalid_precipitation_rates(hass: HomeAssistant) -> None:
+    """Test BuienalarmEntity calculations with nonnumeric/invalid precipitationrate and timestamp fields."""
+    from datetime import datetime, timezone
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.entity import BuienalarmEntity
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Buienalarm Invalid Rates Test",
+        unique_id="test_invalid_rates",
+        data={"latitude": 52.3702, "longitude": 4.8952},
+    )
+
+    coordinator = MagicMock()
+    entity = BuienalarmEntity(coordinator, entry, "test_sensor")
+
+    now_ts = int(datetime.now(timezone.utc).timestamp())
+
     coordinator.data = {
         "data": [
-            {"timestamp": 1e25, "precipitationrate": 1.0},
-            {"timestamp": "invalid", "precipitationrate": 1.0},
+            {"timestamp": now_ts + 60, "precipitationrate": "invalid_string", "precipitationtype": "rain"},
+            {"timestamp": now_ts + 120, "precipitationrate": None, "precipitationtype": "rain"},
+            {"timestamp": "bad_timestamp", "precipitationrate": 2.5, "precipitationtype": "rain"},
+            {"timestamp": now_ts + 180, "precipitationrate": "1.5", "precipitationtype": "rain"},
+            {"timestamp": now_ts + 240, "precipitationrate": 0.5, "precipitationtype": "rain"},
         ]
     }
 
-    # Verify duration computation safely skips invalid timestamps and returns 0
-    assert entity.get_precipitation_duration() == 0
+    assert entity.get_total_precipitation_rate_for_next_hour() >= 0.0
+    assert entity.get_total_precipitation_rate() >= 0.0
+    assert entity.get_precipitation_duration() >= 0
+    assert entity.get_mycastmessage() != "Geen data"
+    assert entity.get_current_precipitation_rate_desc() in ("Geen neerslag", "Lichte regen", "Motregen")
+    assert entity.get_current_precipitation_type() in ("Geen neerslag", "Regen")
 
-    # Verify rain start time and duration calculation handles invalid timestamps safely
-    start, stop, restart, duration, stopped = entity.get_rain_start_time_and_duration(
-        coordinator.data["data"]
+    # Ensure payload where the last item is malformed/non-dict does not break get_mycastmessage()
+    coordinator.data = {
+        "data": [
+            {"timestamp": now_ts + 60, "precipitationrate": 2.0, "precipitationtype": "rain"},
+            {"timestamp": now_ts + 120, "precipitationrate": 1.0, "precipitationtype": "rain"},
+            "invalid_final_item_not_dict",
+        ]
+    }
+    msg = entity.get_mycastmessage()
+    assert msg is not None
+    assert msg != "Geen data"
+
+
+@pytest.mark.asyncio
+async def test_buienalarm_sensor_entity_availability(hass: HomeAssistant) -> None:
+    """Test BuienalarmSensorEntity available property returns False when coordinator data is empty."""
+    from unittest.mock import MagicMock
+    from homeassistant.components.sensor import SensorEntityDescription
+    from custom_components.buienalarm.entity import BuienalarmSensorEntity
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Buienalarm Availability Test",
+        unique_id="test_availability",
+        data={"latitude": 52.3702, "longitude": 4.8952},
     )
-    assert start is None
-    assert duration == 0
+
+    coordinator = MagicMock()
+    coordinator.last_update_success = True
+    desc = SensorEntityDescription(key="nowcastmessage", name="Test Sensor")
+    sensor_entity = BuienalarmSensorEntity(coordinator, entry, desc, "loc_123", "Test Location")
+
+    # When coordinator data is valid dict
+    coordinator.data = {"nowcastmessage": "Rain expected"}
+    assert sensor_entity.available is True
+
+    # When coordinator data is empty dict
+    coordinator.data = {}
+    assert sensor_entity.available is False
+
+    # When coordinator data is None or non-mapping
+    coordinator.data = None
+    assert sensor_entity.available is False
+
+    # When last_update_success is False
+    coordinator.last_update_success = False
+    coordinator.data = {"nowcastmessage": "Rain expected"}
+    assert sensor_entity.available is False
