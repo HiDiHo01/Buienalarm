@@ -4,30 +4,83 @@
         "step": {
             "user": {
                 "title": "Buienalarm",
-                "description": "Settings",
+                "description": "Configure Buienalarm settings:",
                 "data": {
+                    "name": "Place / Name",
+                    "place": "Place",
                     "latitude": "Latitude",
                     "longitude": "Longitude",
-                    "name": "Place / Name",
+                    "notification_limit": "Notification limit (mm/h)",
                     "refresh_interval": "Refresh interval (sec)"
+                },
+                "data_description": {
+                    "name": "Name for this location.",
+                    "place": "Place name for this location.",
+                    "latitude": "Latitude coordinate of the location.",
+                    "longitude": "Longitude coordinate of the location.",
+                    "notification_limit": "Minimum precipitation intensity to trigger notifications (mm/h).",
+                    "refresh_interval": "Data refresh interval in seconds (minimum 300 seconds recommended)."
                 }
             }
         },
         "error": {
-            "api_key": "The given API key is incorrect."
+            "general": "Unknown error fetching weather data, please try again later.",
+            "invalid_coordinates": "The provided coordinates are invalid. Please check latitude (-90 to 90) and longitude (-180 to 180) and try again.",
+            "cannot_connect": "Unable to connect to Buienalarm API. Please check your internet connection and try again."
         },
         "abort": {
-            "single_instance_allowed": "Only a single instance is allowed."
+            "single_instance_allowed": "Only a single instance is allowed.",
+            "already_configured": "A location with these coordinates is already configured. Please try another location or adjust coordinates.",
+            "invalid_coordinates": "The provided coordinates are invalid. Please check latitude (-90 to 90) and longitude (-180 to 180) and try again.",
+            "cannot_connect": "Unable to connect to Buienalarm API. Please check your internet connection and try again."
         }
     },
     "options": {
         "step": {
             "user": {
+                "title": "Settings",
+                "description": "Options for Buienalarm:",
                 "data": {
+                    "name": "Name",
+                    "place": "Place",
+                    "latitude": "Latitude",
+                    "longitude": "Longitude",
+                    "notification_limit": "Notification limit (mm/h)",
+                    "refresh_interval": "Refresh interval (sec)",
                     "binary_sensor": "Binary sensor enabled",
                     "sensor": "Sensor enabled",
-                    "weather": "Weather enabled",
-                    "refresh_interval": "Refresh interval (sec)"
+                    "weather": "Weather enabled"
+                },
+                "data_description": {
+                    "name": "Name for this location.",
+                    "place": "Place name for this location.",
+                    "latitude": "Latitude coordinate of the location.",
+                    "longitude": "Longitude coordinate of the location.",
+                    "notification_limit": "Minimum precipitation intensity to trigger notifications (mm/h).",
+                    "refresh_interval": "Data refresh interval in seconds (minimum 300 seconds recommended)."
+                }
+            },
+            "init": {
+                "title": "Settings",
+                "description": "Options for Buienalarm:",
+                "data": {
+                    "name": "Name",
+                    "place": "Place",
+                    "latitude": "Latitude",
+                    "longitude": "Longitude",
+                    "notification_limit": "Notification limit (mm/h)",
+                    "refresh_interval": "Refresh interval (sec)",
+                    "binary_sensor": "Binary sensor enabled",
+                    "sensor": "Sensor enabled",
+                    "weather": "Weather enabled"
+                },
+                "data_description": {
+                    "name": "Name for this location.",
+                    "place": "Place name for this location.",
+                    "latitude": "Latitude coordinate of the location.",
+                    "longitude": "Longitude coordinate of the location.",
+                    "notification_limit": "Minimum precipitation intensity to trigger notifications (mm/h).",
+                    "refresh_interval": "Data refresh interval in seconds (minimum 300 seconds recommended)."
                 }
             }
         }
