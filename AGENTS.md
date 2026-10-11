@@ -79,6 +79,9 @@ Use modern Python syntax and target **Python 3.14+**, subject to the actual Pyth
 
 * Use type annotations for all functions, methods, parameters, and return values.
 * Write descriptive docstrings for modules, classes, functions, and methods.
+* do not remove existing docstrings for modules, classes, functions, and methods.
+* Write descriptive comment for modules, classes, functions, and methods.
+* do not remove existing comment
 * Use `snake_case` for variables and functions.
 * Use `PascalCase` for classes.
 * Prefix internal implementation methods with `_`.
@@ -699,5 +702,65 @@ A task is complete only when all applicable conditions are satisfied:
 * [ ] No credentials, secrets, or sensitive diagnostic information have been exposed.
 * [ ] The diff contains no unrelated changes.
 * [ ] The final report accurately describes the changes and validation results.
+
+## 25. Pull Request Follow-up Reviews and Code Analysis
+
+When working on a pull request, do not stop after the initial implementation. Continue reviewing the changes and addressing actionable feedback throughout the PR lifecycle.
+
+### 1. Review All Feedback
+
+* Inspect all PR review comments, inline code comments, requested changes, and relevant automated review findings.
+* Re-read the affected code and surrounding implementation before deciding how to respond.
+* Verify each finding against the current source code, tests, and applicable project instructions.
+* Distinguish genuine defects from false positives, duplicate findings, outdated comments, and subjective suggestions.
+
+### 2. Analyze Before Fixing
+
+For every actionable finding:
+
+1. Identify the underlying cause and potential impact.
+2. Determine whether the finding is valid for the current code and supported Home Assistant versions.
+3. Implement the smallest correct fix that addresses the underlying problem.
+4. Add or update regression tests when appropriate.
+5. Check whether the fix introduces regressions or exposes related issues.
+
+Do not blindly accept review suggestions. Explain why a finding is invalid when the evidence does not support it.
+
+### 3. Repeat the Review Cycle
+
+After making changes:
+
+1. Review the complete PR diff again, not just the latest commit.
+2. Run the relevant tests and configured quality checks.
+3. Inspect newly generated review feedback.
+4. Address any new, valid findings.
+5. Repeat until no known, actionable findings remain or further progress is blocked.
+
+Check that earlier fixes remain correct after subsequent changes.
+
+### 4. Home Assistant-Specific Checks
+
+For custom integrations, pay particular attention to:
+
+* Current supported Home Assistant APIs and deprecated interfaces.
+* Config-entry setup, reload, unload, and resource cleanup.
+* Coordinator refresh behavior, stale data, and entity availability.
+* Async execution, HTTP timeouts, and exception handling.
+* Entity IDs, unique IDs, registry compatibility, and device relationships.
+* Timezone-aware datetimes, units, device classes, and state classes.
+* API response validation and recovery from network or service failures.
+* Regression tests covering successful operation and relevant failure cases.
+
+### 5. Completion Criteria
+
+Before considering the PR ready:
+
+* All actionable review findings have been fixed or explicitly explained with evidence.
+* Relevant automated checks have passed, or remaining failures and limitations are documented.
+* The full diff has been reviewed for regressions and unrelated changes.
+* No finding is marked resolved merely because code was changed; verify that the underlying issue is actually addressed.
+* Do not claim that reviews, tests, or checks were completed unless they were actually performed.
+
+If a new review arrives after the current pass, repeat the analysis and fix cycle for that feedback. If you cannot monitor the PR continuously or access its review comments, state that limitation and identify the remaining manual follow-up required.
 
 **Final rule:** Follow current Home Assistant requirements and repository-specific instructions over outdated examples, personal assumptions, and generated code patterns. Prefer one correct, tested, production-ready solution over multiple speculative alternatives.
