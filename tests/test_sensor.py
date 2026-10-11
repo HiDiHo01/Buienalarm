@@ -199,3 +199,40 @@ async def test_buienalarm_entity_untrusted_data_handling(hass: HomeAssistant) ->
         assert entity._get_precipitation_periods() == []
         assert entity.data_points_as_list == []
         assert entity.get_data("non_existent_key") is None
+
+
+@pytest.mark.asyncio
+async def test_buienalarm_entity_invalid_precipitation_rates(hass: HomeAssistant) -> None:
+    """Test BuienalarmEntity calculations with nonnumeric/invalid precipitationrate and timestamp fields."""
+    from datetime import datetime, timezone
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.entity import BuienalarmEntity
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Buienalarm Invalid Rates Test",
+        unique_id="test_invalid_rates",
+        data={"latitude": 52.3702, "longitude": 4.8952},
+    )
+
+    coordinator = MagicMock()
+    entity = BuienalarmEntity(coordinator, entry, "test_sensor")
+
+    now_ts = int(datetime.now(timezone.utc).timestamp())
+
+    coordinator.data = {
+        "data": [
+            {"timestamp": now_ts + 60, "precipitationrate": "invalid_string", "precipitationtype": "rain"},
+            {"timestamp": now_ts + 120, "precipitationrate": None, "precipitationtype": "rain"},
+            {"timestamp": "bad_timestamp", "precipitationrate": 2.5, "precipitationtype": "rain"},
+            {"timestamp": now_ts + 180, "precipitationrate": "1.5", "precipitationtype": "rain"},
+            {"timestamp": now_ts + 240, "precipitationrate": 0.5, "precipitationtype": "rain"},
+        ]
+    }
+
+    assert entity.get_total_precipitation_rate_for_next_hour() >= 0.0
+    assert entity.get_total_precipitation_rate() >= 0.0
+    assert entity.get_precipitation_duration() >= 0
+    assert entity.get_mycastmessage() != "Geen data"
+    assert entity.get_current_precipitation_rate_desc() in ("Geen neerslag", "Lichte regen", "Motregen")
+    assert entity.get_current_precipitation_type() in ("Geen neerslag", "Regen")

@@ -407,8 +407,16 @@ class BuienalarmEntity(CoordinatorEntity):
                 _LOGGER.debug("Skipping precipitation entry without timestamp")
                 continue
 
-            data_point_time = datetime.fromtimestamp(timestamp, tz=timezone.utc)
-            precip_rate = float(entry.get("precipitationrate", 0))
+            try:
+                data_point_time = datetime.fromtimestamp(float(timestamp), tz=timezone.utc)
+            except (ValueError, TypeError):
+                _LOGGER.debug("Skipping invalid timestamp in precipitation entry: %s", timestamp)
+                continue
+
+            try:
+                precip_rate = float(entry.get("precipitationrate", 0))
+            except (ValueError, TypeError):
+                precip_rate = 0.0
 
             if data_point_time <= current_time:
                 continue
@@ -519,9 +527,18 @@ class BuienalarmEntity(CoordinatorEntity):
         if not filtered_data:
             return 0.0
 
-        total_precipitation_rates = [
-            data_point.get("precipitationrate", 0) for data_point in filtered_data
-        ]
+        total_precipitation_rates: list[float] = []
+        for data_point in filtered_data:
+            raw_rate = data_point.get("precipitationrate")
+            if raw_rate is None:
+                continue
+            try:
+                total_precipitation_rates.append(float(raw_rate))
+            except (ValueError, TypeError):
+                _LOGGER.debug("Skipping invalid precipitationrate: %s", raw_rate)
+
+        if not total_precipitation_rates:
+            return 0.0
 
         total_time_seconds = (end_time - start_time).total_seconds()
         if total_time_seconds <= 0:
@@ -587,8 +604,11 @@ class BuienalarmEntity(CoordinatorEntity):
 
                     # Check if current time is within the 5-minute forecast bin [timestamp, timestamp + 300)
                     if isinstance(timestamp, (int, float)) and timestamp <= current_ts < timestamp + 300:
-                        current_precipitation_rate = float(precipitation_rate)
-                        return current_precipitation_rate
+                        try:
+                            current_precipitation_rate = float(precipitation_rate)
+                            return current_precipitation_rate
+                        except (ValueError, TypeError):
+                            return 0.0
         return current_precipitation_rate
 
     NO_PRECIPITATION = "Geen neerslag"
@@ -633,8 +653,12 @@ class BuienalarmEntity(CoordinatorEntity):
             ts = data_point.get("timestamp", 0)
             # Bolt performance optimization: direct numeric comparison for 5-minute bin
             if isinstance(ts, (int, float)) and ts <= current_ts < ts + 300:
-                current_precipitation_rate: float = data_point.get(
-                    "precipitationrate", 0.0)
+                raw_rate = data_point.get("precipitationrate", 0.0)
+                try:
+                    current_precipitation_rate = float(raw_rate)
+                except (ValueError, TypeError):
+                    current_precipitation_rate = 0.0
+
                 current_precipitation_type: str = data_point.get(
                     "precipitationtype", self.NO_PRECIPITATION)
 
@@ -674,7 +698,12 @@ class BuienalarmEntity(CoordinatorEntity):
             timestamp = data_point.get("timestamp", 0.0)
             # Bolt performance optimization: direct numeric epoch check
             if isinstance(timestamp, (int, float)) and timestamp <= current_ts < timestamp + 300:
-                current_rate: float = data_point.get("precipitationrate", 0)
+                raw_rate = data_point.get("precipitationrate", 0)
+                try:
+                    current_rate = float(raw_rate)
+                except (ValueError, TypeError):
+                    current_rate = 0.0
+
                 if current_rate > 0:
                     current_type = data_point.get("precipitationtype", "-")
                     if current_type == "rain":
@@ -817,13 +846,21 @@ class BuienalarmEntity(CoordinatorEntity):
 
         for data_point in precipitation_data:
             timestamp = data_point.get("timestamp")
-            precipitation_rate = data_point.get("precipitationrate", 0.0)
+            raw_rate = data_point.get("precipitationrate", 0.0)
 
             if timestamp is None:
                 continue  # Skip invalid entries
 
-            data_point_timestamp = datetime.fromtimestamp(timestamp,
-                                                          tz=timezone.utc)
+            try:
+                precipitation_rate = float(raw_rate)
+            except (ValueError, TypeError):
+                precipitation_rate = 0.0
+
+            try:
+                data_point_timestamp = datetime.fromtimestamp(float(timestamp),
+                                                              tz=timezone.utc)
+            except (ValueError, TypeError):
+                continue
 
             # Check if there's precipitation at this data point and it's later than the current time
             if data_point_timestamp >= current_time_utc:
