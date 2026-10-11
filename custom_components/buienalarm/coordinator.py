@@ -2,7 +2,6 @@
 
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Callable
 
 import async_timeout
 from homeassistant.config_entries import ConfigEntry
@@ -85,21 +84,3 @@ class BuienalarmDataUpdateCoordinator(DataUpdateCoordinator[dict[str, object]]):
         except Exception as err:
             _LOGGER.error("[COORD] Error updating Buienalarm data: %s", err)
             raise UpdateFailed("Error fetching Buienalarm data") from err
-
-    def get_value(
-        self, key: str, convert_to: Callable = str
-    ) -> float | int | str | None:
-        """Get a value from the retrieved data and convert to given type."""
-        if self.data and key in self.data:
-            try:
-                return convert_to(self.data.get(key, None))
-            except ValueError:
-                _LOGGER.warning(
-                    "Value %s with key %s can't be converted to %s",
-                    self.data.get(key, None),
-                    key,
-                    convert_to,
-                )
-                return None
-        _LOGGER.warning("Value %s is missing in API response", key)
-        return None
