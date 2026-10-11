@@ -79,6 +79,9 @@ Use modern Python syntax and target **Python 3.14+**, subject to the actual Pyth
 
 * Use type annotations for all functions, methods, parameters, and return values.
 * Write descriptive docstrings for modules, classes, functions, and methods.
+* do not remove existing docstrings for modules, classes, functions, and methods.
+* Write descriptive comment for modules, classes, functions, and methods.
+* do not remove existing comment
 * Use `snake_case` for variables and functions.
 * Use `PascalCase` for classes.
 * Prefix internal implementation methods with `_`.
