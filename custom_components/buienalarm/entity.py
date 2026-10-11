@@ -456,8 +456,10 @@ class BuienalarmEntity(CoordinatorEntity):
             Filtered list, preserving the original ordering.
         """
         self._validate_timestamps(start_time, end_time)
-        start_utc: datetime = start_time.astimezone(timezone.utc)
-        end_utc: datetime = end_time.astimezone(timezone.utc)
+        # Bolt performance optimization: use float timestamp comparison
+        # directly to avoid datetime object overhead in the loop.
+        start_ts: float = start_time.timestamp()
+        end_ts: float = end_time.timestamp()
 
         filtered: list[dict[str, object]] = []
         for data_point in data:
@@ -482,8 +484,7 @@ class BuienalarmEntity(CoordinatorEntity):
                 )
                 continue
 
-            point_time: datetime = datetime.fromtimestamp(ts, tz=timezone.utc)
-            if start_utc <= point_time <= end_utc:
+            if start_ts <= ts <= end_ts:
                 # mypy: safe because we've validated Mapping presence
                 filtered.append(data_point)
 
@@ -541,35 +542,31 @@ class BuienalarmEntity(CoordinatorEntity):
     def get_current_precipitation(self) -> float:
         """Get the current precipitation rate."""
         data: list[dict[str, object]] = self.coordinator.data.get('data', [])
-        current_time: datetime = datetime.now(timezone.utc)
+        # Bolt performance optimization: use epoch timestamps for rapid interval check
+        current_ts: float = datetime.now(timezone.utc).timestamp()
         current_precipitation_rate: float = 0.0
-        current_precipitation_type: str = '-'
 
         if data is not None:
             for data_point in data:
+                if not isinstance(data_point, dict):
+                    _LOGGER.error(
+                        "[BUIENALARM ENTITY] Data point is not a dictionary: %s", data_point)
+                    continue
+
                 timestamp = data_point.get("timestamp")
                 precipitation_rate = data_point.get("precipitationrate")
                 precipitation_type = data_point.get("precipitationtype")
 
                 if timestamp is not None and precipitation_rate is not None and precipitation_type is not None:
-                    if isinstance(data_point, dict):
-                        data_point_timestamp = datetime.fromtimestamp(
-                            timestamp, tz=timezone.utc)
-                        _LOGGER.debug(
-                            "[BUIENALARM ENTITY] Checking data point at %s with precipitation rate %s and type %s",
-                            data_point_timestamp, precipitation_rate, precipitation_type
-                        )
-                    else:
-                        _LOGGER.error(
-                            "[BUIENALARM ENTITY] Data point is not a dictionary: %s", data_point)
-                        continue
+                    _LOGGER.debug(
+                        "[BUIENALARM ENTITY] Checking data point at timestamp %s with precipitation rate %s and type %s",
+                        timestamp, precipitation_rate, precipitation_type
+                    )
 
-                    # Check if the current time is within the data point and the next 5 minutes
-                    if data_point_timestamp < current_time < data_point_timestamp + timedelta(minutes=5):
+                    # Check if current time is within the 5-minute forecast bin [timestamp, timestamp + 300)
+                    if isinstance(timestamp, (int, float)) and timestamp <= current_ts < timestamp + 300:
                         current_precipitation_rate = float(precipitation_rate)
-                        current_precipitation_type = str(precipitation_type)
-
-                        return current_precipitation_rate  # , current_precipitation_type
+                        return current_precipitation_rate
         return current_precipitation_rate
 
     NO_PRECIPITATION = "Geen neerslag"
@@ -601,19 +598,16 @@ class BuienalarmEntity(CoordinatorEntity):
     def get_current_precipitation_rate_desc(self) -> str:
         """Get the description of the current precipitation rate."""
         data: list[dict[str, object]] = self.coordinator.data.get('data', [])
-        current_time: datetime = datetime.now(timezone.utc)
+        current_ts: float = datetime.now(timezone.utc).timestamp()
         current_precipitation_rate_desc: str = self.NO_PRECIPITATION
 
-        # Log the current time for debugging
-        _LOGGER.debug("[BUIENALARM ENTITY] Current time for precipitation check: %s", current_time)
+        # Log the current timestamp for debugging
+        _LOGGER.debug("[BUIENALARM ENTITY] Current timestamp for precipitation check: %s", current_ts)
 
         for data_point in data:
-            data_point_timestamp = datetime.fromtimestamp(
-                data_point.get("timestamp", 0), tz=timezone.utc)
-            five_minutes_later = data_point_timestamp + timedelta(minutes=5)
-
-            # Check if the current time is within the range of this data point
-            if data_point_timestamp < current_time < five_minutes_later:
+            ts = data_point.get("timestamp", 0)
+            # Bolt performance optimization: direct numeric comparison for 5-minute bin
+            if isinstance(ts, (int, float)) and ts <= current_ts < ts + 300:
                 current_precipitation_rate: float = data_point.get(
                     "precipitationrate", 0.0)
                 current_precipitation_type: str = data_point.get(
@@ -645,17 +639,13 @@ class BuienalarmEntity(CoordinatorEntity):
     def get_current_precipitation_type(self) -> str:
         """Get the type of current precipitation (rain, snow, etc.)."""
         precipitation_data: list[dict[str, object]] = self.coordinator.data.get("data", [])
-        current_time: datetime = datetime.now(timezone.utc)
+        current_ts: float = datetime.now(timezone.utc).timestamp()
         current_type: str = self.NO_PRECIPITATION
 
         for data_point in precipitation_data:
             timestamp = data_point.get("timestamp", 0.0)
-            data_point_timestamp: datetime = datetime.fromtimestamp(
-                timestamp, tz=timezone.utc)
-            five_minutes_later: datetime = data_point_timestamp + \
-                timedelta(minutes=5)
-
-            if data_point_timestamp < current_time < five_minutes_later:
+            # Bolt performance optimization: direct numeric epoch check
+            if isinstance(timestamp, (int, float)) and timestamp <= current_ts < timestamp + 300:
                 current_rate: float = data_point.get("precipitationrate", 0)
                 if current_rate > 0:
                     current_type = data_point.get("precipitationtype", "-")
@@ -699,7 +689,9 @@ class BuienalarmEntity(CoordinatorEntity):
             return None
         # ---------------------------------------------------------------------
 
-        now_utc: datetime = datetime.now(timezone.utc)
+        # Bolt performance optimization: use current epoch timestamp float
+        # to compare directly against numeric forecast bin timestamps.
+        now_ts: float = datetime.now(timezone.utc).timestamp()
 
         for data_point in precip_data:
             # Forecast points are 5‑minute bins.
@@ -725,6 +717,10 @@ class BuienalarmEntity(CoordinatorEntity):
                 )
                 continue
 
+            # Ignore any point that lies in the past
+            if ts < now_ts:
+                continue
+
             # Extract and validate precipitation rate
             raw_rate: object = data_point.get("precipitationrate", 0.0)
 
@@ -747,20 +743,9 @@ class BuienalarmEntity(CoordinatorEntity):
                     )
                     rate = 0.0
 
-            point_time: datetime = datetime.fromtimestamp(ts, tz=timezone.utc)
-            _LOGGER.debug(
-                "[BUIENALARM ENTITY] Parsed timestamp for %s: %s",
-                self.name,
-                point_time.isoformat(),
-            )
-
-            # Ignore any point that lies in the past
-            if point_time < now_utc:
-                continue
-
             if rate > 0:
                 # Found the first future bin with precipitation
-                delta_minutes: int = int(round((point_time - now_utc).total_seconds() / 60))
+                delta_minutes: int = int(round((ts - now_ts) / 60))
                 _LOGGER.debug(
                     "[BUIENALARM ENTITY] Next precipitation for %s in %d min (rate=%.2f mm/h)",
                     self.name,
