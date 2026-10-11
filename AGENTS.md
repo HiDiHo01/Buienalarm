@@ -18,6 +18,21 @@ Every change must prioritize, in this order:
 
 Deliver the single best implementation. Avoid unnecessary alternatives, speculative abstractions, unrelated changes, and incomplete fixes.
 
+## 1.5. Repository context
+
+This repository contains a custom integration for Home Assistant that retrieves Buienalarm weather and precipitation data and exposes it through Home Assistant entities.
+
+* **Platform:** Home Assistant Core, using the latest APIs supported by the project.
+* **Language:** Modern Python, targeting the Python version declared by the repository.
+* **Architecture:** Follow the existing config-entry lifecycle, coordinator, entity, and platform patterns. Do not introduce a new architecture.
+* **Compatibility:** Preserve existing entity IDs, unique IDs, sensor semantics, and configuration behavior unless the task specifically requires a correction.
+* **Quality:** Treat correctness, asynchronous execution, error handling, availability, timezone awareness, and regression tests as first-class requirements.
+* **Scope:** Make one small, independently verifiable improvement. Derive the task from the actual source code and tests, not assumptions about how the integration works.
+* **Instructions:** Read `AGENTS.md`, `.github/copilot-instructions.md`, `manifest.json`, and the relevant implementation and test files before deciding what to change.
+
+Do not assume that the integration uses a particular API endpoint, coordinator structure, update interval, or entity platform. Verify these details in the repository before implementation.
+
+
 ## 2. Repository inspection and instructions
 
 Before changing any code:
