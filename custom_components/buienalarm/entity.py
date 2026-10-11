@@ -401,7 +401,12 @@ class BuienalarmEntity(CoordinatorEntity):
                 _LOGGER.debug("Skipping precipitation entry without timestamp")
                 continue
 
-            data_point_time = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+            try:
+                data_point_time = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+            except (TypeError, ValueError, OverflowError, OSError) as exc:
+                _LOGGER.debug("Skipping precipitation entry with invalid timestamp %s: %s", timestamp, exc)
+                continue
+
             precip_rate = float(entry.get("precipitationrate", 0))
 
             if data_point_time <= current_time:
@@ -807,8 +812,10 @@ class BuienalarmEntity(CoordinatorEntity):
             if timestamp is None:
                 continue  # Skip invalid entries
 
-            data_point_timestamp = datetime.fromtimestamp(timestamp,
-                                                          tz=timezone.utc)
+            try:
+                data_point_timestamp = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+            except (TypeError, ValueError, OverflowError, OSError):
+                continue
 
             # Check if there's precipitation at this data point and it's later than the current time
             if data_point_timestamp >= current_time_utc:

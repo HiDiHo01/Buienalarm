@@ -156,3 +156,38 @@ async def test_nowcastmessage_edge_cases(hass: HomeAssistant) -> None:
     # 7. Valid nowcastmessage without placeholders
     coordinator.data = {"nowcastmessage": {"nl": "Geen neerslag"}}
     assert entity.get_nowcastmessage() == "Geen neerslag"
+
+
+@pytest.mark.asyncio
+async def test_invalid_timestamp_handling(hass: HomeAssistant) -> None:
+    """Test that out-of-range or invalid timestamps do not raise exceptions."""
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.entity import BuienalarmEntity
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Buienalarm Timestamp Edge Test",
+        unique_id="test_timestamp_edge",
+        data={"latitude": 52.3702, "longitude": 4.8952},
+    )
+
+    coordinator = MagicMock()
+    entity = BuienalarmEntity(coordinator, entry, "precipitation_duration")
+
+    # Data point with out-of-range timestamp (causes OverflowError/OSError)
+    coordinator.data = {
+        "data": [
+            {"timestamp": 1e25, "precipitationrate": 1.0},
+            {"timestamp": "invalid", "precipitationrate": 1.0},
+        ]
+    }
+
+    # Verify duration computation safely skips invalid timestamps and returns 0
+    assert entity.get_precipitation_duration() == 0
+
+    # Verify rain start time and duration calculation handles invalid timestamps safely
+    start, stop, restart, duration, stopped = entity.get_rain_start_time_and_duration(
+        coordinator.data["data"]
+    )
+    assert start is None
+    assert duration == 0
