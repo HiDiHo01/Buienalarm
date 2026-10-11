@@ -1,6 +1,7 @@
 """Buienalarm integration initialization."""
 # __init__.py
 import logging
+from datetime import timedelta
 
 import aiohttp
 from homeassistant.config_entries import ConfigEntry
@@ -143,6 +144,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
     _LOGGER.debug("[INIT_SETUP_ENTRY] DeviceInfo prepared: %s", device_info)
 
+    # Configure refresh interval
+    refresh_seconds = int(
+        entry.options.get(
+            "refresh_interval",
+            entry.data.get("refresh_interval", SCAN_INTERVAL.total_seconds()),
+        )
+    )
+    update_interval = timedelta(seconds=refresh_seconds)
+
     # Create coordinator
     try:
         coordinator = BuienalarmDataUpdateCoordinator(
@@ -150,22 +160,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             config_entry=entry,
             api=api,
             device_info=device_info,
-
+            update_interval=update_interval,
         )
         _LOGGER.debug("[INIT_SETUP_ENTRY] Coordinator initialized: %s", coordinator)
     except Exception as err:
         _LOGGER.error("[INIT_SETUP_ENTRY] Failed to create coordinator: %s", err)
-        # raise ConfigEntryNotReady(f"Failed to create coordinator for {entry.title}")
         raise ConfigEntryNotReady("Failed to create coordinator for %s" % entry.title) from err
 
-    # Configure refresh
-    # Fetch the config entry options directly from the entry
-    refresh_interval = int(entry.options.get("refresh_interval", SCAN_INTERVAL.total_seconds()))
-    coordinator.refresh_interval = refresh_interval
-    _LOGGER.debug("[INIT_SETUP_ENTRY] Coordinator update_interval set to %s seconds", refresh_interval)
-    _LOGGER.debug("[INIT_SETUP_ENTRY] Coordinator attributes: %s", dir(coordinator))
-    _LOGGER.debug("[INIT_SETUP_ENTRY] Coordinator attribute refresh_interval: %s", coordinator.refresh_interval)
-    _LOGGER.debug("[INIT_SETUP_ENTRY] Coordinator attribute options: %s", coordinator.options)
+    _LOGGER.debug("[INIT_SETUP_ENTRY] Coordinator update_interval set to %s", update_interval)
 
     # --------------- Fetch first data -----------------
     _LOGGER.debug("[INIT_SETUP_ENTRY] Fetching initial data for %s", entry.title)
@@ -215,5 +217,4 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Handle reload of a config entry."""
     _LOGGER.debug("[INIT_RELOAD_ENTRY] Reloading config entry %s with ID %s", entry.title, entry.entry_id)
-    await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    await hass.config_entries.async_reload(entry.entry_id)
