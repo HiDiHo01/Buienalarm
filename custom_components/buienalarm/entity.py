@@ -23,6 +23,9 @@ MAX_DURATION_MINUTES = 120
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
+# Bolt: Pre-compiled regex pattern for nowcast message timestamp placeholders to avoid re-compilation per call
+_NOWCAST_PLACEHOLDER_RE: Final[re.Pattern[str]] = re.compile(r'\{(\d+)\}')
+
 _LOGGER.debug("[ENTITY] Start entity.py")
 
 
@@ -83,9 +86,8 @@ class BuienalarmEntity(CoordinatorEntity):
             'precipitationrate_now_desc': self.get_current_precipitation_rate_desc,
             'precipitationtype_now': self.get_current_precipitation_type,
             'next_precipitation': self.get_next_precipitation,
-            # TODO: implement periods in atrributes
-            "precipitation_periods": lambda: len(self.get_precipitation_periods_as_dict())
-            if self.get_precipitation_periods_as_dict() else 0,
+            # Bolt optimization: Directly get period count without computing ISO formatted dicts twice
+            "precipitation_periods": self._get_precipitation_periods_count,
             # 'precipitation_periods_as_list': self.get_precipitation_periods_as_list,
         }
 
@@ -245,11 +247,8 @@ class BuienalarmEntity(CoordinatorEntity):
         if nowcastmessage is not None:
             nowcastmessage_data = nowcastmessage["nl"]
             if nowcastmessage_data:
-                # Define a regular expression pattern to match timestamps within curly braces
-                pattern = r'\{(\d+)\}'
-
-                # Find all matches in the input string
-                matches = re.findall(pattern, nowcastmessage_data)
+                # Bolt optimization: Use pre-compiled module-level regex pattern
+                matches = _NOWCAST_PLACEHOLDER_RE.findall(nowcastmessage_data)
 
                 # Convert the found timestamps to datetime in local time
                 datetimes_local = [
@@ -848,6 +847,10 @@ class BuienalarmEntity(CoordinatorEntity):
 
         return rain_start_time_utc, rain_stop_time_utc, rain_restart_time_utc, rain_duration, rain_stopped
 
+    def _get_precipitation_periods_count(self) -> int:
+        """Bolt optimization: Return count of precipitation periods directly without string conversions."""
+        return len(self._get_precipitation_periods())
+
     def get_precipitation_periods_as_dict(self) -> list[dict[str, str | int | float | None]]:
         """
         Geef toekomstige neerslagperiodes terug als een lijst van dicts met ISO 8601 timestamps.
@@ -921,6 +924,7 @@ class BuienalarmEntity(CoordinatorEntity):
         in_precipitation = False
         precipitation_start: datetime | None = None
         current_rates: list[float] = []
+        last_valid_time: datetime | None = None
 
         for i, item in enumerate(precipitation_data):
             if not isinstance(item, dict):
@@ -953,6 +957,8 @@ class BuienalarmEntity(CoordinatorEntity):
                 continue
 
             data_time = datetime.fromtimestamp(raw_timestamp, tz=timezone.utc)
+            last_valid_time = data_time
+
             if data_time < now_utc:
                 continue  # negeer historische data
 
@@ -968,19 +974,9 @@ class BuienalarmEntity(CoordinatorEntity):
                     precipitation_start = None
                     in_precipitation = False
 
-        # sluit eventueel laatste lopende bui af
-        if in_precipitation and precipitation_start is not None and current_rates:
-            last_valid = next(
-                (
-                    d
-                    for d in reversed(precipitation_data)
-                    if isinstance(d, dict) and isinstance(d.get("timestamp"), (int, float))
-                ),
-                None,
-            )
-            if last_valid:
-                last_time = datetime.fromtimestamp(last_valid["timestamp"], tz=timezone.utc)
-                precipitation_periods_internal.append((precipitation_start, last_time, current_rates.copy()))
+        # Bolt optimization: Use last_valid_time tracked in loop instead of O(N) reverse search
+        if in_precipitation and precipitation_start is not None and current_rates and last_valid_time is not None:
+            precipitation_periods_internal.append((precipitation_start, last_valid_time, current_rates.copy()))
             current_rates.clear()
 
         # omzetten naar HA-formaat met lokale tijd en gemiddelde neerslagsnelheid
