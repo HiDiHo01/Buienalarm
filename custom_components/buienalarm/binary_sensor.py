@@ -80,7 +80,7 @@ class BuienalarmBinarySensor(
         )
 
         if periods is None:
-            self._attr_is_on = False
+            self._attr_is_on = None
             return
 
         current_time = datetime.now(timezone.utc)
