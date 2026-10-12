@@ -328,6 +328,7 @@ async def test_entity_registry_migration(hass: HomeAssistant) -> None:
         platform=DOMAIN,
         unique_id=f"{entry.entry_id}_precipitationrate_total",
         suggested_object_id="totale_neerslag",
+        original_name="Totale neerslag",
         config_entry=entry,
     )
     assert precipitation_entity.entity_id == "sensor.totale_neerslag"
