@@ -793,4 +793,18 @@ If a new review arrives after the current pass, repeat the analysis and fix cycl
 * Do not commit generated logs, secrets, access tokens, personal data, or other sensitive diagnostic information.
 
 
+## 27. Repository-specific GitHub label maintenance
+
+Maintain a small, accurate, and consistent set of GitHub labels tailored to this Buienalarm Home Assistant integration.
+
+* Before creating, renaming, editing, or removing labels, inspect the repository's current labels at https://github.com/HiDiHo01/Buienalarm/labels. Treat that live list as the source of truth; never assume a label is missing.
+* Keep labels relevant to this repository's code, Buienalarm API and precipitation behavior, Home Assistant integration architecture, tests, documentation, dependencies, security, and CI.
+* Reuse existing labels whenever their meaning fits. Avoid duplicate or near-duplicate labels, synonym labels, overly broad labels, and labels unrelated to this project.
+* Use consistent lowercase kebab-case names for technical categories (for example, `binary-sensor`, `config-flow`, `quality-scale`, and `github-actions`). Retain established GitHub conventions where appropriate, including `bug`, `stale`, and `ci`, if they already exist.
+* Distinguish issue classification from implementation area: use `bug` for a reported defect; add `bugfix` only if the repository deliberately uses it to classify fixes separately. Prefer `ci` consistently over a duplicate label with the same meaning as `github-actions`, unless their scopes are clearly distinct.
+* Give every maintained label a concise, actionable description of no more than 100 characters and a valid, readable hexadecimal color.
+* Preserve existing label names, colors, and meanings unless there is a clear reason to change them. Do not delete or rename labels merely for stylistic preference; check their use on issues and pull requests first.
+* When proposing or applying label changes, report which labels already existed, which were added or changed, and the reason. Do not claim live labels were checked unless the labels page was actually inspected.
+* Apply labels consistently to issues and pull requests based on their actual scope. Do not add labels unrelated to the changed code or reported problem.
+
 **Final rule:** Follow current Home Assistant requirements and repository-specific instructions over outdated examples, personal assumptions, and generated code patterns. Prefer one correct, tested, production-ready solution over multiple speculative alternatives.
