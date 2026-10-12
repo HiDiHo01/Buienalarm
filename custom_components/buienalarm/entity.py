@@ -48,15 +48,27 @@ class BuienalarmEntity(CoordinatorEntity):
 
         # ========== Entity & unique‑id ==========
         self._attr_translation_key = sensor_key
-        self._attr_unique_id = f"{config_entry.entry_id}_{sensor_key}"
+        # -> <config_entry.unique_id>_<key>   (falls back to entry‑id)
+        base = config_entry.unique_id or config_entry.entry_id
+        self._attr_unique_id = f"{base}_{sensor_key}"
         # =======================================
 
     @property
     def data(self) -> Mapping[str, object]:
-        """Convenience property to access coordinator data safely."""
-        if isinstance(self.coordinator.data, Mapping):
-            return self.coordinator.data
-        return {}
+        """Return the endpoint payload, unwrapping coordinator metadata when present."""
+        coordinator_data = self.coordinator.data
+        if not isinstance(coordinator_data, Mapping):
+            return {}
+
+        # The API client wraps the raw endpoint payload in the timeseries key
+        # together with retrieval metadata. Entity calculations consume the raw payload.
+        timeseries = coordinator_data.get("timeseries")
+        if isinstance(timeseries, Mapping):
+            return timeseries
+
+        # Retain compatibility with existing fixtures and cached coordinator data
+        # that already contain the unwrapped endpoint payload.
+        return coordinator_data
 
     def get_data(self, key: str) -> str | int | float | datetime | None:
         """
@@ -184,7 +196,7 @@ class BuienalarmEntity(CoordinatorEntity):
         return attributes
 
     @property
-    def data_points_as_list(self) -> list[dict[str, str | int | float | None]]:
+    def data_points_as_list(self) -> list[dict[str, str | int | float | datetime | None]]:
         """Return precipitation data points as a list of dictionaries.
 
         Each dict contains:
@@ -194,18 +206,15 @@ class BuienalarmEntity(CoordinatorEntity):
         * ``timestamp`` – UNIX seconds since epoch (int | float | None)
         * ``time`` – *local* `datetime`
         """
-        raw_data: list[object] = []
-
-        if isinstance(self.coordinator.data, Mapping):
-            raw_data = self.coordinator.data.get("data") or []
-        else:
+        raw_data = self.data.get("data") or []
+        if not isinstance(raw_data, list):
             _LOGGER.debug(
-                "coordinator.data is not a mapping (type=%s): %s",
-                type(self.coordinator.data),
-                self.coordinator.data,
+                "Precipitation data is not a list (type=%s)",
+                type(raw_data).__name__,
             )
+            return []
 
-        results: list[dict[str, str | int | float | None]] = []
+        results: list[dict[str, str | int | float | datetime | None]] = []
 
         for data_point in raw_data:
             # ── verify we can safely call .get() ────────────────────────────────

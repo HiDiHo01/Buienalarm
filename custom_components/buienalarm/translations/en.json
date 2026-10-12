@@ -108,7 +108,7 @@
                 "name": "Precipitation duration"
             },
             "precipitationrate_total": {
-                "name": "Total precipitation"
+                "name": "Expected precipitation"
             },
             "precipitationrate_hour": {
                 "name": "Precipitation per hour"

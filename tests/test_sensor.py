@@ -348,3 +348,72 @@ async def test_buienalarm_entity_missing_or_none_precipitationtype(
 
     assert entity.get_current_precipitation() == 0.5
     assert entity.get_current_precipitation_type() == "Onbekend"
+
+
+
+@pytest.mark.asyncio
+async def test_timeseries_wrapper_populates_precipitation_data_attribute(
+    hass: HomeAssistant,
+) -> None:
+    """Unwrap the API client's timeseries payload for the expected-precipitation sensor."""
+    from datetime import datetime, timezone
+    from unittest.mock import MagicMock
+
+    from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
+    from homeassistant.const import UnitOfVolumetricFlux
+
+    from custom_components.buienalarm.sensor import BuienalarmSensor
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Buienalarm Schagen",
+        unique_id="52.0_5.0",
+        data={"name": "Schagen", "location_name": "Schagen"},
+    )
+    coordinator = MagicMock()
+    coordinator.last_update_success = True
+    coordinator.api_last_updated = None
+    forecast_time = datetime.now(timezone.utc).replace(microsecond=0)
+    coordinator.data = {
+        "timeseries": {
+            "data": [
+                {
+                    "timestamp": int(forecast_time.timestamp()),
+                    "precipitationrate": 1.2,
+                    "precipitationtype": "rain",
+                    "time": forecast_time.isoformat(),
+                }
+            ],
+            "nowcastmessage": {"nl": "Regen verwacht"},
+        },
+        "retrieval_time": forecast_time,
+        "cache_age": 0,
+    }
+
+    entity = BuienalarmSensor(
+        coordinator,
+        entry,
+        name="Neerslag verwacht",
+        unit_of_measurement=UnitOfVolumetricFlux.MILLIMETERS_PER_HOUR,
+        icon="mdi:weather-rainy",
+        device_class=SensorDeviceClass.PRECIPITATION_INTENSITY,
+        state_class=SensorStateClass.MEASUREMENT,
+        key="precipitationrate_total",
+        translation_key="precipitationrate_total",
+    )
+
+    attributes = entity.extra_state_attributes
+    assert attributes is not None
+    assert len(attributes["precipitation_data"]) == 1
+    assert attributes["precipitation_data"][0]["precipitationrate"] == 1.2
+    assert attributes["precipitation_data"][0]["precipitationtype"] == "rain"
+    assert isinstance(attributes["precipitation_data"][0]["time"], datetime)
+    assert attributes["precipitation_data"][0]["time"].tzinfo is not None
+    assert entity.get_nowcastmessage() == "Regen verwacht"
+
+    coordinator.data = {
+        "timeseries": {"data": []},
+        "retrieval_time": forecast_time,
+        "cache_age": 0,
+    }
+    assert entity.data_points_as_list == []

@@ -108,7 +108,7 @@
                 "name": "Neerslagduur"
             },
             "precipitationrate_total": {
-                "name": "Totale neerslag"
+                "name": "Neerslag verwacht"
             },
             "precipitationrate_hour": {
                 "name": "Neerslag per uur"
