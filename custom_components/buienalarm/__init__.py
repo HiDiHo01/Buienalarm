@@ -369,16 +369,22 @@ def async_migrate_entity_unique_ids(hass: HomeAssistant, entry: ConfigEntry) -> 
 
         new_uid = f"{entry.entry_id}_{target_key}" if target_key else old_uid
         target_entity_id = None
+        generated_precipitation_ids = {
+            "sensor.totale_neerslag": "totale_neerslag",
+            "sensor.expected_precipitation": "expected_precipitation",
+            "sensor.neerslag_verwacht": "neerslag_verwacht",
+        }
+        expected_generated_name = generated_precipitation_ids.get(
+            entity_entry.entity_id
+        )
+        original_name = entity_entry.original_name
         if (
             target_key == "precipitationrate_total"
             and legacy_precipitation_entity_id
             and entity_entry.domain == "sensor"
-            and entity_entry.entity_id
-            in {
-                "sensor.totale_neerslag",
-                "sensor.expected_precipitation",
-                "sensor.neerslag_verwacht",
-            }
+            and expected_generated_name is not None
+            and original_name is not None
+            and slugify(original_name) == expected_generated_name
         ):
             existing_entity = entity_registry.async_get(legacy_precipitation_entity_id)
             if existing_entity is None or existing_entity.entity_id == entity_entry.entity_id:
