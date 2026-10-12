@@ -143,7 +143,7 @@ jobs:
             CURL_STATUS=$?
             echo "Error: Jules session creation failed (curl exit ${CURL_STATUS}). Response:" >&2
             if ! jq . <<< "${RESPONSE}" >&2 2>/dev/null; then
-              printf '%s\\n' "${RESPONSE}" >&2
+              printf '%s\n' "${RESPONSE}" >&2
             fi
             exit "${CURL_STATUS}"
           fi
