@@ -359,6 +359,9 @@ async def test_timeseries_wrapper_populates_precipitation_data_attribute(
     from datetime import datetime, timezone
     from unittest.mock import MagicMock
 
+    from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
+    from homeassistant.const import UnitOfVolumetricFlux
+
     from custom_components.buienalarm.sensor import BuienalarmSensor
 
     entry = MockConfigEntry(
@@ -387,19 +390,16 @@ async def test_timeseries_wrapper_populates_precipitation_data_attribute(
         "cache_age": 0,
     }
 
-    description = next(
-        sensor for sensor in SENSORS if sensor["key"] == "precipitationrate_total"
-    )
     entity = BuienalarmSensor(
         coordinator,
         entry,
-        name=str(description["name"]),
-        unit_of_measurement=description["unit_of_measurement"],
-        icon=str(description["icon"]),
-        device_class=description["device_class"],
-        state_class=description["state_class"],
-        key=str(description["key"]),
-        translation_key=str(description["translation_key"]),
+        name="Neerslag verwacht",
+        unit_of_measurement=UnitOfVolumetricFlux.MILLIMETERS_PER_HOUR,
+        icon="mdi:weather-rainy",
+        device_class=SensorDeviceClass.PRECIPITATION_INTENSITY,
+        state_class=SensorStateClass.MEASUREMENT,
+        key="precipitationrate_total",
+        translation_key="precipitationrate_total",
     )
 
     attributes = entity.extra_state_attributes
