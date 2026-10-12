@@ -323,9 +323,26 @@ async def test_entity_registry_migration(hass: HomeAssistant) -> None:
     )
     assert old_entity.unique_id == old_unique_id
 
+    precipitation_entity = entity_registry.async_get_or_create(
+        domain="sensor",
+        platform=DOMAIN,
+        unique_id=f"{entry.entry_id}_precipitationrate_total",
+        suggested_object_id="totale_neerslag",
+        config_entry=entry,
+    )
+    assert precipitation_entity.entity_id == "sensor.totale_neerslag"
+
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
     migrated_entity = entity_registry.async_get(old_entity.entity_id)
     assert migrated_entity is not None
     assert migrated_entity.unique_id == f"{entry.entry_id}_nowcastmessage"
+
+    migrated_precipitation_entity = entity_registry.async_get(
+        precipitation_entity.entity_id
+    )
+    assert migrated_precipitation_entity is not None
+    assert migrated_precipitation_entity.entity_id == (
+        "sensor.migration_test_location_neerslag_verwacht"
+    )
