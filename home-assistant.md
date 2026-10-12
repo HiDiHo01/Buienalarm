@@ -115,3 +115,9 @@ Report only actionable, evidence-based defects. For each finding, state the affe
 Distinguish confirmed defects from unverified risks. If API semantics or live runtime behavior cannot be verified from code, fixtures, documentation, or available credentials, mark them as **NOT VERIFIED** rather than guessing.
 
 Do not treat a sensor as correct solely because it is created, has a non-null state, or passes a test that only asserts entity existence. Sensor correctness requires checking source mapping, transformations, units, timestamps, availability, and representative expected values.
+
+## Quality Scale checklist
+
+- Read the repository-root `quality_scale.yaml` and the current official Home Assistant Integration Quality Scale rules before work that changes or reviews integration behavior: https://developers.home-assistant.io/docs/core/integration-quality-scale/.
+- Keep the checklist synchronized with the implementation, documentation, and tests. Update affected statuses in the same change; mark a rule `done` only after verifying its requirements, use `todo` if incomplete or unverified, and use `exempt` only with a specific, evidence-based reason.
+- Do not claim a quality tier unless every applicable rule has been verified. The checklist belongs at repository root, not in `custom_components/buienalarm/`.
