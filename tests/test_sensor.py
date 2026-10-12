@@ -348,3 +348,70 @@ async def test_buienalarm_entity_missing_or_none_precipitationtype(
 
     assert entity.get_current_precipitation() == 0.5
     assert entity.get_current_precipitation_type() == "Onbekend"
+
+
+
+@pytest.mark.asyncio
+async def test_timeseries_wrapper_populates_precipitation_data_attribute(
+    hass: HomeAssistant,
+) -> None:
+    """Unwrap the API client's timeseries payload for the expected-precipitation sensor."""
+    from datetime import datetime, timezone
+    from unittest.mock import MagicMock
+
+    from custom_components.buienalarm.sensor import BuienalarmSensor
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Buienalarm Schagen",
+        unique_id="52.0_5.0",
+        data={"name": "Schagen", "location_name": "Schagen"},
+    )
+    coordinator = MagicMock()
+    coordinator.last_update_success = True
+    coordinator.api_last_updated = None
+    forecast_time = datetime.now(timezone.utc).replace(microsecond=0)
+    coordinator.data = {
+        "timeseries": {
+            "data": [
+                {
+                    "timestamp": int(forecast_time.timestamp()),
+                    "precipitationrate": 1.2,
+                    "precipitationtype": "rain",
+                    "time": forecast_time.isoformat(),
+                }
+            ],
+            "nowcastmessage": {"nl": "Regen verwacht"},
+        },
+        "retrieval_time": forecast_time,
+        "cache_age": 0,
+    }
+
+    description = next(
+        sensor for sensor in SENSORS if sensor["key"] == "precipitationrate_total"
+    )
+    entity = BuienalarmSensor(
+        coordinator,
+        entry,
+        name=str(description["name"]),
+        unit_of_measurement=description["unit_of_measurement"],
+        icon=str(description["icon"]),
+        device_class=description["device_class"],
+        state_class=description["state_class"],
+        key=str(description["key"]),
+        translation_key=str(description["translation_key"]),
+    )
+
+    attributes = entity.extra_state_attributes
+    assert attributes is not None
+    assert len(attributes["precipitation_data"]) == 1
+    assert attributes["precipitation_data"][0]["precipitationrate"] == 1.2
+    assert attributes["precipitation_data"][0]["precipitationtype"] == "rain"
+    assert entity.get_nowcastmessage() == "Regen verwacht"
+
+    coordinator.data = {
+        "timeseries": {"data": []},
+        "retrieval_time": forecast_time,
+        "cache_age": 0,
+    }
+    assert entity.data_points_as_list == []
