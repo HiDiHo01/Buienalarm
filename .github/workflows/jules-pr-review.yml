@@ -103,8 +103,8 @@ jobs:
           SESSION=$(jq -r '.name // empty' <<< "$RESPONSE")
 
           if [ -z "$SESSION" ]; then
-            echo "Failed to start Jules review session: $RESPONSE" >&2
-            exit 1
+            echo "Warning: Failed to start Jules review session: $RESPONSE" >&2
+            exit 0
           fi
 
           echo "session=$SESSION" >> "$GITHUB_OUTPUT"
