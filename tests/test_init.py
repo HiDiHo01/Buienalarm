@@ -11,6 +11,7 @@ from homeassistant.exceptions import ConfigEntryNotReady
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.buienalarm import (
+    async_migrate_entity_unique_ids,
     async_setup_entry,
     async_unload_entry,
     async_reload_entry,
@@ -347,3 +348,40 @@ async def test_entity_registry_migration(hass: HomeAssistant) -> None:
     assert migrated_precipitation_entity.unique_id == (
         f"{entry.entry_id}_precipitationrate_total"
     )
+
+
+
+@pytest.mark.asyncio
+async def test_entity_registry_migration_preserves_ambiguous_precipitation_id(
+    hass: HomeAssistant,
+) -> None:
+    """Do not rename a precipitation entity when its ID origin is ambiguous."""
+    from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        version=2,
+        data={
+            "name": "Migration Test Location",
+            CONF_LATITUDE: 52.0,
+            CONF_LONGITUDE: 5.0,
+        },
+        unique_id="52.0_5.0",
+    )
+    entry.add_to_hass(hass)
+
+    entity_registry = async_get_entity_registry(hass)
+    entity = entity_registry.async_get_or_create(
+        domain="sensor",
+        platform=DOMAIN,
+        unique_id=f"{entry.entry_id}_precipitationrate_total",
+        suggested_object_id="neerslag_verwacht",
+        original_name="Custom precipitation name",
+        config_entry=entry,
+    )
+
+    async_migrate_entity_unique_ids(hass, entry)
+
+    unchanged_entity = entity_registry.async_get(entity.entity_id)
+    assert unchanged_entity is not None
+    assert unchanged_entity.entity_id == "sensor.neerslag_verwacht"
