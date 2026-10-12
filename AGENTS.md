@@ -280,6 +280,9 @@ Follow the current entity architecture and entity platform conventions.
 * Implement availability accurately.
 * Do not report fabricated zero values when data is missing or stale.
 * Use `None` for unavailable measurements when required by the entity contract.
+* For `BinarySensorEntity.is_on`, follow the current Home Assistant contract (`bool | None` where supported): return `True` or `False` only when the source data establishes the condition.
+* Never coerce missing, `None`, malformed, stale, or insufficient data to `False`; that incorrectly reports a confirmed `off` state.
+* When a binary condition cannot be determined, represent that uncertainty using the supported `None` state and/or entity availability as appropriate for the current Home Assistant contract. Add tests that distinguish confirmed `on`, confirmed `off`, and indeterminate data.
 * Keep state values serializable and suitable for Home Assistant.
 * Avoid unnecessary state writes and redundant update scheduling.
 * Use appropriate entity categories and device classes.
