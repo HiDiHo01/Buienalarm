@@ -62,18 +62,16 @@ jobs:
               .githubRepo.owner == $owner and
               .githubRepo.repo == $repo
             )][0] // empty' <<< "${SOURCES}") || {
-              echo "Error: ${REPOSITORY} is not available as a Jules source." >&2
-              echo "Check that the repository is connected to Jules and accessible to this API key." >&2
-              exit 1
+              echo "Warning: ${REPOSITORY} is not available as a Jules source." >&2
+              exit 0
             }
 
           SOURCE=$(jq -r '.name // empty' <<< "${SOURCE_INFO}")
           DEFAULT_BRANCH=$(jq -r '.githubRepo.defaultBranch.displayName // empty' <<< "${SOURCE_INFO}")
 
           if [ -z "${SOURCE}" ] || [ -z "${DEFAULT_BRANCH}" ]; then
-            echo "Error: Jules source is missing its name or default branch." >&2
-            jq '{name, defaultBranch: .githubRepo.defaultBranch}' <<< "${SOURCE_INFO}" >&2
-            exit 1
+            echo "Warning: Jules source is missing its name or default branch." >&2
+            exit 0
           fi
 
           # Jules only accepts branches synchronized to its source. Prefer the
@@ -139,11 +137,11 @@ jobs:
             :
           else
             CURL_STATUS=$?
-            echo "Error: Jules session creation failed (curl exit ${CURL_STATUS}). Response:" >&2
+            echo "Warning: Jules session creation failed (curl exit ${CURL_STATUS}). Response:" >&2
             if ! jq . <<< "${RESPONSE}" >&2 2>/dev/null; then
               printf '%s\n' "${RESPONSE}" >&2
             fi
-            exit "${CURL_STATUS}"
+            exit 0
           fi
 
           SESSION=$(jq -r '.name // empty' <<< "${RESPONSE}")
