@@ -407,6 +407,8 @@ async def test_timeseries_wrapper_populates_precipitation_data_attribute(
     assert len(attributes["precipitation_data"]) == 1
     assert attributes["precipitation_data"][0]["precipitationrate"] == 1.2
     assert attributes["precipitation_data"][0]["precipitationtype"] == "rain"
+    assert isinstance(attributes["precipitation_data"][0]["time"], datetime)
+    assert attributes["precipitation_data"][0]["time"].tzinfo is not None
     assert entity.get_nowcastmessage() == "Regen verwacht"
 
     coordinator.data = {
