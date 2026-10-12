@@ -42,13 +42,48 @@ jobs:
           set -euo pipefail
 
           if [ -z "${JULES_API_KEY:-}" ]; then
-            echo "Error: JULES_API_KEY secret is not configured." >&2
-            exit 1
+            echo "Warning: JULES_API_KEY secret is not configured." >&2
+            exit 0
           fi
 
           OWNER="${REPOSITORY%%/*}"
           REPO="${REPOSITORY#*/}"
-          SOURCE="sources/github/${OWNER}/${REPO}"
+          API="https://jules.googleapis.com/v1alpha"
+          AUTH_HEADER="X-Goog-Api-Key: ${JULES_API_KEY}"
+
+          SOURCES=$(curl --silent --show-error \
+            --url "${API}/sources" \
+            --header "${AUTH_HEADER}" || echo "{}")
+
+          SOURCE_INFO=$(jq -cer \
+            --arg owner "${OWNER}" \
+            --arg repo "${REPO}" \
+            '[.sources[]? | select(
+              .githubRepo.owner == $owner and
+              .githubRepo.repo == $repo
+            )][0] // empty' <<< "${SOURCES}") || {
+              echo "Warning: ${REPOSITORY} is not available as a Jules source." >&2
+              exit 0
+            }
+
+          SOURCE=$(jq -r '.name // empty' <<< "${SOURCE_INFO}")
+          DEFAULT_BRANCH=$(jq -r '.githubRepo.defaultBranch.displayName // empty' <<< "${SOURCE_INFO}")
+
+          if [ -z "${SOURCE}" ] || [ -z "${DEFAULT_BRANCH}" ]; then
+            echo "Warning: Jules source is missing its name or default branch." >&2
+            exit 0
+          fi
+
+          # Jules only accepts branches synchronized to its source. Prefer the
+          # PR branch when available; otherwise use the source's default branch.
+          if jq -e --arg branch "${PR_BRANCH}" \
+            '[.githubRepo.branches[]?.displayName] | index($branch) != null' \
+            <<< "${SOURCE_INFO}" >/dev/null; then
+            STARTING_BRANCH="${PR_BRANCH}"
+          else
+            STARTING_BRANCH="${DEFAULT_BRANCH}"
+            echo "PR branch '${PR_BRANCH}' is not synchronized with Jules; using '${STARTING_BRANCH}'." >&2
+          fi
 
           PROMPT=$(cat <<EOF
           Review pull request #${PR_NUMBER}:
@@ -78,9 +113,9 @@ jobs:
           )
 
           PAYLOAD=$(jq -n \
-            --arg prompt "$PROMPT" \
-            --arg source "$SOURCE" \
-            --arg branch "$PR_BRANCH" \
+            --arg prompt "${PROMPT}" \
+            --arg source "${SOURCE}" \
+            --arg branch "${STARTING_BRANCH}" \
             --arg title "Review PR #${PR_NUMBER}" \
             '{
               prompt: $prompt,
@@ -93,21 +128,30 @@ jobs:
               }
             }')
 
-          RESPONSE=$(curl --silent --show-error \
+          if RESPONSE=$(curl --fail-with-body --silent --show-error \
             --request POST \
-            --url "https://jules.googleapis.com/v1alpha/sessions" \
-            --header "X-Goog-Api-Key: ${JULES_API_KEY}" \
+            --url "${API}/sessions" \
+            --header "${AUTH_HEADER}" \
             --header "Content-Type: application/json" \
-            --data "$PAYLOAD") || true
-
-          SESSION=$(jq -r '.name // empty' <<< "$RESPONSE")
-
-          if [ -z "$SESSION" ]; then
-            echo "Failed to start Jules review session: $RESPONSE" >&2
-            exit 1
+            --data "${PAYLOAD}"); then
+            :
+          else
+            CURL_STATUS=$?
+            echo "Warning: Jules session creation failed (curl exit ${CURL_STATUS}). Response:" >&2
+            if ! jq . <<< "${RESPONSE}" >&2 2>/dev/null; then
+              printf '%s\n' "${RESPONSE}" >&2
+            fi
+            exit 0
           fi
 
-          echo "session=$SESSION" >> "$GITHUB_OUTPUT"
+          SESSION=$(jq -r '.name // empty' <<< "${RESPONSE}")
+
+          if [ -z "${SESSION}" ]; then
+            echo "Warning: Jules API did not return a session name." >&2
+            exit 0
+          fi
+
+          echo "session=${SESSION}" >> "${GITHUB_OUTPUT}"
 
       - name: Notify pull request
         if: ${{ steps.jules.outputs.session != '' }}
