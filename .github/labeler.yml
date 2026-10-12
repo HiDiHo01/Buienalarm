@@ -1,0 +1,115 @@
+integration:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "custom_components/Buienalarm/*.py"
+          - "custom_components/Buienalarm/translations/**"
+          - "custom_components/Buienalarm/manifest.json"
+
+tests:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "custom_components/Buienalarm/tests/**"
+
+translation:
+      - any-glob-to-any-file:
+          - "custom_components/Buienalarm/translations/**"
+          - "custom_components/Buienalarm/strings.json"
+
+blueprint:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "blueprints/**"
+
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "docs/**"
+          - "*.md"
+          - ".github/*.md"
+
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "custom_components/Buienalarm/manifest.json"
+          - "package.json"
+          - "package-lock.json"
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/workflows/**"
+          - ".github/dependabot.yml"
+          - "pyproject.toml"
+          - "pytest.ini"
+
+sensor:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "custom_components/Buienalarm/sensor.py"
+          - "tests/test_sensor.py"
+          - "tests/**/test_sensor*.py"
+
+switch:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "custom_components/Buienalarm/switch.py"
+          - "tests/test_switch.py"
+          - "tests/**/test_switch*.py"
+
+constants:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "custom_components/Buienalarm/const.py"
+
+datetime:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "custom_components/Buienalarm/datetime.py"
+          - "tests/test_datetime.py"
+          - "tests/**/test_datetime*.py"
+
+helper:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "custom_components/Buienalarm/helpers.py"
+          - "custom_components/Buienalarm/helper.py"
+          - "custom_components/Buienalarm/utils.py"
+          - "custom_components/Buienalarm/util.py"
+
+manifest:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "custom_components/Buienalarm/manifest.json"
+          - "hacs.json"
+          - "requirements.txt"
+          - "pyproject.toml"
+
+binary_sensor:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "custom_components/Buienalarm/binary_sensor.py"
+
+select:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "custom_components/Buienalarm/select.py"
+
+number:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "custom_components/Buienalarm/number.py"
+
+config_flow:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "custom_components/Buienalarm/config_flow.py"
+
+coordinator:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "custom_components/Buienalarm/coordinator.py"
+
+api:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "custom_components/Buienalarm/api.py"
