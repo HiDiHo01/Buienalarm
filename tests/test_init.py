@@ -340,9 +340,9 @@ async def test_entity_registry_migration(hass: HomeAssistant) -> None:
     assert migrated_entity.unique_id == f"{entry.entry_id}_nowcastmessage"
 
     migrated_precipitation_entity = entity_registry.async_get(
-        precipitation_entity.entity_id
+        "sensor.migration_test_location_neerslag_verwacht"
     )
     assert migrated_precipitation_entity is not None
-    assert migrated_precipitation_entity.entity_id == (
-        "sensor.migration_test_location_neerslag_verwacht"
+    assert migrated_precipitation_entity.unique_id == (
+        f"{entry.entry_id}_precipitationrate_total"
     )
