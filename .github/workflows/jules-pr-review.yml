@@ -1,4 +1,3 @@
-
 name: Jules PR Review
 
 on:
@@ -25,6 +24,7 @@ jobs:
 
     # Do not expose the API key to pull requests from forks.
     if: >-
+      github.event.pull_request.head.repo &&
       github.event.pull_request.head.repo.full_name ==
       github.repository
 
@@ -40,6 +40,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
+          if [ -z "${JULES_API_KEY:-}" ]; then
+            echo "Error: JULES_API_KEY secret is not configured." >&2
+            exit 1
+          fi
 
           OWNER="${REPOSITORY%%/*}"
           REPO="${REPOSITORY#*/}"
@@ -98,8 +103,8 @@ jobs:
           SESSION=$(jq -r '.name // empty' <<< "$RESPONSE")
 
           if [ -z "$SESSION" ]; then
-            echo "Failed to start Jules review session: $RESPONSE"
-            exit 0
+            echo "Failed to start Jules review session: $RESPONSE" >&2
+            exit 1
           fi
 
           echo "session=$SESSION" >> "$GITHUB_OUTPUT"
