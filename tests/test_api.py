@@ -13,7 +13,12 @@ async def test_async_get_nowcast_logging_optimization(hass: HomeAssistant) -> No
     mock_response = AsyncMock()
     mock_response.status = 200
     mock_response.headers = {"Content-Type": "application/json", "Age": "10"}
-    mock_response.json = AsyncMock(return_value={"data": [{"precipitationrate": 0.5}], "nowcastmessage": {"nl": "Regen"}})
+    mock_response.json = AsyncMock(
+        return_value={
+            "data": [{"precipitationrate": 0.5}],
+            "nowcastmessage": {"nl": "Regen"},
+        }
+    )
     mock_session.get.return_value.__aenter__.return_value = mock_response
 
     client = BuienalarmApiClient(52.3702, 4.8951, mock_session, hass)

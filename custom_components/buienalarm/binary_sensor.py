@@ -92,12 +92,14 @@ class BuienalarmBinarySensor(
                 )
             case "currently_raining":
                 self._attr_is_on = any(
-                    _is_current_precipitation_period(period, current_time) and _is_rain_period(period)
+                    _is_current_precipitation_period(period, current_time)
+                    and _is_rain_period(period)
                     for period in periods
                 )
             case "currently_snowing":
                 self._attr_is_on = any(
-                    _is_current_precipitation_period(period, current_time) and _is_snow_period(period)
+                    _is_current_precipitation_period(period, current_time)
+                    and _is_snow_period(period)
                     for period in periods
                 )
             case _:
@@ -117,11 +119,7 @@ def _get_precipitation_periods(
     if not isinstance(raw_periods, list) or not raw_periods:
         return None
 
-    periods = [
-        period
-        for period in raw_periods
-        if isinstance(period, Mapping)
-    ]
+    periods = [period for period in raw_periods if isinstance(period, Mapping)]
     if len(periods) != len(raw_periods):
         return None
 
@@ -165,9 +163,8 @@ def _is_current_precipitation_period(
     period_start = datetime.fromtimestamp(timestamp, tz=timezone.utc)
     period_end = period_start + timedelta(minutes=5)
 
-    return (
-        period_start <= current_time < period_end
-        and _is_precipitation_period(period)
+    return period_start <= current_time < period_end and _is_precipitation_period(
+        period
     )
 
 

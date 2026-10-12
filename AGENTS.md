@@ -770,4 +770,15 @@ Before considering the PR ready:
 
 If a new review arrives after the current pass, repeat the analysis and fix cycle for that feedback. If you cannot monitor the PR continuously or access its review comments, state that limitation and identify the remaining manual follow-up required.
 
+## 26. Debug log inspection
+
+* When running tests or diagnostic commands, enable DEBUG-level logging where supported.
+* Capture complete stdout and stderr to files; do not rely solely on truncated console output.
+* After a failure, inspect the complete relevant log files before diagnosing or changing code.
+* Read logs in sections if necessary. Do not inspect only the last lines or summarize away relevant tracebacks, warnings, request/response details, or preceding events.
+* Correlate timestamps and tracebacks with the failing test and affected code.
+* Never claim to have inspected a log file unless its contents were actually accessible and read.
+* Do not commit generated logs, secrets, access tokens, personal data, or other sensitive diagnostic information.
+
+
 **Final rule:** Follow current Home Assistant requirements and repository-specific instructions over outdated examples, personal assumptions, and generated code patterns. Prefer one correct, tested, production-ready solution over multiple speculative alternatives.

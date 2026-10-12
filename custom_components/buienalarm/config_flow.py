@@ -12,6 +12,7 @@ The flow follows Home Assistant best‑practices:
     • Employs lazy ``%`` interpolation for all logging calls
       (pylint‑warning W1203).
 """
+
 from __future__ import annotations
 
 import logging
@@ -37,7 +38,7 @@ _LOGGER: Final[logging.Logger] = logging.getLogger(__name__)
 DEFAULT_LATITUDE: Final[float] = 52.7875
 DEFAULT_LONGITUDE: Final[float] = 4.79861
 DEFAULT_REFRESH_INTERVAL: Final[int] = 300  # seconds (5 min)
-DEFAULT_NOTIFICATION_LIMIT: Final[int] = 0   # mm/h – notify on any value
+DEFAULT_NOTIFICATION_LIMIT: Final[int] = 0  # mm/h – notify on any value
 
 
 def _is_valid_coordinates(latitude: float | str, longitude: float | str) -> bool:
@@ -86,7 +87,9 @@ class BuienalarmConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self._abort_if_unique_id_configured()
 
                 _LOGGER.debug("Creating new config entry: %s", unique_id)
-                location_name = user_input.get(CONF_NAME, NAME)  # Default name if not provided
+                location_name = user_input.get(
+                    CONF_NAME, NAME
+                )  # Default name if not provided
 
                 return self.async_create_entry(
                     title=f"{location_name} ({latitude_raw}, {longitude_raw})",
@@ -120,9 +123,7 @@ class BuienalarmConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Optional(
                     "notification_limit", default=DEFAULT_NOTIFICATION_LIMIT
                 ): int,
-                vol.Optional(
-                    "refresh_interval", default=DEFAULT_REFRESH_INTERVAL
-                ): int,
+                vol.Optional("refresh_interval", default=DEFAULT_REFRESH_INTERVAL): int,
             }
         )
         return self.async_show_form(
@@ -173,30 +174,39 @@ class BuienalarmOptionsFlow(config_entries.OptionsFlow):
     # --------------------------------------------------------------
     def _options_schema(self) -> vol.Schema:  # noqa: D401
         """Return schema for the options form."""
-        existing = self._entry.options
+        options = self._entry.options
+        data = self._entry.data
         return vol.Schema(
             {
                 vol.Required(
                     CONF_NAME,
-                    default=existing.get(CONF_NAME, NAME),
+                    default=options.get(CONF_NAME, data.get(CONF_NAME, NAME)),
                 ): str,
                 vol.Required(
                     CONF_LATITUDE,
-                    default=existing.get(CONF_LATITUDE, DEFAULT_LATITUDE),
+                    default=options.get(
+                        CONF_LATITUDE, data.get(CONF_LATITUDE, DEFAULT_LATITUDE)
+                    ),
                 ): float,
                 vol.Required(
                     CONF_LONGITUDE,
-                    default=existing.get(CONF_LONGITUDE, DEFAULT_LONGITUDE),
+                    default=options.get(
+                        CONF_LONGITUDE, data.get(CONF_LONGITUDE, DEFAULT_LONGITUDE)
+                    ),
                 ): float,
                 vol.Required(
                     "notification_limit",
-                    default=existing.get(
-                        "notification_limit", DEFAULT_NOTIFICATION_LIMIT
+                    default=options.get(
+                        "notification_limit",
+                        data.get("notification_limit", DEFAULT_NOTIFICATION_LIMIT),
                     ),
                 ): int,
                 vol.Required(
                     "refresh_interval",
-                    default=existing.get("refresh_interval", DEFAULT_REFRESH_INTERVAL),
+                    default=options.get(
+                        "refresh_interval",
+                        data.get("refresh_interval", DEFAULT_REFRESH_INTERVAL),
+                    ),
                 ): int,
             }
         )
