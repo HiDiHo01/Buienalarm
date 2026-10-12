@@ -596,7 +596,7 @@ class BuienalarmEntity(CoordinatorEntity):
                 precipitation_rate = data_point.get("precipitationrate")
                 precipitation_type = data_point.get("precipitationtype")
 
-                if timestamp is not None and precipitation_rate is not None and precipitation_type is not None:
+                if timestamp is not None and precipitation_rate is not None:
                     _LOGGER.debug(
                         "[BUIENALARM ENTITY] Checking data point at timestamp %s with precipitation rate %s and type %s",
                         timestamp, precipitation_rate, precipitation_type
@@ -705,7 +705,7 @@ class BuienalarmEntity(CoordinatorEntity):
                     current_rate = 0.0
 
                 if current_rate > 0:
-                    current_type = data_point.get("precipitationtype", "-")
+                    current_type = data_point.get("precipitationtype")
                     if current_type == "rain":
                         return "Regen"
                     elif current_type == "freezing rain":
@@ -714,8 +714,9 @@ class BuienalarmEntity(CoordinatorEntity):
                         return "Sneeuw"
                     elif current_type == "mix" or current_type == "mix of rain and snow":
                         return "Mix van regen en sneeuw"
+                    return "Onbekend"
 
-        return current_type
+        return current_type if isinstance(current_type, str) else self.NO_PRECIPITATION
 
     def get_next_precipitation(self) -> int | None:
         """
