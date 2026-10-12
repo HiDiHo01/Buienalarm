@@ -1,0 +1,122 @@
+# Pull request labels for the Buienalarm Home Assistant custom integration.
+# Paths are relative to the repository root. Keep these aligned with the actual
+# repository layout and Home Assistant integration platforms.
+
+integration:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "custom_components/buienalarm/**"
+
+api:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "custom_components/buienalarm/api.py"
+
+coordinator:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "custom_components/buienalarm/coordinator.py"
+          - "custom_components/buienalarm/__init__.py"
+
+config-flow:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "custom_components/buienalarm/config_flow.py"
+
+sensor:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "custom_components/buienalarm/sensor.py"
+          - "custom_components/buienalarm/sensor_types.py"
+          - "tests/test_sensor.py"
+          - "tests/**/test_sensor*.py"
+
+binary-sensor:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "custom_components/buienalarm/binary_sensor.py"
+          - "tests/test_binary_sensor.py"
+          - "tests/**/test_binary_sensor*.py"
+
+entity:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "custom_components/buienalarm/entity.py"
+          - "custom_components/buienalarm/sensor_types.py"
+
+tests:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "tests/**"
+          - "pytest.ini"
+          - "pyproject.toml"
+
+translation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "custom_components/buienalarm/translations/**"
+          - "custom_components/buienalarm/strings.json"
+
+manifest:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "custom_components/buienalarm/manifest.json"
+          - "hacs.json"
+
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "custom_components/buienalarm/manifest.json"
+          - "pyproject.toml"
+          - "poetry.lock"
+          - "requirements*.txt"
+          - "requirements*.in"
+          - "package.json"
+          - "package-lock.json"
+
+quality-scale:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "quality_scale.yaml"
+
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "*.md"
+          - "docs/**"
+          - ".github/*.md"
+          - ".github/ISSUE_TEMPLATE/**"
+          - ".github/PULL_REQUEST_TEMPLATE/**"
+
+home-assistant:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "home-assistant.md"
+          - "quality_scale.yaml"
+          - "custom_components/buienalarm/**"
+          - "tests/**"
+
+github-actions:
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/workflows/**"
+
+github:
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/**"
+          - ".gitignore"
+          - ".gitattributes"
+
+dependabot:
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/dependabot.yml"
+          - ".github/dependabot.yaml"
+
+security:
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/workflows/**"
+          - ".github/dependabot.yml"
+          - ".github/dependabot.yaml"
