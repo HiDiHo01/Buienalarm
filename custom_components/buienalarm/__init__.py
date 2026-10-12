@@ -373,6 +373,12 @@ def async_migrate_entity_unique_ids(hass: HomeAssistant, entry: ConfigEntry) -> 
             target_key == "precipitationrate_total"
             and legacy_precipitation_entity_id
             and entity_entry.domain == "sensor"
+            and entity_entry.entity_id
+            in {
+                "sensor.totale_neerslag",
+                "sensor.expected_precipitation",
+                "sensor.neerslag_verwacht",
+            }
         ):
             existing_entity = entity_registry.async_get(legacy_precipitation_entity_id)
             if existing_entity is None or existing_entity.entity_id == entity_entry.entity_id:
