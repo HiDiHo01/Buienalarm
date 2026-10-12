@@ -55,6 +55,15 @@ Repository instructions must be respected. Resolve conflicting instructions by f
 
 Never assume an API exists merely because it appeared in an older Home Assistant release, another integration, an example, or a previous AI-generated response.
 
+
+## Home Assistant Integration Quality Scale
+
+* Treat the repository-root `quality_scale.yaml` as the authoritative, maintained checklist for the Home Assistant Integration Quality Scale.
+* Before implementing or reviewing integration changes, read `quality_scale.yaml` and the current official Quality Scale rules: https://developers.home-assistant.io/docs/core/integration-quality-scale/.
+* Keep every rule status accurate as the implementation, documentation, and tests change. Mark a rule `done` only when its requirements have been verified against the current repository; use `todo` when they are not yet met or not demonstrated, and use `exempt` only when the rule genuinely does not apply, with a concise evidence-based explanation.
+* When a change affects a rule, update `quality_scale.yaml` in the same change and add or update tests and documentation needed to demonstrate compliance. Do not change statuses merely to improve the apparent quality tier, and do not claim a tier without verifying every applicable requirement.
+* Keep `quality_scale.yaml` at the repository root, not inside `custom_components/buienalarm/`.
+
 ## 3. Current documentation and API verification
 
 Use the official developer documentation as the primary reference:
