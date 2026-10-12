@@ -41,10 +41,18 @@ jobs:
 
       - name: 🧠 Set PYTHONPATH
         run: echo "PYTHONPATH=$GITHUB_WORKSPACE/Buienalarm" >> $GITHUB_ENV
+
       - name: Set up configuration
         run: |
           mkdir -p ./config
-          echo "homeassistant: { name: 'Test' }" > ./config/configuration.yaml
+          cat > ./config/configuration.yaml <<'EOF'
+          homeassistant:
+            name: Test
+          logger:
+            default: warning
+            logs:
+              custom_components.buienalarm: debug
+          EOF
 
       - name: Check HA config validity
         run: poetry run hass --script check_config --config ./config
