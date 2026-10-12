@@ -32,13 +32,13 @@ _LOGGER = logging.getLogger(__name__)
 #  User Agent rotation to avoid 403 errors
 # -----------------------------------------------------------------------------
 _USER_AGENT_LIST: Final[list[str]] = [
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36',
-    'Mozilla/5.0 (iPhone; CPU iPhone OS 14_4_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.3 Mobile/15E148 Safari/604.1',
-    'Mozilla/4.0 (compatible; MSIE 9.0; Windows NT 6.1)',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Safari/537.36 Edg/87.0.664.75',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.102 Safari/537.36 Edge/18.18363',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36',
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36",
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 14_4_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.3 Mobile/15E148 Safari/604.1",
+    "Mozilla/4.0 (compatible; MSIE 9.0; Windows NT 6.1)",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Safari/537.36 Edg/87.0.664.75",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.102 Safari/537.36 Edge/18.18363",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36",
 ]
 
 
@@ -124,14 +124,19 @@ old_SENSOR_DESCRIPTIONS: Final[list[SensorEntityDescription]] = [
     ),
 ]
 
+
 async def async_setup_entry(
     hass: HomeAssistant,
     config_entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up Buienalarm sensors from config entry."""
-    _LOGGER.debug("[SENSOR SETUP] Setting up Buienalarm sensors for %s", config_entry.unique_id)
-    _LOGGER.debug("[SENSOR SETUP] async_setup_entry called for %s", config_entry.entry_id)
+    _LOGGER.debug(
+        "[SENSOR SETUP] Setting up Buienalarm sensors for %s", config_entry.unique_id
+    )
+    _LOGGER.debug(
+        "[SENSOR SETUP] async_setup_entry called for %s", config_entry.entry_id
+    )
 
     coordinator = hass.data.get(DOMAIN, {}).get(config_entry.entry_id)
     if not coordinator:
@@ -157,22 +162,38 @@ async def async_setup_entry(
     ]
 
     sensors2 = [
-        BuienalarmSensorEntity(coordinator, config_entry, description,
-                               location_id=config_entry.data.get("location_id", "unknown"),
-                               location_name=config_entry.data.get("location_name", "unknown"))
+        BuienalarmSensorEntity(
+            coordinator,
+            config_entry,
+            description,
+            location_id=config_entry.data.get("location_id", "unknown"),
+            location_name=config_entry.data.get("location_name", "unknown"),
+        )
         for description in SENSOR_DESCRIPTIONS
     ]
 
     sensors3: list[SensorEntity] = [
-        BuienalarmSensorEntity(coordinator, config_entry, description,
-                               location_id=config_entry.data.get("location_id", "unknown"),
-                               location_name=config_entry.data.get("location_name", "unknown"))
+        BuienalarmSensorEntity(
+            coordinator,
+            config_entry,
+            description,
+            location_id=config_entry.data.get("location_id", "unknown"),
+            location_name=config_entry.data.get("location_name", "unknown"),
+        )
         for description in SENSOR_DESCRIPTIONS
     ]
 
     sensors4 = [
-        BuienalarmSensor(coordinator, config_entry, description.name, description.native_unit_of_measurement,
-                         description.icon, description.device_class, description.state_class, description.key)
+        BuienalarmSensor(
+            coordinator,
+            config_entry,
+            description.name,
+            description.native_unit_of_measurement,
+            description.icon,
+            description.device_class,
+            description.state_class,
+            description.key,
+        )
         for description in SENSOR_DESCRIPTIONS
     ]
 
@@ -184,8 +205,6 @@ async def async_setup_entry(
     _LOGGER.debug("[SENSOR SETUP] Adding %d sensors", len(sensors1))
     async_add_entities(sensors1, update_before_add=False)
     _LOGGER.debug("[SENSOR SETUP] %d sensors added", len(sensors1))
-
-
 
 
 # class BuienalarmTestSensor(CoordinatorEntity[BuienalarmDataUpdateCoordinator], SensorEntity):
@@ -211,7 +230,9 @@ class BuienalarmTestSensor(BuienalarmEntity, SensorEntity):
     def native_value(self) -> object:
         """Return the state of the sensor."""
         if not self.coordinator.data:
-            _LOGGER.debug("[TEST SENSOR] No data available for %s", self.entity_description.key)
+            _LOGGER.debug(
+                "[TEST SENSOR] No data available for %s", self.entity_description.key
+            )
             return None
         # return self.coordinator.data.get(self.entity_description.key)
         value = self.get_data(self.entity_description.key)
@@ -251,7 +272,10 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
         self._state_class = state_class
         self._key = key
         self._attr_translation_key = translation_key or key
-        _LOGGER.debug("[SENSOR ENTITY] Initialized sensor with translation key: %s", self._attr_translation_key)
+        _LOGGER.debug(
+            "[SENSOR ENTITY] Initialized sensor with translation key: %s",
+            self._attr_translation_key,
+        )
 
     @property
     def available(self) -> bool:
@@ -282,7 +306,9 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
     @property
     def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
-        name_str = f"{self._name} {self.entry_place}" if self.entry_place else self._name
+        name_str = (
+            f"{self._name} {self.entry_place}" if self.entry_place else self._name
+        )
         return f"{self.config_entry.entry_id}-{name_str.lower().replace(' ', '_')}"
 
     # StateType = str | int | float | None
@@ -342,11 +368,15 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
             # attributes["api_last_updated"] = self._api_last_updated.isoformat() if self._api_last_updated else None
             # Add API timestamp from coordinator
             if getattr(self.coordinator, "api_last_updated", None):
-                attributes["api_last_updated"] = self.coordinator.api_last_updated.isoformat()
+                attributes["api_last_updated"] = (
+                    self.coordinator.api_last_updated.isoformat()
+                )
 
             # Only include precipitation_data for one specific sensor
             if self._key == "precipitationrate_total":
-                attributes["precipitation_data"] = getattr(self, "data_points_as_list", [])
+                attributes["precipitation_data"] = getattr(
+                    self, "data_points_as_list", []
+                )
 
             attributes["attribution"] = ATTR_ATTRIBUTION
             return attributes
