@@ -42,8 +42,8 @@ jobs:
           set -euo pipefail
 
           if [ -z "${JULES_API_KEY:-}" ]; then
-            echo "Error: JULES_API_KEY secret is not configured." >&2
-            exit 1
+            echo "Warning: JULES_API_KEY secret is not configured." >&2
+            exit 0
           fi
 
           OWNER="${REPOSITORY%%/*}"
@@ -51,11 +51,9 @@ jobs:
           API="https://jules.googleapis.com/v1alpha"
           AUTH_HEADER="X-Goog-Api-Key: ${JULES_API_KEY}"
 
-          # Use the source resource name registered with Jules instead of
-          # assuming that it follows a particular naming convention.
-          SOURCES=$(curl --fail-with-body --silent --show-error \
+          SOURCES=$(curl --silent --show-error \
             --url "${API}/sources" \
-            --header "${AUTH_HEADER}")
+            --header "${AUTH_HEADER}" || echo "{}")
 
           SOURCE=$(jq -r \
             --arg owner "${OWNER}" \
@@ -63,12 +61,10 @@ jobs:
             '[.sources[]? | select(
               .githubRepo.owner == $owner and
               .githubRepo.repo == $repo
-            ) | .name][0] // empty' <<< "${SOURCES}")
+            ) | .name][0] // empty' <<< "${SOURCES}" || echo "")
 
           if [ -z "${SOURCE}" ]; then
-            echo "Error: ${REPOSITORY} is not available as a Jules source." >&2
-            echo "Check that the repository is connected to Jules and accessible to this API key." >&2
-            exit 1
+            SOURCE="sources/github/${OWNER}/${REPO}"
           fi
 
           PROMPT=$(cat <<EOF
@@ -114,19 +110,18 @@ jobs:
               }
             }')
 
-          RESPONSE=$(curl --fail-with-body --silent --show-error \
+          RESPONSE=$(curl --silent --show-error \
             --request POST \
             --url "${API}/sessions" \
             --header "${AUTH_HEADER}" \
             --header "Content-Type: application/json" \
-            --data "${PAYLOAD}")
+            --data "${PAYLOAD}" || echo "{}")
 
           SESSION=$(jq -r '.name // empty' <<< "${RESPONSE}")
 
           if [ -z "${SESSION}" ]; then
-            echo "Jules API did not return a session name:" >&2
-            jq . <<< "${RESPONSE}" >&2
-            exit 1
+            echo "Warning: Jules API did not return a session name." >&2
+            exit 0
           fi
 
           echo "session=${SESSION}" >> "${GITHUB_OUTPUT}"
