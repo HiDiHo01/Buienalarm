@@ -315,23 +315,23 @@ Use the correct entity platform for each function:
 
 Do not misuse entity platforms to avoid implementing the correct behavior.
 
-### Cross-platform consistency checks
+### Cross-platform entity consistency checks
 
-When a task changes, reviews, or debugs `sensor.py` or `binary_sensor.py`, inspect both platforms together, along with their shared coordinator, entity base class, constants, descriptions, translations, fixtures, and tests as relevant. Do not review either platform in isolation when its behavior depends on shared data or related entities.
+Whenever a task changes, reviews, or debugs any entity platform, inspect all relevant entity platform files together—not just the file directly changed. This includes `sensor.py`, `binary_sensor.py`, `switch.py`, `button.py`, `number.py`, `select.py`, `text.py`, `time.py`, `datetime.py`, and any other entity platforms present in the repository. Also inspect their shared coordinator, entity base classes, constants, entity descriptions, translations, fixtures, and tests as relevant. The scope is the complete set of entities that share data, represent related concepts, or depend on the same feature or lifecycle; do not review unrelated platforms mechanically.
 
 Verify and keep consistent:
 
-* **Source data:** Trace each affected entity from the API response through parsing, coordinator normalization, and entity accessors. Confirm both platforms use the current payload shape and interpret shared fields consistently.
-* **Shared semantics:** Related entities must agree on feature eligibility, source-period selection, timestamp basis, interval boundaries, precipitation/type classification, and missing-data rules. Do not assume similarly named fields or duplicated calculations have identical meanings without evidence.
-* **State and availability:** A binary sensor may report `on` or `off` only when the source establishes that state. Missing, malformed, stale, or insufficient data must not become a confirmed `off`; related sensors must not report fabricated zeroes or plausible defaults for the same invalid data. Apply availability consistently with each entity's Home Assistant contract.
-* **Entity identity and registration:** Check unique-ID construction, entity keys, naming, device identifiers, `device_info`, and platform setup so related entities use the intended device and do not create duplicates or registry churn.
-* **Descriptions and metadata:** Verify units, device classes, state classes, native value types, attributes, translation keys, and enabled-by-default settings against the actual state semantics and current Home Assistant requirements.
-* **Lifecycle and updates:** Confirm related entities consume the same coordinator lifecycle correctly, recover after refresh failures, and do not register duplicate listeners or entities on reload.
-* **Single source of truth:** Keep shared parsing, classification, and domain calculations in an appropriate shared layer when duplication could cause drift. Do not introduce abstractions solely to remove trivial duplication.
-* **Regression coverage:** Add or update tests that exercise related entities against the same representative payloads, including valid positive and negative cases, missing/null/wrong-type data, stale or out-of-window periods, boundary timestamps, unknown classifications, coordinator failure, and recovery as applicable. Assert actual states, availability, values, units, and identifiers—not merely entity creation.
-* **Evidence:** Treat apparent consistency as unverified until the relevant code paths and tests have been checked. Distinguish confirmed defects from assumptions about undocumented API behavior.
+* **Source data:** Trace each affected entity from the external response through parsing, coordinator normalization, and entity accessors. Confirm related platforms use the current payload shape and interpret shared fields consistently.
+* **Shared semantics and feature eligibility:** Related entities must agree on feature availability, source selection, timestamp basis, interval boundaries, classification rules, and missing-data semantics. Do not assume similarly named fields or duplicated calculations have identical meanings without evidence.
+* **State, values, and availability:** Each entity must represent the source data accurately according to its Home Assistant platform contract. Missing, malformed, stale, or insufficient data must not be converted into a confirmed negative state, fabricated zero, default value, or actionable setting. For binary sensors, report `on` or `off` only when the source establishes that state; use supported indeterminate-state and availability behavior where it does not. Ensure related entities do not contradict each other when they describe the same underlying condition.
+* **Entity identity and registration:** Check unique-ID construction, entity keys, names, device identifiers, `device_info`, entity registry compatibility, and platform setup so related entities use the intended device and do not create duplicates or registry churn.
+* **Descriptions and metadata:** Verify native value types, units, device classes, state classes, entity categories, attributes, translation keys, icons, and enabled-by-default settings against actual behavior and current Home Assistant requirements.
+* **Lifecycle and updates:** Confirm related entities consume the shared coordinator and config-entry lifecycle correctly, update and recover consistently after refresh failures, and do not register duplicate listeners, subscriptions, or entities on reload.
+* **Single source of truth:** Keep shared parsing, validation, classification, and domain calculations in an appropriate shared layer when duplicated logic could drift. Do not introduce abstractions solely to remove trivial duplication.
+* **Regression coverage:** Add or update tests that exercise related entities against the same representative inputs, including valid states, missing/null/wrong-type data, stale or out-of-range data, boundary timestamps, unknown classifications, coordinator failures, recovery, and lifecycle changes as applicable. Assert actual states or values, availability, metadata, and identifiers—not merely entity creation.
+* **Evidence:** Treat consistency as unverified until relevant code paths and tests have been checked. Distinguish confirmed defects from assumptions about undocumented external API behavior.
 
-Before completing a change to either platform, review the pair for contradictions and run the relevant tests and configured static checks. Report any remaining unverified API semantics explicitly.
+Before completing a change to any entity platform, review the related entity platforms for contradictions and run the relevant tests and configured static checks. Report remaining unverified external API semantics explicitly.
 
 ### Entity lifecycle
 
