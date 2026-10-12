@@ -48,7 +48,28 @@ jobs:
 
           OWNER="${REPOSITORY%%/*}"
           REPO="${REPOSITORY#*/}"
-          SOURCE="sources/github/${OWNER}/${REPO}"
+          API="https://jules.googleapis.com/v1alpha"
+          AUTH_HEADER="X-Goog-Api-Key: ${JULES_API_KEY}"
+
+          # Use the source resource name registered with Jules instead of
+          # assuming that it follows a particular naming convention.
+          SOURCES=$(curl --fail-with-body --silent --show-error \
+            --url "${API}/sources" \
+            --header "${AUTH_HEADER}")
+
+          SOURCE=$(jq -r \
+            --arg owner "${OWNER}" \
+            --arg repo "${REPO}" \
+            '[.sources[]? | select(
+              .githubRepo.owner == $owner and
+              .githubRepo.repo == $repo
+            ) | .name][0] // empty' <<< "${SOURCES}")
+
+          if [ -z "${SOURCE}" ]; then
+            echo "Error: ${REPOSITORY} is not available as a Jules source." >&2
+            echo "Check that the repository is connected to Jules and accessible to this API key." >&2
+            exit 1
+          fi
 
           PROMPT=$(cat <<EOF
           Review pull request #${PR_NUMBER}:
@@ -78,9 +99,9 @@ jobs:
           )
 
           PAYLOAD=$(jq -n \
-            --arg prompt "$PROMPT" \
-            --arg source "$SOURCE" \
-            --arg branch "$PR_BRANCH" \
+            --arg prompt "${PROMPT}" \
+            --arg source "${SOURCE}" \
+            --arg branch "${PR_BRANCH}" \
             --arg title "Review PR #${PR_NUMBER}" \
             '{
               prompt: $prompt,
@@ -93,21 +114,22 @@ jobs:
               }
             }')
 
-          RESPONSE=$(curl --silent --show-error \
+          RESPONSE=$(curl --fail-with-body --silent --show-error \
             --request POST \
-            --url "https://jules.googleapis.com/v1alpha/sessions" \
-            --header "X-Goog-Api-Key: ${JULES_API_KEY}" \
+            --url "${API}/sessions" \
+            --header "${AUTH_HEADER}" \
             --header "Content-Type: application/json" \
-            --data "$PAYLOAD") || true
+            --data "${PAYLOAD}")
 
-          SESSION=$(jq -r '.name // empty' <<< "$RESPONSE")
+          SESSION=$(jq -r '.name // empty' <<< "${RESPONSE}")
 
-          if [ -z "$SESSION" ]; then
-            echo "Failed to start Jules review session: $RESPONSE" >&2
+          if [ -z "${SESSION}" ]; then
+            echo "Jules API did not return a session name:" >&2
+            jq . <<< "${RESPONSE}" >&2
             exit 1
           fi
 
-          echo "session=$SESSION" >> "$GITHUB_OUTPUT"
+          echo "session=${SESSION}" >> "${GITHUB_OUTPUT}"
 
       - name: Notify pull request
         if: ${{ steps.jules.outputs.session != '' }}
