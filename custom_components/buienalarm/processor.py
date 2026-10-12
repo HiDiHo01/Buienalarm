@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 
 from homeassistant.util import dt as dt_util
 from homeassistant.util.dt import as_local
@@ -13,6 +14,7 @@ class BuienalarmDataProcessor:
         """Initialiseer met ruwe data (object)."""
         self._raw = raw
         self._forecast: list[dict[str, object]] = []
+        self._rain_expected: bool = False
 
     def process(self) -> dict[str, object]:
         """
@@ -57,6 +59,7 @@ class BuienalarmDataProcessor:
     def _parse_forecast(self, data: list[object]) -> list[dict[str, object]]:
         """Verwerk elk datapunt in forecast naar veilige dict."""
         forecast: list[dict[str, object]] = []
+        rain_expected = False
 
         for i, item in enumerate(data):
             if not isinstance(item, dict):
@@ -71,28 +74,38 @@ class BuienalarmDataProcessor:
                     _LOGGER.debug("Buienalarm: ongeldig 'precipitationrate': %s", rate)
                     continue
 
+            # Bolt optimization: track precipitation expectation during parse loop to avoid second pass
+            if rate > 0:
+                rain_expected = True
+
             ts_str = item.get("time")
-            timestamp = dt_util.parse_datetime(ts_str) if isinstance(ts_str, str) else None
+            timestamp = None
+            if isinstance(ts_str, str):
+                # Bolt optimization: datetime.fromisoformat is ~2x faster than dt_util.parse_datetime for ISO strings
+                try:
+                    timestamp = datetime.fromisoformat(ts_str)
+                except ValueError:
+                    timestamp = dt_util.parse_datetime(ts_str)
+
             local_time = as_local(timestamp).isoformat() if timestamp else None
+            ptype = item.get("precipitationtype")
 
             forecast.append(
                 {
                     "precipitationrate": round(rate, 2),
-                    "precipitationtype": item.get("precipitationtype") if isinstance(item.get("precipitationtype"), str) else "unknown",
+                    "precipitationtype": ptype if isinstance(ptype, str) else "unknown",
                     "timestamp_utc": ts_str or "",
                     "timestamp_local": local_time or "",
                 }
             )
 
+        self._rain_expected = rain_expected
         return forecast
 
     def _has_precipitation(self) -> bool:
         """Controleer of er neerslag wordt verwacht boven 0.0 mm/h."""
-        for item in self._forecast:
-            rate = item.get("precipitationrate")
-            if isinstance(rate, (int, float)) and rate > 0:
-                return True
-        return False
+        # Bolt optimization: return tracked boolean computed during _parse_forecast
+        return self._rain_expected
 
     def _parse_nowcast(self) -> dict[str, str]:
         """Extract vertaalde nowcast boodschap, fallback op lege string."""
