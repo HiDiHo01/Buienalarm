@@ -117,9 +117,6 @@
                 "name": "Current precipitation"
             },
             "precipitationrate_now_desc": {
-                "name": "Current precipitation description"
-            },
-            "precipitationrate_now_desc": {
                 "name": "Precipitation description"
             },
             "precipitationtype_now": {
@@ -129,21 +126,7 @@
                 "name": "Next precipitation in"
             },
             "precipitation_periods": {
-                "name": "Rain periods"
-            },
-            "precipitation_periods": {
                 "name": "Precipitation periods"
-            }
-        },
-        "binary_sensor": {
-            "precipitation_expected": {
-                "name": "Precipitation expected"
-            },
-            "currently_raining": {
-                "name": "Raining now"
-            },
-            "currently_snowing": {
-                "name": "Snowing now"
             }
         }
     }
