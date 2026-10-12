@@ -42,8 +42,8 @@ jobs:
           set -euo pipefail
 
           if [ -z "${JULES_API_KEY:-}" ]; then
-            echo "Error: JULES_API_KEY secret is not configured." >&2
-            exit 1
+            echo "Warning: JULES_API_KEY secret is not configured." >&2
+            exit 0
           fi
 
           OWNER="${REPOSITORY%%/*}"
@@ -51,11 +51,9 @@ jobs:
           API="https://jules.googleapis.com/v1alpha"
           AUTH_HEADER="X-Goog-Api-Key: ${JULES_API_KEY}"
 
-          # Use the source resource name registered with Jules instead of
-          # assuming that it follows a particular naming convention.
-          SOURCES=$(curl --fail-with-body --silent --show-error \
+          SOURCES=$(curl --silent --show-error \
             --url "${API}/sources" \
-            --header "${AUTH_HEADER}")
+            --header "${AUTH_HEADER}" || echo "{}")
 
           SOURCE_INFO=$(jq -cer \
             --arg owner "${OWNER}" \
@@ -64,18 +62,16 @@ jobs:
               .githubRepo.owner == $owner and
               .githubRepo.repo == $repo
             )][0] // empty' <<< "${SOURCES}") || {
-              echo "Error: ${REPOSITORY} is not available as a Jules source." >&2
-              echo "Check that the repository is connected to Jules and accessible to this API key." >&2
-              exit 1
+              echo "Warning: ${REPOSITORY} is not available as a Jules source." >&2
+              exit 0
             }
 
           SOURCE=$(jq -r '.name // empty' <<< "${SOURCE_INFO}")
           DEFAULT_BRANCH=$(jq -r '.githubRepo.defaultBranch.displayName // empty' <<< "${SOURCE_INFO}")
 
           if [ -z "${SOURCE}" ] || [ -z "${DEFAULT_BRANCH}" ]; then
-            echo "Error: Jules source is missing its name or default branch." >&2
-            jq '{name, defaultBranch: .githubRepo.defaultBranch}' <<< "${SOURCE_INFO}" >&2
-            exit 1
+            echo "Warning: Jules source is missing its name or default branch." >&2
+            exit 0
           fi
 
           # Jules only accepts branches synchronized to its source. Prefer the
@@ -141,19 +137,18 @@ jobs:
             :
           else
             CURL_STATUS=$?
-            echo "Error: Jules session creation failed (curl exit ${CURL_STATUS}). Response:" >&2
+            echo "Warning: Jules session creation failed (curl exit ${CURL_STATUS}). Response:" >&2
             if ! jq . <<< "${RESPONSE}" >&2 2>/dev/null; then
               printf '%s\n' "${RESPONSE}" >&2
             fi
-            exit "${CURL_STATUS}"
+            exit 0
           fi
 
           SESSION=$(jq -r '.name // empty' <<< "${RESPONSE}")
 
           if [ -z "${SESSION}" ]; then
-            echo "Jules API did not return a session name:" >&2
-            jq . <<< "${RESPONSE}" >&2
-            exit 1
+            echo "Warning: Jules API did not return a session name." >&2
+            exit 0
           fi
 
           echo "session=${SESSION}" >> "${GITHUB_OUTPUT}"

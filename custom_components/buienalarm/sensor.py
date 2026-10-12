@@ -218,7 +218,6 @@ class BuienalarmTestSensor(BuienalarmEntity, SensorEntity):
         # super().__init__(coordinator)
         super().__init__(coordinator, config_entry, description.key)
         self.entity_description = description
-        self._attr_name = description.name
         self._attr_unique_id = f"{config_entry.entry_id}-{description.key}"
 
     # @property
@@ -306,10 +305,7 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
     @property
     def unique_id(self) -> str:
         """Return a unique ID to use for this entity."""
-        name_str = (
-            f"{self._name} {self.entry_place}" if self.entry_place else self._name
-        )
-        return f"{self.config_entry.entry_id}-{name_str.lower().replace(' ', '_')}"
+        return f"{self.config_entry.entry_id}_{self._key}"
 
     # StateType = str | int | float | None
     @property

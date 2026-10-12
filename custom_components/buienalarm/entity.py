@@ -33,6 +33,8 @@ class BuienalarmEntity(CoordinatorEntity):
     """A Home Assistant entity that provides current
     and forecasted precipitation data from Buienalarm."""
 
+    _attr_has_entity_name = True
+
     def __init__(
         self,
         coordinator: DataUpdateCoordinator[dict[str, object]],
@@ -45,8 +47,7 @@ class BuienalarmEntity(CoordinatorEntity):
         self._location_name: str = config_entry.data.get("location_name", "Unknown")
 
         # ========== Entity & unique‑id ==========
-        # -> sensor.<prefix>_<key>
-        self._attr_name = f"{NAME} {sensor_key}"
+        self._attr_translation_key = sensor_key
         # -> <config_entry.unique_id>_<key>   (falls back to entry‑id)
         base = config_entry.unique_id or config_entry.entry_id
         self._attr_unique_id = f"{base}_{sensor_key}"
@@ -75,7 +76,7 @@ class BuienalarmEntity(CoordinatorEntity):
         data: Mapping[str, object] = self.data
 
         if not data:
-            _LOGGER.error("[BUIENALARM ENTITY] No data available for sensor '%s'", self.name)
+            _LOGGER.error("[BUIENALARM ENTITY] No data available for sensor '%s'", self.sensor_key)
             return None
 
         key_methods: Final[dict[str, Callable[[], str | int | float | datetime | dict[str, object] | None]]] = {
@@ -97,12 +98,12 @@ class BuienalarmEntity(CoordinatorEntity):
         if key in key_methods:
             try:
                 value = key_methods[key]()
-                _LOGGER.debug("[BUIENALARM ENTITY] Data for key '%s' (%s): %s", key, self.name, value)
+                _LOGGER.debug("[BUIENALARM ENTITY] Data for key '%s' (%s): %s", key, self.sensor_key, value)
                 return value
             except Exception as err:
                 _LOGGER.error(
                     "[BUIENALARM ENTITY] Error retrieving data for sensor '%s' and key '%s': %s",
-                    self.name,
+                    self.sensor_key,
                     key,
                     err,
                 )
@@ -178,7 +179,7 @@ class BuienalarmEntity(CoordinatorEntity):
         except (KeyError, ValueError, TypeError) as err:
             _LOGGER.error(
                 "[BUIENALARM ENTITY] Failed to build attributes for '%s': %s",
-                self.name,
+                self.sensor_key,
                 err,
             )
 
@@ -732,7 +733,7 @@ class BuienalarmEntity(CoordinatorEntity):
         if current_precipitation_rate > 0:
             _LOGGER.debug(
                 "[BUIENALARM ENTITY] Precipitation is currently occurring for %s",
-                self.name,
+                self.sensor_key,
             )
             return 0
 
@@ -742,7 +743,7 @@ class BuienalarmEntity(CoordinatorEntity):
         if not isinstance(precip_data, list) or not precip_data:
             _LOGGER.warning(
                 "[BUIENALARM ENTITY] No precipitation data available for %s",
-                self.name,
+                self.sensor_key,
             )
             return None
         # ---------------------------------------------------------------------
@@ -760,7 +761,7 @@ class BuienalarmEntity(CoordinatorEntity):
                 _LOGGER.debug(
                     "[BUIENALARM ENTITY] Skipping invalid timestamp (type=%s) for %s: %s",
                     type(ts_raw).__name__,
-                    self.name,
+                    self.sensor_key,
                     ts_raw,
                 )
                 continue
@@ -770,7 +771,7 @@ class BuienalarmEntity(CoordinatorEntity):
             except (TypeError, ValueError):
                 _LOGGER.debug(
                     "[BUIENALARM ENTITY] Skipping unparsable timestamp for %s: %s",
-                    self.name,
+                    self.sensor_key,
                     ts_raw,
                 )
                 continue
@@ -786,7 +787,7 @@ class BuienalarmEntity(CoordinatorEntity):
                 _LOGGER.debug(
                     "[BUIENALARM ENTITY] Skipping invalid precipitation rate (type=%s) for %s: %s",
                     type(raw_rate).__name__,
-                    self.name,
+                    self.sensor_key,
                     raw_rate,
                 )
                 rate: float = 0.0
@@ -796,7 +797,7 @@ class BuienalarmEntity(CoordinatorEntity):
                 except (TypeError, ValueError):
                     _LOGGER.debug(
                         "[BUIENALARM ENTITY] Failed to parse precipitation rate for %s: %s",
-                        self.name,
+                        self.sensor_key,
                         raw_rate,
                     )
                     rate = 0.0
@@ -806,7 +807,7 @@ class BuienalarmEntity(CoordinatorEntity):
                 delta_minutes: int = int(round((ts - now_ts) / 60))
                 _LOGGER.debug(
                     "[BUIENALARM ENTITY] Next precipitation for %s in %d min (rate=%.2f mm/h)",
-                    self.name,
+                    self.sensor_key,
                     delta_minutes,
                     rate,
                 )
@@ -816,7 +817,7 @@ class BuienalarmEntity(CoordinatorEntity):
         # No future precipitation found in dataset
         _LOGGER.debug(
             "[BUIENALARM ENTITY] No precipitation expected in current forecast for %s (%d forecast bins checked)",
-            self.name,
+            self.sensor_key,
             len(precip_data),
         )
         return None
@@ -917,7 +918,7 @@ class BuienalarmEntity(CoordinatorEntity):
         periods_list: list[dict[str, str | int | float | None]] = []
 
         if not isinstance(precipitation_data, list):
-            _LOGGER.warning("[BUIENALARM ENTITY] 'data' ontbreekt of is geen lijst voor '%s'", self.name)
+            _LOGGER.warning("[BUIENALARM ENTITY] 'data' ontbreekt of is geen lijst voor '%s'", self.sensor_key)
             return periods_list
 
         try:
@@ -925,7 +926,7 @@ class BuienalarmEntity(CoordinatorEntity):
         except Exception as err:
             _LOGGER.error(
                 "[BUIENALARM ENTITY] Fout bij ophalen van neerslagperiodes voor '%s': %s",
-                self.name,
+                self.sensor_key,
                 err,
             )
             return periods_list
@@ -966,7 +967,7 @@ class BuienalarmEntity(CoordinatorEntity):
         now_utc = datetime.now(timezone.utc)
 
         if not isinstance(precipitation_data, list):
-            _LOGGER.warning("[BUIENALARM ENTITY] 'data' is geen lijst voor '%s'", self.name)
+            _LOGGER.warning("[BUIENALARM ENTITY] 'data' is geen lijst voor '%s'", self.sensor_key)
             return []
 
         _LOGGER.debug("[BUIENALARM ENTITY] Verwerken van %d datapunt(en) voor neerslagperiodes", len(precipitation_data))
