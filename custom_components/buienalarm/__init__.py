@@ -14,6 +14,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.device_registry import DeviceEntryType
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.update_coordinator import UpdateFailed
+from homeassistant.util import slugify
 
 from .api import BuienalarmApiClient
 from .const import (
@@ -337,6 +338,15 @@ def async_migrate_entity_unique_ids(hass: HomeAssistant, entry: ConfigEntry) -> 
     key_by_key = {sensor["key"]: sensor["key"] for sensor in SENSORS}
 
     entries = er.async_entries_for_config_entry(entity_registry, entry.entry_id)
+    place = (
+        entry.data.get("place")
+        or entry.data.get("location_name")
+        or entry.data.get(CONF_NAME)
+    )
+    legacy_precipitation_entity_id = (
+        f"sensor.{slugify(str(place))}_neerslag_verwacht" if place else None
+    )
+
     for entity_entry in entries:
         old_uid = entity_entry.unique_id
         target_key = None
@@ -352,18 +362,34 @@ def async_migrate_entity_unique_ids(hass: HomeAssistant, entry: ConfigEntry) -> 
                     if suffix.startswith(old_name_slug):
                         target_key = key
                         break
+        elif old_uid.startswith(f"{entry.entry_id}_"):
+            suffix = old_uid[len(f"{entry.entry_id}_"):]
+            if suffix in key_by_key:
+                target_key = key_by_key[suffix]
 
-        if target_key:
-            new_uid = f"{entry.entry_id}_{target_key}"
-            if new_uid != old_uid and not entity_registry.async_get_entity_id(
-                entity_entry.domain, DOMAIN, new_uid
-            ):
-                _LOGGER.info(
-                    "Migrating entity %s unique_id from %s to %s",
-                    entity_entry.entity_id,
-                    old_uid,
-                    new_uid,
-                )
-                entity_registry.async_update_entity(
-                    entity_entry.entity_id, new_unique_id=new_uid
-                )
+        new_uid = f"{entry.entry_id}_{target_key}" if target_key else old_uid
+        target_entity_id = None
+        if (
+            target_key == "precipitationrate_total"
+            and legacy_precipitation_entity_id
+            and entity_entry.domain == "sensor"
+        ):
+            existing_entity = entity_registry.async_get(legacy_precipitation_entity_id)
+            if existing_entity is None or existing_entity.entity_id == entity_entry.entity_id:
+                target_entity_id = legacy_precipitation_entity_id
+
+        update_options: dict[str, str] = {}
+        if new_uid != old_uid and not entity_registry.async_get_entity_id(
+            entity_entry.domain, DOMAIN, new_uid
+        ):
+            update_options["new_unique_id"] = new_uid
+        if target_entity_id and target_entity_id != entity_entry.entity_id:
+            update_options["new_entity_id"] = target_entity_id
+
+        if update_options:
+            _LOGGER.info(
+                "Migrating entity %s with updates %s",
+                entity_entry.entity_id,
+                update_options,
+            )
+            entity_registry.async_update_entity(entity_entry.entity_id, **update_options)
