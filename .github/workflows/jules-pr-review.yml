@@ -88,18 +88,24 @@ jobs:
               }
             }')
 
-          RESPONSE=$(curl --fail-with-body --silent --show-error \
+          RESPONSE=$(curl --silent --show-error \
             --request POST \
             --url "https://jules.googleapis.com/v1alpha/sessions" \
             --header "X-Goog-Api-Key: ${JULES_API_KEY}" \
             --header "Content-Type: application/json" \
-            --data "$PAYLOAD")
+            --data "$PAYLOAD") || true
 
-          SESSION=$(jq -er '.name' <<< "$RESPONSE")
+          SESSION=$(jq -r '.name // empty' <<< "$RESPONSE")
+
+          if [ -z "$SESSION" ]; then
+            echo "Failed to start Jules review session: $RESPONSE"
+            exit 0
+          fi
 
           echo "session=$SESSION" >> "$GITHUB_OUTPUT"
 
       - name: Notify pull request
+        if: ${{ steps.jules.outputs.session != '' }}
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
