@@ -315,6 +315,24 @@ Use the correct entity platform for each function:
 
 Do not misuse entity platforms to avoid implementing the correct behavior.
 
+### Cross-platform consistency checks
+
+When a task changes, reviews, or debugs `sensor.py` or `binary_sensor.py`, inspect both platforms together, along with their shared coordinator, entity base class, constants, descriptions, translations, fixtures, and tests as relevant. Do not review either platform in isolation when its behavior depends on shared data or related entities.
+
+Verify and keep consistent:
+
+* **Source data:** Trace each affected entity from the API response through parsing, coordinator normalization, and entity accessors. Confirm both platforms use the current payload shape and interpret shared fields consistently.
+* **Shared semantics:** Related entities must agree on feature eligibility, source-period selection, timestamp basis, interval boundaries, precipitation/type classification, and missing-data rules. Do not assume similarly named fields or duplicated calculations have identical meanings without evidence.
+* **State and availability:** A binary sensor may report `on` or `off` only when the source establishes that state. Missing, malformed, stale, or insufficient data must not become a confirmed `off`; related sensors must not report fabricated zeroes or plausible defaults for the same invalid data. Apply availability consistently with each entity's Home Assistant contract.
+* **Entity identity and registration:** Check unique-ID construction, entity keys, naming, device identifiers, `device_info`, and platform setup so related entities use the intended device and do not create duplicates or registry churn.
+* **Descriptions and metadata:** Verify units, device classes, state classes, native value types, attributes, translation keys, and enabled-by-default settings against the actual state semantics and current Home Assistant requirements.
+* **Lifecycle and updates:** Confirm related entities consume the same coordinator lifecycle correctly, recover after refresh failures, and do not register duplicate listeners or entities on reload.
+* **Single source of truth:** Keep shared parsing, classification, and domain calculations in an appropriate shared layer when duplication could cause drift. Do not introduce abstractions solely to remove trivial duplication.
+* **Regression coverage:** Add or update tests that exercise related entities against the same representative payloads, including valid positive and negative cases, missing/null/wrong-type data, stale or out-of-window periods, boundary timestamps, unknown classifications, coordinator failure, and recovery as applicable. Assert actual states, availability, values, units, and identifiers—not merely entity creation.
+* **Evidence:** Treat apparent consistency as unverified until the relevant code paths and tests have been checked. Distinguish confirmed defects from assumptions about undocumented API behavior.
+
+Before completing a change to either platform, review the pair for contradictions and run the relevant tests and configured static checks. Report any remaining unverified API semantics explicitly.
+
 ### Entity lifecycle
 
 * Subscribe to events in the correct lifecycle methods.
