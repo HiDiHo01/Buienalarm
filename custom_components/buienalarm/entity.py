@@ -55,10 +55,20 @@ class BuienalarmEntity(CoordinatorEntity):
 
     @property
     def data(self) -> Mapping[str, object]:
-        """Convenience property to access coordinator data safely."""
-        if isinstance(self.coordinator.data, Mapping):
-            return self.coordinator.data
-        return {}
+        """Return the endpoint payload, unwrapping coordinator metadata when present."""
+        coordinator_data = self.coordinator.data
+        if not isinstance(coordinator_data, Mapping):
+            return {}
+
+        # The API client wraps the raw endpoint payload in the timeseries key
+        # together with retrieval metadata. Entity calculations consume the raw payload.
+        timeseries = coordinator_data.get("timeseries")
+        if isinstance(timeseries, Mapping):
+            return timeseries
+
+        # Retain compatibility with existing fixtures and cached coordinator data
+        # that already contain the unwrapped endpoint payload.
+        return coordinator_data
 
     def get_data(self, key: str) -> str | int | float | datetime | None:
         """
@@ -196,16 +206,13 @@ class BuienalarmEntity(CoordinatorEntity):
         * ``timestamp`` – UNIX seconds since epoch (int | float | None)
         * ``time`` – *local* `datetime`
         """
-        raw_data: list[object] = []
-
-        if isinstance(self.coordinator.data, Mapping):
-            raw_data = self.coordinator.data.get("data") or []
-        else:
+        raw_data = self.data.get("data") or []
+        if not isinstance(raw_data, list):
             _LOGGER.debug(
-                "coordinator.data is not a mapping (type=%s): %s",
-                type(self.coordinator.data),
-                self.coordinator.data,
+                "Precipitation data is not a list (type=%s)",
+                type(raw_data).__name__,
             )
+            return []
 
         results: list[dict[str, str | int | float | None]] = []
 
