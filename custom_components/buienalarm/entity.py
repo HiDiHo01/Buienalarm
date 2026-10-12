@@ -196,7 +196,7 @@ class BuienalarmEntity(CoordinatorEntity):
         return attributes
 
     @property
-    def data_points_as_list(self) -> list[dict[str, str | int | float | None]]:
+    def data_points_as_list(self) -> list[dict[str, str | int | float | datetime | None]]:
         """Return precipitation data points as a list of dictionaries.
 
         Each dict contains:
@@ -214,7 +214,7 @@ class BuienalarmEntity(CoordinatorEntity):
             )
             return []
 
-        results: list[dict[str, str | int | float | None]] = []
+        results: list[dict[str, str | int | float | datetime | None]] = []
 
         for data_point in raw_data:
             # ── verify we can safely call .get() ────────────────────────────────
