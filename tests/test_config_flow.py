@@ -47,6 +47,14 @@ async def test_options_flow_preserves_data_defaults(hass: HomeAssistant) -> None
     assert result["type"] == FlowResultType.FORM
     assert result["step_id"] == "init"
 
+    # Verify displayed defaults before submitting any user input.
+    defaults = result["data_schema"]({})
+    assert defaults[CONF_NAME] == "Custom Spot"
+    assert defaults[CONF_LATITUDE] == 51.5
+    assert defaults[CONF_LONGITUDE] == 4.5
+    assert defaults["notification_limit"] == 10
+    assert defaults["refresh_interval"] == 450
+
     # Save the options form without changing the values that were populated
     result2 = await hass.config_entries.options.async_configure(
         result["flow_id"],
