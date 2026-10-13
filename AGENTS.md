@@ -30,7 +30,7 @@ This repository contains a custom integration for Home Assistant that retrieves 
 * **Compatibility:** Preserve existing entity IDs, unique IDs, sensor semantics, and configuration behavior unless the task specifically requires a correction.
 * **Quality:** Treat correctness, asynchronous execution, error handling, availability, timezone awareness, and regression tests as first-class requirements.
 * **Scope:** Make one small, independently verifiable improvement. Derive the task from the actual source code and tests, not assumptions about how the integration works.
-* **Instructions:** Read `AGENTS.md`, `.github/copilot-instructions.md`, `manifest.json`, and the relevant implementation and test files before deciding what to change.
+* **Instructions:** Read all applicable repository instruction files, `manifest.json`, and the relevant implementation and test files before deciding what to change.
 
 Do not assume that the integration uses a particular API endpoint, coordinator structure, update interval, or entity platform. Verify these details in the repository before implementation.
 
@@ -44,12 +44,12 @@ Before changing any code:
 3. If instructions appear to conflict, follow the applicable higher-priority instructions; use `home-assistant.md` for Buienalarm-specific behavior and domain semantics, unless that conflicts with a higher-priority instruction or verified current Home Assistant requirements.
 4. Do not claim compliance with `home-assistant.md` unless the relevant implementation and tests have actually been checked.
 
-1. Inspect the repository structure and identify the integration domain.
-2. Read the root `AGENTS.md`, if present, and all applicable nested `AGENTS.md` files.
-3. Read `AI_POLICY.md` if present in the repository root, `.github/`, or `docs/`.
-4. Inspect `manifest.json`, `const.py`, `__init__.py`, `config_flow.py`, entity platforms, coordinators, translations, tests, dependency declarations, and CI workflows as relevant.
-5. Inspect the existing architecture and preserve established conventions unless there is a concrete reason to change them.
-6. Identify the latest stable Home Assistant version, supported Python version, relevant API changes, and applicable deprecations.
+5. Inspect the repository structure and identify the integration domain.
+6. Read all applicable nested `AGENTS.md` files.
+7. Read `AI_POLICY.md` if present in the repository root, `.github/`, or `docs/`.
+8. Inspect `manifest.json`, `const.py`, `__init__.py`, `config_flow.py`, entity platforms, coordinators, translations, tests, dependency declarations, and CI workflows as relevant.
+9. Inspect the existing architecture and preserve established conventions unless there is a concrete reason to change them.
+10. Identify the latest stable Home Assistant version, supported Python version, relevant API changes, and applicable deprecations.
 
 Repository instructions must be respected. Resolve conflicting instructions by following the applicable higher-priority instructions and the more specific repository guidance.
 
@@ -95,9 +95,9 @@ Use modern Python syntax and target **Python 3.14+**, subject to the actual Pyth
 
 * Use type annotations for all functions, methods, parameters, and return values.
 * Write descriptive docstrings for modules, classes, functions, and methods.
-* do not remove existing docstrings for modules, classes, functions, and methods.
-* Write descriptive comment for modules, classes, functions, and methods.
-* do not remove existing comment
+* Preserve existing docstrings unless they are inaccurate or the documented behavior changes; update them when needed.
+* Use comments to explain non-obvious intent or constraints, not to repeat the code or docstrings.
+* Preserve existing comments unless they are inaccurate, redundant, or made obsolete by the change.
 * Use `snake_case` for variables and functions.
 * Use `PascalCase` for classes.
 * Prefix internal implementation methods with `_`.
