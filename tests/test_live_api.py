@@ -23,7 +23,7 @@ pytestmark = pytest.mark.skipif(
 @pytest.mark.asyncio
 async def test_live_api_payload_matches_integration_expectations(
     hass: HomeAssistant,
-    enable_socket: None,
+    socket_enabled: None,
 ) -> None:
     """Fetch live data and validate the fields consumed by the integration."""
     latitude = float(os.getenv("BUIENALARM_TEST_LATITUDE", "52.3676"))
