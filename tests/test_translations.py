@@ -51,13 +51,32 @@ def test_translation_files_exist_and_valid_json():
         assert "precipitationrate_now_desc" in data["entity"]["sensor"]
 
 
-def test_entity_translation_parity():
-    """Verify that all binary sensors and sensors defined in code have entity translations in en.json and nl.json."""
+def test_flow_translation_parity():
+    """Verify config and options flow translations have exact key parity between locales."""
+    with open(TRANSLATIONS_DIR / "en.json", "r", encoding="utf-8") as f:
+        en_data = json.load(f)
+    with open(TRANSLATIONS_DIR / "nl.json", "r", encoding="utf-8") as f:
+        nl_data = json.load(f)
+
+    # Config user step key parity
+    en_config_user = en_data["config"]["step"]["user"]
+    nl_config_user = nl_data["config"]["step"]["user"]
+    assert set(en_config_user["data"].keys()) == set(nl_config_user["data"].keys())
+    assert set(en_config_user["data_description"].keys()) == set(
+        nl_config_user["data_description"].keys()
+    )
+
+    # Options init step key parity
+    en_options_init = en_data["options"]["step"]["init"]
+    nl_options_init = nl_data["options"]["step"]["init"]
+    assert set(en_options_init["data"].keys()) == set(nl_options_init["data"].keys())
+    assert set(en_options_init["data_description"].keys()) == set(
+        nl_options_init["data_description"].keys()
+    )
 
 
 def test_sensors_have_matching_translations():
     """Verify all sensors defined in SENSORS have matching translation keys."""
-    # Import SENSORS directly or parse const.py if imports fail due to HA dependency
     import re
 
     const_path = Path("custom_components/buienalarm/const.py")
@@ -88,6 +107,7 @@ def test_sensors_have_matching_translations():
                 translation_key in sensor_translations
             ), f"Missing sensor translation key '{translation_key}' in {lang}.json"
             assert "name" in sensor_translations[translation_key]
+
         sensor_translations = data.get("entity", {}).get("sensor", {})
 
         for key in sensor_keys:
