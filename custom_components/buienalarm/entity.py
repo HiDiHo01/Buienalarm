@@ -413,8 +413,8 @@ class BuienalarmEntity(CoordinatorEntity):
 
         for entry in precip_data:
             timestamp = entry.get("timestamp")
-            if timestamp is None:
-                _LOGGER.debug("Skipping precipitation entry without timestamp")
+            if timestamp is None or isinstance(timestamp, bool):
+                _LOGGER.debug("Skipping precipitation entry without valid timestamp")
                 continue
 
             try:
@@ -423,15 +423,19 @@ class BuienalarmEntity(CoordinatorEntity):
                 _LOGGER.debug("Skipping invalid timestamp in precipitation entry: %s", timestamp)
                 continue
 
-            try:
-                precip_rate = float(entry.get("precipitationrate", 0))
-            except (ValueError, TypeError):
+            raw_rate = entry.get("precipitationrate", 0)
+            if isinstance(raw_rate, bool):
                 precip_rate = 0.0
+            else:
+                try:
+                    precip_rate = float(raw_rate)
+                except (ValueError, TypeError):
+                    precip_rate = 0.0
 
-            if data_point_time <= current_time:
+            if data_point_time + timedelta(minutes=5) <= current_time:
                 continue
 
-            last_time = data_point_time  # Update on every valid future point
+            last_time = data_point_time  # Update on every valid future or active point
 
             if precip_rate > 0:
                 if start_time is None:
@@ -509,9 +513,9 @@ class BuienalarmEntity(CoordinatorEntity):
             # ---------------------------------------------------------------------
 
             ts = data_point.get("timestamp")
-            if ts is None:
+            if ts is None or isinstance(ts, bool):
                 _LOGGER.debug(
-                    "Skipping data point without 'timestamp': %s", data_point
+                    "Skipping data point without valid 'timestamp': %s", data_point
                 )
                 continue
             if not isinstance(ts, (int, float)):
@@ -520,7 +524,7 @@ class BuienalarmEntity(CoordinatorEntity):
                 )
                 continue
 
-            if start_ts <= ts <= end_ts:
+            if ts + 300 > start_ts and ts <= end_ts:
                 # mypy: safe because we've validated Mapping presence
                 filtered.append(data_point)
 
@@ -542,7 +546,7 @@ class BuienalarmEntity(CoordinatorEntity):
 
         for data_point in filtered_data:
             raw_rate = data_point.get("precipitationrate")
-            if raw_rate is None:
+            if raw_rate is None or isinstance(raw_rate, bool):
                 continue
             try:
                 total_rate += float(raw_rate)
@@ -866,7 +870,7 @@ class BuienalarmEntity(CoordinatorEntity):
             timestamp = data_point.get("timestamp")
             raw_rate = data_point.get("precipitationrate", 0.0)
 
-            if timestamp is None:
+            if timestamp is None or isinstance(timestamp, bool):
                 continue  # Skip invalid entries
 
             try:
@@ -877,13 +881,16 @@ class BuienalarmEntity(CoordinatorEntity):
 
             last_valid_time = data_point_timestamp
 
-            try:
-                precipitation_rate = float(raw_rate)
-            except (ValueError, TypeError):
+            if isinstance(raw_rate, bool):
                 precipitation_rate = 0.0
+            else:
+                try:
+                    precipitation_rate = float(raw_rate)
+                except (ValueError, TypeError):
+                    precipitation_rate = 0.0
 
-            # Check if there's precipitation at this data point and it's later than the current time
-            if data_point_timestamp >= current_time_utc:
+            # Check if this 5-minute interval ends after current time
+            if data_point_timestamp + timedelta(minutes=5) > current_time_utc:
                 if precipitation_rate > 0:
                     rain_stopped = False
                     if rain_start_time_utc is None:
@@ -1005,8 +1012,12 @@ class BuienalarmEntity(CoordinatorEntity):
                 )
                 continue
 
-            if not isinstance(raw_timestamp, (int, float)):
+            if not isinstance(raw_timestamp, (int, float)) or isinstance(raw_timestamp, bool):
                 _LOGGER.warning("[BUIENALARM ENTITY] Ongeldige timestamp op index %d: %s", i, raw_timestamp)
+                continue
+
+            if isinstance(raw_precipitation, bool):
+                _LOGGER.warning("[BUIENALARM ENTITY] Ongeldige neerslagwaarde op index %d: %s", i, raw_precipitation)
                 continue
 
             try:
@@ -1022,7 +1033,7 @@ class BuienalarmEntity(CoordinatorEntity):
             data_time = datetime.fromtimestamp(raw_timestamp, tz=timezone.utc)
             last_valid_time = data_time
 
-            if data_time < now_utc:
+            if data_time + timedelta(minutes=5) <= now_utc:
                 continue  # negeer historische data
 
             if precipitation_rate > 0:
