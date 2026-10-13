@@ -3,6 +3,12 @@
 **Action:** Always check for expensive argument formatting or serialization in hot-path `_LOGGER.debug()` calls and wrap them in `isEnabledFor` guards.
 # Bolt's Performance Journal
 
+
+## 2026-05-18 - Avoid datetime object creation in hot data loops
+**Learning:** In Home Assistant integrations processing timeseries data (such as Buienalarm's 5-minute precipitation forecast bins), converting epoch timestamps to `datetime` objects inside loops for time comparison operations (like checking if `timestamp < current_time < timestamp + 300`) incurs significant CPU overhead (up to ~6.5x slower). Comparing numeric epoch floats/ints directly bypasses Python datetime object construction, timezone resolution, and timedelta arithmetic.
+**Action:** Always compare numeric epoch timestamps (`ts <= now_ts < ts + 300`) in data processing loops, and only convert to `datetime` objects when formatting strings or returning actual `datetime` instances.
+
+
 Critical learnings on performance optimizations for this repository.
 ## 2026-05-05 - Avoid Duplicate Formatting in Home Assistant State Evaluation
 **Learning:** Computing Home Assistant sensor states using methods that format rich attribute objects (e.g. `get_precipitation_periods_as_dict()`) causes duplicate timestamp parsing and ISO string serialization overhead when evaluating condition checks or counts.
