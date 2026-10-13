@@ -417,3 +417,78 @@ async def test_timeseries_wrapper_populates_precipitation_data_attribute(
         "cache_age": 0,
     }
     assert entity.data_points_as_list == []
+
+
+@pytest.mark.asyncio
+async def test_schagen_neerslag_verwacht_entity_id_and_precipitation_data(
+    hass: HomeAssistant,
+) -> None:
+    """Verify sensor.schagen_neerslag_verwacht is preserved via migration and has precipitation_data attribute."""
+    from datetime import datetime, timezone
+    from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry
+
+    forecast_time = datetime.now(timezone.utc).replace(microsecond=0)
+    mock_payload = {
+        "data": [
+            {
+                "timestamp": int(forecast_time.timestamp()),
+                "precipitationrate": 2.4,
+                "precipitationtype": "rain",
+                "time": forecast_time.isoformat(),
+            }
+        ],
+        "nowcastmessage": {"nl": "Regen verwacht in Schagen"},
+    }
+
+    async def _mock_json(*args, **kwargs):
+        return mock_payload
+
+    mock_resp = AsyncMock()
+    mock_resp.__aenter__.return_value = mock_resp
+    mock_resp.status = 200
+    mock_resp.headers = {"Content-Type": "application/json", "Age": "0"}
+    mock_resp.raise_for_status = lambda: None
+    mock_resp.json = _mock_json
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Buienalarm Schagen",
+        unique_id="52.7876_4.7401",
+        data={
+            "latitude": 52.7876,
+            "longitude": 4.7401,
+            "name": "Schagen",
+            "location_name": "Schagen",
+            "place": "Schagen",
+        },
+    )
+    entry.add_to_hass(hass)
+
+    entity_registry = async_get_entity_registry(hass)
+    entity_registry.async_get_or_create(
+        domain="sensor",
+        platform=DOMAIN,
+        unique_id=f"{entry.entry_id}_precipitationrate_total",
+        suggested_object_id="expected_precipitation",
+        original_name="Expected precipitation",
+        config_entry=entry,
+    )
+
+    with patch("aiohttp.ClientSession.get", return_value=mock_resp):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    unique_id = f"{entry.entry_id}_precipitationrate_total"
+    entity_id = entity_registry.async_get_entity_id("sensor", DOMAIN, unique_id)
+    assert entity_id == "sensor.schagen_neerslag_verwacht"
+
+    state = hass.states.get("sensor.schagen_neerslag_verwacht")
+    assert state is not None
+    assert "precipitation_data" in state.attributes
+    precip_data = state.attributes["precipitation_data"]
+    assert isinstance(precip_data, list)
+    assert len(precip_data) == 1
+    assert precip_data[0]["precipitationrate"] == 2.4
+    assert precip_data[0]["precipitationtype"] == "rain"
+    assert "location" in state.attributes
+    assert state.attributes["location"] == "Schagen"
