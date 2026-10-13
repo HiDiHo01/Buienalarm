@@ -44,12 +44,19 @@ def mock_buienalarm_data() -> dict:
 
 
 _FIXTURE: Final[Path] = Path(__file__).parent / "mock_data" / "api_response.json"
+_USER_SAMPLE_FIXTURE: Final[Path] = Path(__file__).parent / "mock_data" / "user_sample_payload.json"
 
 
 @pytest.fixture(scope="session")
 def nowcast_payload() -> dict:
     """Return the full Buienalarm JSON fixture as a dict."""
     return json.loads(_FIXTURE.read_text(encoding="utf-8"))
+
+
+@pytest.fixture(scope="session")
+def user_sample_payload() -> dict:
+    """Return the user provided sample Buienalarm JSON fixture as a dict."""
+    return json.loads(_USER_SAMPLE_FIXTURE.read_text(encoding="utf-8"))
 
 
 @pytest.fixture(scope="session")
