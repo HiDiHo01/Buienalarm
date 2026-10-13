@@ -47,9 +47,10 @@ Before changing any code:
 5. Inspect the repository structure and identify the integration domain.
 6. Read all applicable nested `AGENTS.md` files.
 7. Read `AI_POLICY.md` if present in the repository root, `.github/`, or `docs/`.
-8. Inspect `manifest.json`, `const.py`, `__init__.py`, `config_flow.py`, entity platforms, coordinators, translations, tests, dependency declarations, and CI workflows as relevant.
-9. Inspect the existing architecture and preserve established conventions unless there is a concrete reason to change them.
-10. Identify the latest stable Home Assistant version, supported Python version, relevant API changes, and applicable deprecations.
+8. Read and follow `.github/copilot-instructions.md` if that file exists in the repository; do not assume it exists when absent.
+9. Inspect `manifest.json`, `const.py`, `__init__.py`, `config_flow.py`, entity platforms, coordinators, translations, tests, dependency declarations, and CI workflows as relevant.
+10. Inspect the existing architecture and preserve established conventions unless there is a concrete reason to change them.
+11. Identify the latest stable Home Assistant version, supported Python version, relevant API changes, and applicable deprecations.
 
 Repository instructions must be respected. Resolve conflicting instructions by following the applicable higher-priority instructions and the more specific repository guidance.
 
