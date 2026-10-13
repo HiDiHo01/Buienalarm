@@ -350,6 +350,43 @@ async def test_buienalarm_entity_missing_or_none_precipitationtype(
     assert entity.get_current_precipitation_type() == "Onbekend"
 
 
+@pytest.mark.asyncio
+async def test_sensor_integration_user_provided_data(
+    hass: HomeAssistant, user_sample_payload: dict
+) -> None:
+    """Test integration setup and sensor states against the user-provided data payload."""
+    async def _mock_json(*args, **kwargs):
+        return user_sample_payload
+
+    mock_resp = AsyncMock()
+    mock_resp.__aenter__.return_value = mock_resp
+    mock_resp.status = 200
+    mock_resp.headers = {"Content-Type": "application/json", "Age": "0"}
+    mock_resp.raise_for_status = lambda: None
+    mock_resp.json = _mock_json
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Buienalarm Test Location",
+        unique_id="user_data_test",
+        data={"latitude": 52.787, "longitude": 4.798, "location_name": "Test Location"},
+    )
+    entry.add_to_hass(hass)
+
+    with patch("aiohttp.ClientSession.get", return_value=mock_resp):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    entity_registry = async_get_entity_registry(hass)
+    unique_id = f"{entry.entry_id}_nowcastmessage"
+    entity_id = entity_registry.async_get_entity_id("sensor", DOMAIN, unique_id)
+    assert entity_id is not None
+
+    state = hass.states.get(entity_id)
+    assert state is not None
+    assert state.state == "Het blijft voorlopig droog"
+
+
 
 @pytest.mark.asyncio
 async def test_timeseries_wrapper_populates_precipitation_data_attribute(
