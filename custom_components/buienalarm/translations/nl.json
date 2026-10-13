@@ -7,19 +7,17 @@
                 "description": "Instellingen:",
                 "data": {
                     "name": "Plaats / Naam",
-                    "place": "Plaats",
                     "latitude": "Breedtegraad",
                     "longitude": "Lengtegraad",
                     "notification_limit": "Limiet voor meldingen (mm/u)",
                     "refresh_interval": "Interval voor verversen van data (sec)"
                 },
                 "data_description": {
-                    "name": "Naam",
-                    "place": "Plaats",
-                    "latitude": "Breedtegraad",
-                    "longitude": "Lengtegraad",
-                    "notification_limit": "Limiet voor meldingen (mm/u)",
-                    "refresh_interval": "Zet de vernieuwinterval minimaal op 300 seconden."
+                    "name": "Naam voor deze locatie.",
+                    "latitude": "Breedtegraad van de locatie.",
+                    "longitude": "Lengtegraad van de locatie.",
+                    "notification_limit": "Minimale neerslagintensiteit om meldingen te activeren (mm/u).",
+                    "refresh_interval": "Dataverversingsinterval in seconden (minimaal 300 seconden aanbevolen)."
                 }
             }
         },
@@ -37,50 +35,22 @@
     },
     "options": {
         "step": {
-            "user": {
-                "title": "Instellingen",
-                "description": "Opties voor Buienalarm:",
-                "data": {
-                    "name": "Naam",
-                    "place": "Plaats",
-                    "latitude": "Breedtegraad",
-                    "longitude": "Lengtegraad",
-                    "notification_limit": "Limiet voor meldingen (mm/u)",
-                    "refresh_interval": "Interval voor verversen van data (sec)",
-                    "binary_sensor": "Binair sensor ingeschakeld",
-                    "sensor": "Sensor ingeschakeld",
-                    "weather": "Weer ingeschakeld"
-                },
-                "data_description": {
-                    "name": "Naam",
-                    "place": "Plaats",
-                    "latitude": "Breedtegraad",
-                    "longitude": "Lengtegraad",
-                    "notification_limit": "Limiet voor meldingen (mm/u)",
-                    "refresh_interval": "Zet de vernieuwinterval minimaal op 300 seconden."
-                }
-            },
             "init": {
                 "title": "Instellingen",
                 "description": "Opties voor Buienalarm:",
                 "data": {
                     "name": "Naam",
-                    "place": "Plaats",
                     "latitude": "Breedtegraad",
                     "longitude": "Lengtegraad",
                     "notification_limit": "Limiet voor meldingen (mm/u)",
-                    "refresh_interval": "Interval voor verversen van data (sec)",
-                    "binary_sensor": "Binair sensor ingeschakeld",
-                    "sensor": "Sensor ingeschakeld",
-                    "weather": "Weer ingeschakeld"
+                    "refresh_interval": "Interval voor verversen van data (sec)"
                 },
                 "data_description": {
-                    "name": "Naam",
-                    "place": "Plaats",
-                    "latitude": "Breedtegraad",
-                    "longitude": "Lengtegraad",
-                    "notification_limit": "Limiet voor meldingen (mm/u)",
-                    "refresh_interval": "Zet de vernieuw interval minimaal op 300 seconden."
+                    "name": "Naam voor deze locatie.",
+                    "latitude": "Breedtegraad van de locatie.",
+                    "longitude": "Lengtegraad van de locatie.",
+                    "notification_limit": "Minimale neerslagintensiteit om meldingen te activeren (mm/u).",
+                    "refresh_interval": "Dataverversingsinterval in seconden (minimaal 300 seconden aanbevolen)."
                 }
             }
         }
