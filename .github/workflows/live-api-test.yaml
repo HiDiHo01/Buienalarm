@@ -1,0 +1,40 @@
+name: Live API integration test
+
+on:
+  workflow_dispatch:
+    inputs:
+      latitude:
+        description: Latitude to test
+        required: true
+        default: "52.3676"
+        type: string
+      longitude:
+        description: Longitude to test
+        required: true
+        default: "4.9041"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  live-api-test:
+    name: Test integration against live Buienalarm data
+    runs-on: ubuntu-latest
+    container: python:3.14.2
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Install integration and test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . pytest pytest-asyncio pytest-homeassistant-custom-component
+
+      - name: Run live API integration test
+        env:
+          BUIENALARM_LIVE_TEST: "1"
+          BUIENALARM_TEST_LATITUDE: ${{ inputs.latitude }}
+          BUIENALARM_TEST_LONGITUDE: ${{ inputs.longitude }}
+        run: python -m pytest -v -s tests/test_live_api.py
