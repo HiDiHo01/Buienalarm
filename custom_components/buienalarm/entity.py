@@ -35,6 +35,21 @@ class BuienalarmEntity(CoordinatorEntity):
 
     _attr_has_entity_name = True
 
+    # Bolt optimization: Class-level mapping of keys to method names to avoid
+    # dict creation and method binding overhead on every get_data call.
+    _KEY_METHODS: Final[dict[str, str]] = {
+        "nowcastmessage": "get_nowcastmessage",
+        "mycastmessage": "get_mycastmessage",
+        "precipitation_duration": "get_precipitation_duration",
+        "precipitationrate_total": "get_total_precipitation_rate",
+        "precipitationrate_hour": "get_total_precipitation_rate_for_next_hour",
+        "precipitationrate_now": "get_current_precipitation",
+        "precipitationrate_now_desc": "get_current_precipitation_rate_desc",
+        "precipitationtype_now": "get_current_precipitation_type",
+        "next_precipitation": "get_next_precipitation",
+        "precipitation_periods": "_get_precipitation_periods_count",
+    }
+
     def __init__(
         self,
         coordinator: DataUpdateCoordinator[dict[str, object]],
@@ -89,25 +104,12 @@ class BuienalarmEntity(CoordinatorEntity):
             _LOGGER.error("[BUIENALARM ENTITY] No data available for sensor '%s'", self.sensor_key)
             return None
 
-        key_methods: Final[dict[str, Callable[[], str | int | float | datetime | dict[str, object] | None]]] = {
-            'nowcastmessage': self.get_nowcastmessage,
-            'mycastmessage': self.get_mycastmessage,
-            'precipitation_duration': self.get_precipitation_duration,
-            'precipitationrate_total': self.get_total_precipitation_rate,
-            'precipitationrate_hour': self.get_total_precipitation_rate_for_next_hour,
-            'precipitationrate_now': self.get_current_precipitation,
-            'precipitationrate_now_desc': self.get_current_precipitation_rate_desc,
-            'precipitationtype_now': self.get_current_precipitation_type,
-            'next_precipitation': self.get_next_precipitation,
-            # Bolt optimization: Directly get period count without computing ISO formatted dicts twice
-            "precipitation_periods": self._get_precipitation_periods_count,
-            # 'precipitation_periods_as_list': self.get_precipitation_periods_as_list,
-        }
-
-        # Call the corresponding method if the key is in the defined methods
-        if key in key_methods:
+        # Bolt optimization: Use class-level method name mapping to avoid
+        # dict creation and method binding overhead on every get_data call.
+        method_name = self._KEY_METHODS.get(key)
+        if method_name is not None:
             try:
-                value = key_methods[key]()
+                value = getattr(self, method_name)()
                 _LOGGER.debug("[BUIENALARM ENTITY] Data for key '%s' (%s): %s", key, self.sensor_key, value)
                 return value
             except Exception as err:
@@ -117,7 +119,7 @@ class BuienalarmEntity(CoordinatorEntity):
                     key,
                     err,
                 )
-                return None  # return None if an error occurs or not?
+                return None
 
         # fallback for raw data if present
         if isinstance(data, dict) and key in data:
@@ -535,17 +537,20 @@ class BuienalarmEntity(CoordinatorEntity):
         if not filtered_data:
             return 0.0
 
-        total_precipitation_rates: list[float] = []
+        total_rate = 0.0
+        has_rate = False
+
         for data_point in filtered_data:
             raw_rate = data_point.get("precipitationrate")
             if raw_rate is None:
                 continue
             try:
-                total_precipitation_rates.append(float(raw_rate))
+                total_rate += float(raw_rate)
+                has_rate = True
             except (ValueError, TypeError):
                 _LOGGER.debug("Skipping invalid precipitationrate: %s", raw_rate)
 
-        if not total_precipitation_rates:
+        if not has_rate:
             return 0.0
 
         total_time_seconds = (end_time - start_time).total_seconds()
@@ -553,8 +558,7 @@ class BuienalarmEntity(CoordinatorEntity):
             return 0.0
 
         # Gemiddelde per uur
-        average_precipitation_rate = sum(
-            total_precipitation_rates) / (total_time_seconds / 3600)
+        average_precipitation_rate = total_rate / (total_time_seconds / 3600)
         return round(average_precipitation_rate, 1)
 
     def get_total_precipitation_rate(self) -> float:
