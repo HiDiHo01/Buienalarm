@@ -128,21 +128,19 @@ jobs:
               }
             }')
 
-          if RESPONSE=$(curl --fail-with-body --silent --show-error \
+          RESPONSE=$(curl --fail-with-body --silent --show-error \
             --request POST \
             --url "${API}/sessions" \
             --header "${AUTH_HEADER}" \
             --header "Content-Type: application/json" \
-            --data "${PAYLOAD}"); then
-            :
-          else
+            --data "${PAYLOAD}") || {
             CURL_STATUS=$?
             echo "Warning: Jules session creation failed (curl exit ${CURL_STATUS}). Response:" >&2
-            if ! jq . <<< "${RESPONSE}" >&2 2>/dev/null; then
-              printf '%s\n' "${RESPONSE}" >&2
+            if ! jq . <<< "${RESPONSE:-}" >&2 2>/dev/null; then
+              printf '%s\n' "${RESPONSE:-}" >&2
             fi
             exit 0
-          fi
+          }
 
           SESSION=$(jq -r '.name // empty' <<< "${RESPONSE}")
 
