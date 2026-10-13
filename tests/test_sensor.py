@@ -529,3 +529,111 @@ async def test_schagen_neerslag_verwacht_entity_id_and_precipitation_data(
     assert precip_data[0]["precipitationtype"] == "rain"
     assert "location" in state.attributes
     assert state.attributes["location"] == "Schagen"
+
+
+@pytest.mark.asyncio
+async def test_active_5min_bin_included_in_periods_duration_totals(
+    hass: HomeAssistant,
+) -> None:
+    """Verify that an active 5-minute forecast bin (started 2 min ago) is included in calculations."""
+    from datetime import datetime, timedelta, timezone
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.entity import BuienalarmEntity
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Buienalarm Active Bin Test",
+        unique_id="test_active_bin",
+        data={"latitude": 52.3702, "longitude": 4.8952},
+    )
+
+    coordinator = MagicMock()
+    entity = BuienalarmEntity(coordinator, entry, "precipitation_periods")
+
+    now = datetime.now(timezone.utc)
+    now_ts = now.timestamp()
+    active_bin_ts = now_ts - 120  # Bin started 2 min ago, ends in 3 min
+
+    coordinator.data = {
+        "data": [
+            {
+                "timestamp": active_bin_ts,
+                "precipitationrate": 3.0,
+                "precipitationtype": "rain",
+            },
+            {
+                "timestamp": active_bin_ts + 300,
+                "precipitationrate": 1.0,
+                "precipitationtype": "rain",
+            },
+            {
+                "timestamp": active_bin_ts + 600,
+                "precipitationrate": 0.0,
+                "precipitationtype": "rain",
+            },
+        ]
+    }
+
+    periods = entity._get_precipitation_periods()
+    assert len(periods) == 1
+    assert periods[0]["duration_minutes"] == 10
+    assert periods[0]["precipitationrate"] == 2.0
+
+    duration = entity.get_precipitation_duration()
+    assert duration == 10
+
+    (
+        rain_start,
+        rain_stop,
+        rain_restart,
+        rain_dur,
+        rain_stopped,
+    ) = entity.get_rain_start_time_and_duration(coordinator.data["data"])
+    assert rain_dur == 10
+    assert rain_stopped is True
+
+    rate = entity.calculate_total_precipitation_rate(
+        coordinator.data["data"], now, now + timedelta(hours=1)
+    )
+    assert rate > 0.0
+
+
+@pytest.mark.asyncio
+async def test_boolean_timestamps_and_rates_rejected(hass: HomeAssistant) -> None:
+    """Verify boolean values in timestamp or precipitationrate fields are safely rejected."""
+    from datetime import datetime, timezone
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.entity import BuienalarmEntity
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Buienalarm Boolean Rejection Test",
+        unique_id="test_bool_rejection",
+        data={"latitude": 52.3702, "longitude": 4.8952},
+    )
+
+    coordinator = MagicMock()
+    entity = BuienalarmEntity(coordinator, entry, "precipitation_duration")
+
+    now_ts = datetime.now(timezone.utc).timestamp()
+
+    coordinator.data = {
+        "data": [
+            {
+                "timestamp": True,
+                "precipitationrate": 2.5,
+            },
+            {
+                "timestamp": now_ts + 300,
+                "precipitationrate": True,
+            },
+            {
+                "timestamp": False,
+                "precipitationrate": False,
+            },
+        ]
+    }
+
+    assert entity._get_precipitation_periods() == []
+    assert entity.get_precipitation_duration() == 0
+    assert entity.get_total_precipitation_rate_for_next_hour() == 0.0
