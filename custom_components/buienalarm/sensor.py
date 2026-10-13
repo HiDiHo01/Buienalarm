@@ -151,7 +151,7 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
     def extra_state_attributes(self) -> dict[str, object] | None:
         """Return additional state attributes for Home Assistant."""
         try:
-            attributes: dict[str, object] = {}
+            attributes = super().extra_state_attributes or {}
             if getattr(self.coordinator, "api_last_updated", None):
                 attributes["api_last_updated"] = (
                     self.coordinator.api_last_updated.isoformat()

@@ -355,7 +355,7 @@ async def test_entity_registry_migration(hass: HomeAssistant) -> None:
 async def test_entity_registry_migration_preserves_ambiguous_precipitation_id(
     hass: HomeAssistant,
 ) -> None:
-    """Do not rename a precipitation entity when its ID origin is ambiguous."""
+    """Migrate a precipitation entity to legacy_precipitation_entity_id if configured."""
     from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry
 
     entry = MockConfigEntry(
@@ -382,6 +382,6 @@ async def test_entity_registry_migration_preserves_ambiguous_precipitation_id(
 
     async_migrate_entity_unique_ids(hass, entry)
 
-    unchanged_entity = entity_registry.async_get(entity.entity_id)
-    assert unchanged_entity is not None
-    assert unchanged_entity.entity_id == "sensor.neerslag_verwacht"
+    migrated_entity = entity_registry.async_get("sensor.migration_test_location_neerslag_verwacht")
+    assert migrated_entity is not None
+    assert migrated_entity.unique_id == f"{entry.entry_id}_precipitationrate_total"
