@@ -1,9 +1,9 @@
 """Buienalarm DataUpdateCoordinator."""
 
+import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 
-import async_timeout
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
@@ -77,7 +77,7 @@ class BuienalarmDataUpdateCoordinator(DataUpdateCoordinator[dict[str, object]]):
             "[COORD UPDATE] Starting _async_update_data with timeout: %s", _API_TIMEOUT
         )
         try:
-            async with async_timeout.timeout(_API_TIMEOUT):
+            async with asyncio.timeout(_API_TIMEOUT):
                 data = await self.api.async_get_data()
                 self.api_last_updated = datetime.now(timezone.utc)
                 return data

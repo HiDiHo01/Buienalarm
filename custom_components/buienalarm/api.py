@@ -17,7 +17,6 @@ from datetime import datetime, timezone
 from typing import Any, Final, cast
 
 import aiohttp
-import async_timeout
 from aiohttp import ClientResponse, ClientSession, ClientTimeout
 from homeassistant.components.persistent_notification import (
     async_dismiss as hass_async_dismiss_notification,
@@ -199,7 +198,7 @@ class BuienalarmApiClient:
         _LOGGER.debug("[API%s] → Using User-Agent: %s", self._sfx, user_agent)
 
         try:
-            async with async_timeout.timeout(timeout.total):
+            async with asyncio.timeout(timeout.total):
                 async with self._session.get(
                     self._url,
                     timeout=timeout,
