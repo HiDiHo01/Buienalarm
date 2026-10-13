@@ -3,6 +3,7 @@
 import os
 from collections.abc import Mapping
 
+import aiohttp
 import pytest
 from homeassistant.core import HomeAssistant
 
@@ -26,9 +27,14 @@ async def test_live_api_payload_matches_integration_expectations(
     """Fetch live data and validate the fields consumed by the integration."""
     latitude = float(os.getenv("BUIENALARM_TEST_LATITUDE", "52.3676"))
     longitude = float(os.getenv("BUIENALARM_TEST_LONGITUDE", "4.9041"))
-    client = BuienalarmApiClient(latitude, longitude, None, hass)
 
-    result = await client.async_get_data()
+    # pytest-asyncio's test loop may differ from hass.loop. Use a session
+    # owned by the active test loop so aiohttp's connector and DNS resolver
+    # are never used from a different event loop. Production setup continues
+    # to use Home Assistant's shared session.
+    async with aiohttp.ClientSession() as session:
+        client = BuienalarmApiClient(latitude, longitude, session, hass)
+        result = await client.async_get_data()
 
     assert isinstance(result, Mapping), "API client did not return a mapping"
     timeseries = result.get("timeseries")
