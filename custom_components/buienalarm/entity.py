@@ -412,8 +412,12 @@ class BuienalarmEntity(CoordinatorEntity):
         last_time: datetime | None = None  # Track last processed forecast point
 
         for entry in precip_data:
-            if not isinstance(entry, Mapping) and not hasattr(entry, "get"):
-                _LOGGER.debug("Skipping precipitation entry that is not a mapping: %s", entry)
+            if not isinstance(entry, Mapping) and not callable(getattr(entry, "get", None)):
+                _LOGGER.debug(
+                    "Skipping precipitation entry that is not a mapping (type=%s): %r",
+                    type(entry).__name__,
+                    entry,
+                )
                 continue
 
             timestamp = entry.get("timestamp")
@@ -508,9 +512,9 @@ class BuienalarmEntity(CoordinatorEntity):
         filtered: list[dict[str, object]] = []
         for data_point in data:
             # ── NEW: verify the object is dict‑like ───────────────────────────────
-            if not isinstance(data_point, Mapping) and not hasattr(data_point, "get"):
+            if not isinstance(data_point, Mapping) and not callable(getattr(data_point, "get", None)):
                 _LOGGER.debug(
-                    "Skipping non‑mapping data point (no 'get' attribute): %s",
+                    "Skipping non‑mapping data point (no callable 'get' attribute): %r",
                     data_point,
                 )
                 continue
@@ -607,9 +611,12 @@ class BuienalarmEntity(CoordinatorEntity):
 
         if isinstance(data, list):
             for data_point in data:
-                if not isinstance(data_point, dict):
-                    _LOGGER.error(
-                        "[BUIENALARM ENTITY] Data point is not a dictionary: %s", data_point)
+                if not isinstance(data_point, Mapping) and not callable(getattr(data_point, "get", None)):
+                    _LOGGER.debug(
+                        "[BUIENALARM ENTITY] Skipping non-mapping data point (type=%s): %r",
+                        type(data_point).__name__,
+                        data_point,
+                    )
                     continue
 
                 timestamp = data_point.get("timestamp")
@@ -670,8 +677,12 @@ class BuienalarmEntity(CoordinatorEntity):
             return current_precipitation_rate_desc
 
         for data_point in data:
-            if not isinstance(data_point, Mapping) and not hasattr(data_point, "get"):
-                _LOGGER.debug("Skipping non-mapping data point in precipitation rate desc: %s", data_point)
+            if not isinstance(data_point, Mapping) and not callable(getattr(data_point, "get", None)):
+                _LOGGER.debug(
+                    "Skipping non-mapping data point in precipitation rate desc (type=%s): %r",
+                    type(data_point).__name__,
+                    data_point,
+                )
                 continue
 
             ts = data_point.get("timestamp", 0)
@@ -721,8 +732,12 @@ class BuienalarmEntity(CoordinatorEntity):
             return current_type
 
         for data_point in precipitation_data:
-            if not isinstance(data_point, Mapping) and not hasattr(data_point, "get"):
-                _LOGGER.debug("Skipping non-mapping data point in precipitation type: %s", data_point)
+            if not isinstance(data_point, Mapping) and not callable(getattr(data_point, "get", None)):
+                _LOGGER.debug(
+                    "Skipping non-mapping data point in precipitation type (type=%s): %r",
+                    type(data_point).__name__,
+                    data_point,
+                )
                 continue
 
             timestamp = data_point.get("timestamp", 0.0)
@@ -782,8 +797,12 @@ class BuienalarmEntity(CoordinatorEntity):
         now_ts: float = datetime.now(timezone.utc).timestamp()
 
         for data_point in precip_data:
-            if not isinstance(data_point, Mapping) and not hasattr(data_point, "get"):
-                _LOGGER.debug("Skipping non-mapping data point in next precipitation: %s", data_point)
+            if not isinstance(data_point, Mapping) and not callable(getattr(data_point, "get", None)):
+                _LOGGER.debug(
+                    "Skipping non-mapping data point in next precipitation (type=%s): %r",
+                    type(data_point).__name__,
+                    data_point,
+                )
                 continue
 
             # Forecast points are 5‑minute bins.
