@@ -232,6 +232,9 @@ This includes network requests, database access, subprocess interaction, device 
 * Reuse clients, sessions, and connections when appropriate.
 * Do not create a new HTTP session for every request.
 * Use asynchronous dependency APIs instead of synchronous wrappers.
+* Prefer the standard-library `asyncio.timeout()` for timeout management when the project's minimum Python version is Python 3.11 or later.
+* Do not add or use `async-timeout` solely for timeout handling when `asyncio.timeout()` is available.
+* Catch `TimeoutError` outside the timeout context manager.
 * Use `asyncio.timeout()` for bounded asynchronous operations when appropriate.
 * Handle cancellation correctly; do not swallow `asyncio.CancelledError`.
 * Do not use `time.sleep()` in asynchronous code.
