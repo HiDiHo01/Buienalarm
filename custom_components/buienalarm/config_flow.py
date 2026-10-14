@@ -86,7 +86,7 @@ class BuienalarmConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 await self.async_set_unique_id(unique_id)
                 self._abort_if_unique_id_configured()
 
-                _LOGGER.debug("Creating new config entry: %s", unique_id)
+                _LOGGER.debug("Creating new config entry")
                 location_name = user_input.get(
                     CONF_NAME, NAME
                 )  # Default name if not provided
@@ -115,16 +115,13 @@ class BuienalarmConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     # ------------------------------------------------------------------
     def _show_form(self, errors: dict[str, str] | None = None) -> FlowResult:
         """Return the form definition for the *user* step."""
-        default_lat = (
-            self.hass.config.latitude
-            if self.hass and self.hass.config.latitude != 0.0
-            else DEFAULT_LATITUDE
-        )
-        default_lon = (
-            self.hass.config.longitude
-            if self.hass and self.hass.config.longitude != 0.0
-            else DEFAULT_LONGITUDE
-        )
+        default_lat = DEFAULT_LATITUDE
+        default_lon = DEFAULT_LONGITUDE
+        if self.hass and self.hass.config and self.hass.config.latitude != 0.0:
+            default_lat = self.hass.config.latitude
+        if self.hass and self.hass.config and self.hass.config.longitude != 0.0:
+            default_lon = self.hass.config.longitude
+
         data_schema: vol.Schema = vol.Schema(
             {
                 vol.Required(CONF_NAME, default=NAME): str,
@@ -180,7 +177,7 @@ class BuienalarmOptionsFlow(config_entries.OptionsFlow):
                 errors["base"] = "invalid_coordinates"
             else:
                 _LOGGER.debug(
-                    "Updating options for entry %s: %s", self._entry.entry_id, user_input
+                    "Updating options for entry %s", self._entry.entry_id
                 )
                 user_input[CONF_LATITUDE] = float(latitude_raw)
                 user_input[CONF_LONGITUDE] = float(longitude_raw)
