@@ -77,7 +77,7 @@ async def test_options_flow_preserves_data_defaults(hass: HomeAssistant) -> None
 
 @pytest.mark.asyncio
 async def test_options_flow_invalid_coordinates(hass: HomeAssistant) -> None:
-    """Test that options flow rejects invalid coordinates with error."""
+    """Test that options flow rejects invalid coordinates with error while preserving submitted input."""
     custom_data = {
         CONF_NAME: "Custom Spot",
         CONF_LATITUDE: 51.5,
@@ -96,20 +96,27 @@ async def test_options_flow_invalid_coordinates(hass: HomeAssistant) -> None:
     result = await hass.config_entries.options.async_init(entry.entry_id)
     assert result["type"] == FlowResultType.FORM
 
-    # Submit invalid coordinates
+    # Submit invalid coordinates along with modified fields
     result2 = await hass.config_entries.options.async_configure(
         result["flow_id"],
         user_input={
-            CONF_NAME: "Custom Spot",
+            CONF_NAME: "Modified Spot",
             CONF_LATITUDE: 999.0,
             CONF_LONGITUDE: 4.5,
-            "notification_limit": 10,
-            "refresh_interval": 450,
+            "notification_limit": 20,
+            "refresh_interval": 600,
         },
     )
 
     assert result2["type"] == FlowResultType.FORM
     assert result2["errors"] == {"base": "invalid_coordinates"}
+
+    # Verify that the returned form preserves the attempted user_input values
+    defaults = result2["data_schema"]({})
+    assert defaults[CONF_NAME] == "Modified Spot"
+    assert defaults[CONF_LATITUDE] == 999.0
+    assert defaults["notification_limit"] == 20
+    assert defaults["refresh_interval"] == 600
 
 
 @pytest.mark.asyncio

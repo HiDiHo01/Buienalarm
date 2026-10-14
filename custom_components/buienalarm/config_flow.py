@@ -192,14 +192,16 @@ class BuienalarmOptionsFlow(config_entries.OptionsFlow):
 
         return self.async_show_form(
             step_id="init",
-            data_schema=self._options_schema(),
+            data_schema=self._options_schema(user_input),
             errors=errors,
         )
 
     # --------------------------------------------------------------
-    def _options_schema(self) -> vol.Schema:  # noqa: D401
+    def _options_schema(
+        self, user_input: dict[str, Any] | None = None
+    ) -> vol.Schema:  # noqa: D401
         """Return schema for the options form."""
-        options = self._entry.options
+        options = user_input or self._entry.options
         data = self._entry.data
         return vol.Schema(
             {
