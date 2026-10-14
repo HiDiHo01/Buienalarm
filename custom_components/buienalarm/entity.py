@@ -122,7 +122,7 @@ class BuienalarmEntity(CoordinatorEntity):
                 return None
 
         # fallback for raw data if present
-        if isinstance(data, dict) and key in data:
+        if isinstance(data, Mapping) and key in data:
             value: object = data.get(key)
             if isinstance(value, (str, int, float, datetime)):
                 _LOGGER.debug("[BUIENALARM ENTITY] Raw fallback data for key '%s': %s", key, value)
@@ -412,6 +412,10 @@ class BuienalarmEntity(CoordinatorEntity):
         last_time: datetime | None = None  # Track last processed forecast point
 
         for entry in precip_data:
+            if not isinstance(entry, Mapping) and not hasattr(entry, "get"):
+                _LOGGER.debug("Skipping precipitation entry that is not a mapping: %s", entry)
+                continue
+
             timestamp = entry.get("timestamp")
             if timestamp is None or isinstance(timestamp, bool):
                 _LOGGER.debug("Skipping precipitation entry without valid timestamp")
@@ -666,6 +670,10 @@ class BuienalarmEntity(CoordinatorEntity):
             return current_precipitation_rate_desc
 
         for data_point in data:
+            if not isinstance(data_point, Mapping) and not hasattr(data_point, "get"):
+                _LOGGER.debug("Skipping non-mapping data point in precipitation rate desc: %s", data_point)
+                continue
+
             ts = data_point.get("timestamp", 0)
             # Bolt performance optimization: direct numeric comparison for 5-minute bin
             if isinstance(ts, (int, float)) and ts <= current_ts < ts + 300:
@@ -675,8 +683,10 @@ class BuienalarmEntity(CoordinatorEntity):
                 except (ValueError, TypeError):
                     current_precipitation_rate = 0.0
 
-                current_precipitation_type: str = data_point.get(
-                    "precipitationtype", self.NO_PRECIPITATION)
+                raw_type = data_point.get("precipitationtype")
+                current_precipitation_type: str = (
+                    raw_type if isinstance(raw_type, str) else self.NO_PRECIPITATION
+                )
 
                 categories = self.PRECIPITATION_RAIN_CATEGORIES
                 if current_precipitation_type == "snow":
@@ -711,6 +721,10 @@ class BuienalarmEntity(CoordinatorEntity):
             return current_type
 
         for data_point in precipitation_data:
+            if not isinstance(data_point, Mapping) and not hasattr(data_point, "get"):
+                _LOGGER.debug("Skipping non-mapping data point in precipitation type: %s", data_point)
+                continue
+
             timestamp = data_point.get("timestamp", 0.0)
             # Bolt performance optimization: direct numeric epoch check
             if isinstance(timestamp, (int, float)) and timestamp <= current_ts < timestamp + 300:
@@ -768,6 +782,10 @@ class BuienalarmEntity(CoordinatorEntity):
         now_ts: float = datetime.now(timezone.utc).timestamp()
 
         for data_point in precip_data:
+            if not isinstance(data_point, Mapping) and not hasattr(data_point, "get"):
+                _LOGGER.debug("Skipping non-mapping data point in next precipitation: %s", data_point)
+                continue
+
             # Forecast points are 5‑minute bins.
             ts_raw: object = data_point.get("timestamp")
 
