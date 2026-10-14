@@ -161,3 +161,20 @@ async def test_config_flow_default_coordinates_from_hass_config(
     defaults = result["data_schema"]({})
     assert defaults[CONF_LATITUDE] == 52.0
     assert defaults[CONF_LONGITUDE] == 5.0
+
+
+@pytest.mark.asyncio
+async def test_config_flow_default_coordinates_zero_latitude(
+    hass: HomeAssistant,
+) -> None:
+    """Test that config flow preserves zero-valued system coordinates (0.0, 5.0)."""
+    hass.config.latitude = 0.0
+    hass.config.longitude = 5.0
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_USER}
+    )
+    assert result["type"] == FlowResultType.FORM
+    defaults = result["data_schema"]({})
+    assert defaults[CONF_LATITUDE] == 0.0
+    assert defaults[CONF_LONGITUDE] == 5.0

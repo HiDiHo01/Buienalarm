@@ -57,9 +57,9 @@ def _get_default_coordinates(hass: Any) -> tuple[float, float]:
     if hass is not None:
         config = getattr(hass, "config", None)
         if config is not None:
-            lat = getattr(config, "latitude", 0.0)
-            lon = getattr(config, "longitude", 0.0)
-            if lat != 0.0 and lon != 0.0:
+            lat = getattr(config, "latitude", None)
+            lon = getattr(config, "longitude", None)
+            if lat is not None and lon is not None:
                 return float(lat), float(lon)
     return DEFAULT_LATITUDE, DEFAULT_LONGITUDE
 
