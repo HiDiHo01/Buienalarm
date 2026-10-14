@@ -52,6 +52,18 @@ def _is_valid_coordinates(latitude: float | str, longitude: float | str) -> bool
     return -90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0
 
 
+def _get_default_coordinates(hass: Any) -> tuple[float, float]:
+    """Get default latitude and longitude from hass.config or fallback."""
+    if hass is not None:
+        config = getattr(hass, "config", None)
+        if config is not None:
+            lat = getattr(config, "latitude", 0.0)
+            lon = getattr(config, "longitude", 0.0)
+            if lat != 0.0 and lon != 0.0:
+                return float(lat), float(lon)
+    return DEFAULT_LATITUDE, DEFAULT_LONGITUDE
+
+
 # -----------------------------------------------------------------------------
 # Config Flow
 # -----------------------------------------------------------------------------
@@ -115,12 +127,7 @@ class BuienalarmConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     # ------------------------------------------------------------------
     def _show_form(self, errors: dict[str, str] | None = None) -> FlowResult:
         """Return the form definition for the *user* step."""
-        default_lat = DEFAULT_LATITUDE
-        default_lon = DEFAULT_LONGITUDE
-        if self.hass and self.hass.config and self.hass.config.latitude != 0.0:
-            default_lat = self.hass.config.latitude
-        if self.hass and self.hass.config and self.hass.config.longitude != 0.0:
-            default_lon = self.hass.config.longitude
+        default_lat, default_lon = _get_default_coordinates(self.hass)
 
         data_schema: vol.Schema = vol.Schema(
             {
