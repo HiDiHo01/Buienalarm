@@ -201,7 +201,7 @@ class BuienalarmOptionsFlow(config_entries.OptionsFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> vol.Schema:  # noqa: D401
         """Return schema for the options form."""
-        options = user_input or self._entry.options
+        options = user_input if user_input is not None else self._entry.options
         data = self._entry.data
         return vol.Schema(
             {
