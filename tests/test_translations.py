@@ -40,6 +40,8 @@ def test_translation_files_exist_and_valid_json():
         # Check error keys
         assert "error" in data["config"]
         assert "invalid_coordinates" in data["config"]["error"]
+        assert "error" in data["options"]
+        assert "invalid_coordinates" in data["options"]["error"]
 
         # Check binary sensor entity translations
         assert "binary_sensor" in data["entity"]
@@ -72,6 +74,11 @@ def test_flow_translation_parity():
     assert set(en_options_init["data"].keys()) == set(nl_options_init["data"].keys())
     assert set(en_options_init["data_description"].keys()) == set(
         nl_options_init["data_description"].keys()
+    )
+
+    # Options error key parity
+    assert set(en_data["options"]["error"].keys()) == set(
+        nl_data["options"]["error"].keys()
     )
 
 
