@@ -249,18 +249,32 @@ class BuienalarmEntity(CoordinatorEntity):
             ts = _safe_get(data_point, "timestamp")
             iso_time = _safe_get(data_point, "time")
 
-            # Parse ISO time string defensively
-            parsed_time: datetime
-            if isinstance(iso_time, str):
+            parsed_time: datetime | None = None
+
+            # Attempt derivation from numeric timestamp first
+            if isinstance(ts, (int, float)) and not isinstance(ts, bool):
+                try:
+                    parsed_time = datetime.fromtimestamp(float(ts), tz=timezone.utc)
+                except (ValueError, TypeError, OverflowError) as exc:
+                    _LOGGER.debug("Invalid numeric timestamp %r: %s", ts, exc)
+
+            # Fallback to ISO time string if timestamp missing or invalid
+            if parsed_time is None and isinstance(iso_time, str):
                 try:
                     parsed_time = datetime.fromisoformat(iso_time)
                     if parsed_time.tzinfo is None:  # normalise to aware
                         parsed_time = parsed_time.replace(tzinfo=timezone.utc)
                 except ValueError as exc:
-                    _LOGGER.debug("Invalid ISO time '%s': %s", iso_time, exc)
-                    parsed_time = datetime(1970, 1, 1, tzinfo=timezone.utc)
-            else:
-                parsed_time = datetime(1970, 1, 1, tzinfo=timezone.utc)
+                    _LOGGER.debug("Invalid ISO time %r: %s", iso_time, exc)
+
+            # Skip data point if neither timestamp nor time yields a valid datetime
+            if parsed_time is None:
+                _LOGGER.debug("Skipping data point without valid timestamp or ISO time: %r", data_point)
+                continue
+
+            # If timestamp was missing but ISO time was present, compute numeric timestamp
+            if ts is None or isinstance(ts, bool) or not isinstance(ts, (int, float)):
+                ts = int(parsed_time.timestamp())
 
             results.append(
                 {
