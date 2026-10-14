@@ -444,7 +444,7 @@ class BuienalarmEntity(CoordinatorEntity):
             try:
                 data_point_time = datetime.fromtimestamp(float(timestamp), tz=timezone.utc)
             except (ValueError, TypeError):
-                _LOGGER.debug("Skipping invalid timestamp in precipitation entry: %s", timestamp)
+                _LOGGER.debug("Skipping invalid timestamp in precipitation entry: %r", timestamp)
                 continue
 
             raw_rate = _safe_get(entry, "precipitationrate", 0)
@@ -537,12 +537,12 @@ class BuienalarmEntity(CoordinatorEntity):
             ts = _safe_get(data_point, "timestamp")
             if ts is None or isinstance(ts, bool):
                 _LOGGER.debug(
-                    "Skipping data point without valid 'timestamp': %s", data_point
+                    "Skipping data point without valid 'timestamp': %r", data_point
                 )
                 continue
             if not isinstance(ts, (int, float)):
                 _LOGGER.debug(
-                    "Skipping data point with non‑numeric 'timestamp': %s", data_point
+                    "Skipping data point with non‑numeric 'timestamp': %r", data_point
                 )
                 continue
 
@@ -574,7 +574,7 @@ class BuienalarmEntity(CoordinatorEntity):
                 total_rate += float(raw_rate)
                 has_rate = True
             except (ValueError, TypeError):
-                _LOGGER.debug("Skipping invalid precipitationrate: %s", raw_rate)
+                _LOGGER.debug("Skipping invalid precipitationrate: %r", raw_rate)
 
         if not has_rate:
             return 0.0
@@ -825,7 +825,7 @@ class BuienalarmEntity(CoordinatorEntity):
             # Skip if timestamp is missing or malformed
             if not isinstance(ts_raw, (int, float)):
                 _LOGGER.debug(
-                    "[BUIENALARM ENTITY] Skipping invalid timestamp (type=%s) for %s: %s",
+                    "[BUIENALARM ENTITY] Skipping invalid timestamp (type=%s) for %s: %r",
                     type(ts_raw).__name__,
                     self.sensor_key,
                     ts_raw,
@@ -836,7 +836,7 @@ class BuienalarmEntity(CoordinatorEntity):
                 ts: float = float(ts_raw)
             except (TypeError, ValueError):
                 _LOGGER.debug(
-                    "[BUIENALARM ENTITY] Skipping unparsable timestamp for %s: %s",
+                    "[BUIENALARM ENTITY] Skipping unparsable timestamp for %s: %r",
                     self.sensor_key,
                     ts_raw,
                 )
@@ -851,7 +851,7 @@ class BuienalarmEntity(CoordinatorEntity):
 
             if not isinstance(raw_rate, (int, float, str)):
                 _LOGGER.debug(
-                    "[BUIENALARM ENTITY] Skipping invalid precipitation rate (type=%s) for %s: %s",
+                    "[BUIENALARM ENTITY] Skipping invalid precipitation rate (type=%s) for %s: %r",
                     type(raw_rate).__name__,
                     self.sensor_key,
                     raw_rate,
@@ -862,7 +862,7 @@ class BuienalarmEntity(CoordinatorEntity):
                     rate: float = float(raw_rate)
                 except (TypeError, ValueError):
                     _LOGGER.debug(
-                        "[BUIENALARM ENTITY] Failed to parse precipitation rate for %s: %s",
+                        "[BUIENALARM ENTITY] Failed to parse precipitation rate for %s: %r",
                         self.sensor_key,
                         raw_rate,
                     )

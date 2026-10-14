@@ -601,6 +601,7 @@ async def test_active_5min_bin_included_in_periods_duration_totals(
 @pytest.mark.asyncio
 async def test_buienalarm_entity_malformed_non_mapping_list_items(hass: HomeAssistant) -> None:
     """Verify BuienalarmEntity handles non-mapping items and items with raising/non-callable .get in data list safely."""
+    from collections import UserDict
     from datetime import datetime, timezone
     from unittest.mock import MagicMock
     from custom_components.buienalarm.entity import BuienalarmEntity
@@ -624,31 +625,34 @@ async def test_buienalarm_entity_malformed_non_mapping_list_items(hass: HomeAssi
     )
 
     coordinator = MagicMock()
-    entity = BuienalarmEntity(coordinator, entry, "test_sensor")
+    entity = BuienalarmEntity(coordinator, entry, "custom_key")
 
     now_ts = int(datetime.now(timezone.utc).timestamp())
 
-    coordinator.data = {
+    # Test raw scalar fallback in get_data with non-dict Mapping (UserDict)
+    coordinator.data = UserDict({
+        "custom_key": "custom_value",
         "data": [
-            "invalid_string_item",
+            "invalid_string_item\nwith_newline",
             12345,
             None,
             [1, 2, 3],
             RaisingGetItem(),
             NonCallableGetItem(),
             {
-                "timestamp": now_ts,
+                "timestamp": now_ts + 300,
                 "precipitationrate": 2.5,
                 "precipitationtype": "rain",
             },
             "another_invalid_item",
         ]
-    }
+    })
 
-    assert entity.get_current_precipitation_rate_desc() == "Matige regen"
-    assert entity.get_current_precipitation_type() == "Regen"
+    assert entity.get_data("custom_key") == "custom_value"
+    assert entity.get_current_precipitation_rate_desc() == "Geen neerslag"
+    assert entity.get_current_precipitation_type() == "Geen neerslag"
     assert entity.get_precipitation_duration() >= 0
-    assert entity.get_next_precipitation() == 0
+    assert entity.get_next_precipitation() == 5
 
 
 @pytest.mark.asyncio
