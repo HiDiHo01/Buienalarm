@@ -599,6 +599,46 @@ async def test_active_5min_bin_included_in_periods_duration_totals(
 
 
 @pytest.mark.asyncio
+async def test_buienalarm_entity_malformed_non_mapping_list_items(hass: HomeAssistant) -> None:
+    """Verify BuienalarmEntity handles non-mapping items (strings, integers, None) in data list safely."""
+    from datetime import datetime, timezone
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.entity import BuienalarmEntity
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Buienalarm Non-Mapping Items Test",
+        unique_id="test_non_mapping_items",
+        data={"latitude": 52.3702, "longitude": 4.8952},
+    )
+
+    coordinator = MagicMock()
+    entity = BuienalarmEntity(coordinator, entry, "test_sensor")
+
+    now_ts = int(datetime.now(timezone.utc).timestamp())
+
+    coordinator.data = {
+        "data": [
+            "invalid_string_item",
+            12345,
+            None,
+            [1, 2, 3],
+            {
+                "timestamp": now_ts,
+                "precipitationrate": 2.5,
+                "precipitationtype": "rain",
+            },
+            "another_invalid_item",
+        ]
+    }
+
+    assert entity.get_current_precipitation_rate_desc() == "Matige regen"
+    assert entity.get_current_precipitation_type() == "Regen"
+    assert entity.get_precipitation_duration() >= 0
+    assert entity.get_next_precipitation() == 0
+
+
+@pytest.mark.asyncio
 async def test_boolean_timestamps_and_rates_rejected(hass: HomeAssistant) -> None:
     """Verify boolean values in timestamp or precipitationrate fields are safely rejected."""
     from datetime import datetime, timezone
