@@ -29,6 +29,23 @@ _NOWCAST_PLACEHOLDER_RE: Final[re.Pattern[str]] = re.compile(r'\{(\d+)\}')
 _LOGGER.debug("[ENTITY] Start entity.py")
 
 
+def _safe_get(item: object, key: str, default: object = None) -> object:
+    """Safely retrieve a key from a mapping-like item without raising exceptions."""
+    if not isinstance(item, Mapping) and not callable(getattr(item, "get", None)):
+        return default
+    try:
+        get_fn = getattr(item, "get")
+        return get_fn(key, default)
+    except Exception as err:
+        _LOGGER.debug(
+            "Error retrieving key '%s' from item (type=%s): %s",
+            key,
+            type(item).__name__,
+            err,
+        )
+        return default
+
+
 class BuienalarmEntity(CoordinatorEntity):
     """A Home Assistant entity that provides current
     and forecasted precipitation data from Buienalarm."""
@@ -219,19 +236,18 @@ class BuienalarmEntity(CoordinatorEntity):
         results: list[dict[str, str | int | float | datetime | None]] = []
 
         for data_point in raw_data:
-            # ── verify we can safely call .get() ────────────────────────────────
-            if not isinstance(data_point, Mapping) and not hasattr(data_point, "get"):
+            if not isinstance(data_point, Mapping) and not callable(getattr(data_point, "get", None)):
                 _LOGGER.debug(
-                    "Skipping data point without 'get' attribute: %s",
+                    "Skipping data point without callable 'get' attribute (type=%s): %r",
+                    type(data_point).__name__,
                     data_point,
                 )
                 continue
-            # -------------------------------------------------------------------
 
-            rate = data_point.get("precipitationrate")
-            ptype = data_point.get("precipitationtype")
-            ts = data_point.get("timestamp")
-            iso_time: str | None = data_point.get("time")
+            rate = _safe_get(data_point, "precipitationrate")
+            ptype = _safe_get(data_point, "precipitationtype")
+            ts = _safe_get(data_point, "timestamp")
+            iso_time = _safe_get(data_point, "time")
 
             # Parse ISO time string defensively
             parsed_time: datetime
@@ -420,7 +436,7 @@ class BuienalarmEntity(CoordinatorEntity):
                 )
                 continue
 
-            timestamp = entry.get("timestamp")
+            timestamp = _safe_get(entry, "timestamp")
             if timestamp is None or isinstance(timestamp, bool):
                 _LOGGER.debug("Skipping precipitation entry without valid timestamp")
                 continue
@@ -431,7 +447,7 @@ class BuienalarmEntity(CoordinatorEntity):
                 _LOGGER.debug("Skipping invalid timestamp in precipitation entry: %s", timestamp)
                 continue
 
-            raw_rate = entry.get("precipitationrate", 0)
+            raw_rate = _safe_get(entry, "precipitationrate", 0)
             if isinstance(raw_rate, bool):
                 precip_rate = 0.0
             else:
@@ -511,16 +527,14 @@ class BuienalarmEntity(CoordinatorEntity):
 
         filtered: list[dict[str, object]] = []
         for data_point in data:
-            # ── NEW: verify the object is dict‑like ───────────────────────────────
             if not isinstance(data_point, Mapping) and not callable(getattr(data_point, "get", None)):
                 _LOGGER.debug(
                     "Skipping non‑mapping data point (no callable 'get' attribute): %r",
                     data_point,
                 )
                 continue
-            # ---------------------------------------------------------------------
 
-            ts = data_point.get("timestamp")
+            ts = _safe_get(data_point, "timestamp")
             if ts is None or isinstance(ts, bool):
                 _LOGGER.debug(
                     "Skipping data point without valid 'timestamp': %s", data_point
@@ -553,7 +567,7 @@ class BuienalarmEntity(CoordinatorEntity):
         has_rate = False
 
         for data_point in filtered_data:
-            raw_rate = data_point.get("precipitationrate")
+            raw_rate = _safe_get(data_point, "precipitationrate")
             if raw_rate is None or isinstance(raw_rate, bool):
                 continue
             try:
@@ -619,9 +633,9 @@ class BuienalarmEntity(CoordinatorEntity):
                     )
                     continue
 
-                timestamp = data_point.get("timestamp")
-                precipitation_rate = data_point.get("precipitationrate")
-                precipitation_type = data_point.get("precipitationtype")
+                timestamp = _safe_get(data_point, "timestamp")
+                precipitation_rate = _safe_get(data_point, "precipitationrate")
+                precipitation_type = _safe_get(data_point, "precipitationtype")
 
                 if timestamp is not None and precipitation_rate is not None:
                     _LOGGER.debug(
@@ -685,16 +699,16 @@ class BuienalarmEntity(CoordinatorEntity):
                 )
                 continue
 
-            ts = data_point.get("timestamp", 0)
+            ts = _safe_get(data_point, "timestamp", 0)
             # Bolt performance optimization: direct numeric comparison for 5-minute bin
             if isinstance(ts, (int, float)) and ts <= current_ts < ts + 300:
-                raw_rate = data_point.get("precipitationrate", 0.0)
+                raw_rate = _safe_get(data_point, "precipitationrate", 0.0)
                 try:
                     current_precipitation_rate = float(raw_rate)
                 except (ValueError, TypeError):
                     current_precipitation_rate = 0.0
 
-                raw_type = data_point.get("precipitationtype")
+                raw_type = _safe_get(data_point, "precipitationtype")
                 current_precipitation_type: str = (
                     raw_type if isinstance(raw_type, str) else self.NO_PRECIPITATION
                 )
@@ -740,17 +754,17 @@ class BuienalarmEntity(CoordinatorEntity):
                 )
                 continue
 
-            timestamp = data_point.get("timestamp", 0.0)
+            timestamp = _safe_get(data_point, "timestamp", 0.0)
             # Bolt performance optimization: direct numeric epoch check
             if isinstance(timestamp, (int, float)) and timestamp <= current_ts < timestamp + 300:
-                raw_rate = data_point.get("precipitationrate", 0)
+                raw_rate = _safe_get(data_point, "precipitationrate", 0)
                 try:
                     current_rate = float(raw_rate)
                 except (ValueError, TypeError):
                     current_rate = 0.0
 
                 if current_rate > 0:
-                    current_type = data_point.get("precipitationtype")
+                    current_type = _safe_get(data_point, "precipitationtype")
                     if current_type == "rain":
                         return "Regen"
                     elif current_type == "freezing rain":
@@ -806,7 +820,7 @@ class BuienalarmEntity(CoordinatorEntity):
                 continue
 
             # Forecast points are 5‑minute bins.
-            ts_raw: object = data_point.get("timestamp")
+            ts_raw: object = _safe_get(data_point, "timestamp")
 
             # Skip if timestamp is missing or malformed
             if not isinstance(ts_raw, (int, float)):
@@ -833,7 +847,7 @@ class BuienalarmEntity(CoordinatorEntity):
                 continue
 
             # Extract and validate precipitation rate
-            raw_rate: object = data_point.get("precipitationrate", 0.0)
+            raw_rate: object = _safe_get(data_point, "precipitationrate", 0.0)
 
             if not isinstance(raw_rate, (int, float, str)):
                 _LOGGER.debug(
@@ -901,11 +915,11 @@ class BuienalarmEntity(CoordinatorEntity):
         last_valid_time: datetime | None = None
 
         for data_point in precipitation_data:
-            if not isinstance(data_point, Mapping) and not hasattr(data_point, "get"):
+            if not isinstance(data_point, Mapping) and not callable(getattr(data_point, "get", None)):
                 continue
 
-            timestamp = data_point.get("timestamp")
-            raw_rate = data_point.get("precipitationrate", 0.0)
+            timestamp = _safe_get(data_point, "timestamp")
+            raw_rate = _safe_get(data_point, "precipitationrate", 0.0)
 
             if timestamp is None or isinstance(timestamp, bool):
                 continue  # Skip invalid entries
