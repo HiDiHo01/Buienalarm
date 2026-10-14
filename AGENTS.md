@@ -124,6 +124,14 @@ Use modern Python syntax and target **Python 3.14+**, subject to the actual Pyth
 
 Prefer the smallest straightforward implementation that satisfies the requirement. Introduce abstractions only when they materially improve correctness, testability, reuse, or maintainability. Avoid speculative compatibility branches, redundant defensive checks, unnecessary casts, duplicate validation, and unrelated refactors. Validate untrusted data at meaningful boundaries and enforce genuine invariants; do not add checks for impossible states without a concrete reason.
 
+### Floating-point comparisons
+
+* Avoid direct equality checks (`==` or `!=`) between floating-point values when approximate numerical equality is intended. Binary floating-point arithmetic can introduce rounding differences, so mathematically equivalent results may not have identical representations.
+* Use `math.isclose(actual, expected, rel_tol=..., abs_tol=...)` for approximate comparisons, choosing explicit tolerances appropriate to the domain and required precision. Consider `abs_tol` especially when values can be near zero.
+* Do not blindly replace every floating-point equality check. Exact comparisons are valid when exactness is intentional and guaranteed by the value's source or contract, such as a protocol-defined sentinel; explain or test that assumption when it is not obvious.
+* For quantities requiring exact decimal semantics, such as monetary values, prefer integer minor units or `decimal.Decimal` constructed from strings rather than binary floats.
+* Add or update tests for boundary values and tolerance behavior when changing numerical comparisons.
+
 ### External data validation
 
 * Treat API responses, configuration input, and other external data as untrusted until validated.
