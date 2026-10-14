@@ -67,7 +67,7 @@ Never assume an API exists merely because it appeared in an older Home Assistant
 
 ## 3. Current documentation and API verification
 
-Use the official developer documentation as the primary reference:
+Use the official developer documentation as the primary reference. For API availability, signatures, lifecycle behavior, and deprecations, treat documentation and source for the actual target Home Assistant version as authoritative; examples from older releases or other integrations are not proof that an API is currently supported.
 
 * https://developers.home-assistant.io/
 * https://developers.home-assistant.io/docs/core/integration-quality-scale/
@@ -95,7 +95,7 @@ Use modern Python syntax and target **Python 3.14+**, subject to the actual Pyth
 ### Required conventions
 
 * Use type annotations for all functions, methods, parameters, and return values.
-* Write descriptive docstrings for modules, classes, functions, and methods.
+* Write descriptive docstrings for modules, classes, and public APIs. Add docstrings to private functions and methods when their behavior, constraints, or intent is not obvious from their names and implementation; do not add redundant docstrings to trivial helpers.
 * Preserve existing docstrings unless they are inaccurate or the documented behavior changes; update them when needed.
 * Use comments to explain non-obvious intent or constraints, not to repeat the code or docstrings.
 * Preserve existing comments unless they are inaccurate, redundant, or made obsolete by the change.
@@ -119,10 +119,19 @@ Use modern Python syntax and target **Python 3.14+**, subject to the actual Pyth
 * Do not redefine names from outer scopes unnecessarily.
 * Do not reuse parameter names for local variables.
 * Do not shadow built-ins or important imported names.
-* Use two blank lines before top-level function definitions.
+* Follow PEP 8 spacing; let the repository's configured formatter enforce blank-line layout rather than duplicating formatter rules manually.
 * Remove unused imports, variables, dependencies, and unreachable code.
 
-Prefer straightforward implementations over clever abstractions. Introduce abstractions only when they improve correctness, testability, reuse, or maintainability.
+Prefer the smallest straightforward implementation that satisfies the requirement. Introduce abstractions only when they materially improve correctness, testability, reuse, or maintainability. Avoid speculative compatibility branches, redundant defensive checks, unnecessary casts, duplicate validation, and unrelated refactors. Validate untrusted data at meaningful boundaries and enforce genuine invariants; do not add checks for impossible states without a concrete reason.
+
+### External data validation
+
+* Treat API responses, configuration input, and other external data as untrusted until validated.
+* Validate required fields, types, nullability, numeric domains, and timestamp semantics at the parsing or integration boundary.
+* Normalize external payloads once into predictable, typed structures before exposing them to coordinators and entities.
+* Do not replace malformed or missing values with plausible-looking defaults such as zero, an empty string, or an empty collection unless the documented data contract defines that value as valid.
+* Preserve partial data only when the source contract and integration behavior explicitly support partial results.
+* Prefer narrowing and validation over casts. Do not weaken types merely to satisfy a checker.
 
 ### Error handling
 
@@ -257,6 +266,15 @@ This includes network requests, database access, subprocess interaction, device 
 Every network operation must have a defined failure path.
 
 ## 7. DataUpdateCoordinator and polling
+
+Coordinator and entity responsibilities:
+
+* Keep polling and shared data retrieval in the coordinator; entities should consume coordinator data rather than issue duplicate requests.
+* Distinguish valid empty results from failed, malformed, or stale responses. Do not turn a failed refresh into a successful empty payload.
+* Map authentication failures to the appropriate reauthentication behavior when authentication exists; use coordinator update failures for transient communication or data-refresh failures.
+* Prevent concurrent duplicate refreshes and ensure outdated requests cannot overwrite newer data where the request flow allows overlap.
+* Preserve cancellation semantics and release listeners, tasks, and resources during unload.
+
 
 Use `DataUpdateCoordinator` when entities share a common data source or polling cycle.
 
@@ -455,6 +473,9 @@ Use Home Assistant's translation system.
 Never change established entity unique IDs or translation keys unnecessarily. Preserve existing users' entity registry and dashboard references.
 
 ## 15. Automated testing
+
+For every change, report the affected files and behavior, the exact relevant checks executed and their outcomes, checks not run and why, and any remaining limitations or uncertainty. Never imply that a check passed unless it was actually run.
+
 
 Every behavior change must include appropriate automated tests.
 
