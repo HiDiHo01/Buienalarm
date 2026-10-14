@@ -1,16 +1,16 @@
 """Config flow for the Buienalarm integration.
 
-This module implements the user‑facing configuration flow and the accompanying
-options flow.  It validates latitude/longitude coordinates, ensures each
+This module implements the user-facing configuration flow and the accompanying
+options flow. It validates latitude/longitude coordinates, ensures each
 configuration entry has a stable ``unique_id`` (lat_lon combo), and exposes
-user‑editable options such as *refresh_interval* and *notification_limit*.
+user-editable options such as *refresh_interval* and *notification_limit*.
 
-The flow follows Home Assistant best‑practices:
+The flow follows Home Assistant best-practices:
     • Uses VERSION tracking for forward migrations.
     • Aborts if an identical ``unique_id`` is already configured.
-    • Adds exhaustive type‑hints and detailed docstrings.
+    • Adds exhaustive type-hints and detailed docstrings.
     • Employs lazy ``%`` interpolation for all logging calls
-      (pylint‑warning W1203).
+      (pylint-warning W1203).
 """
 
 from __future__ import annotations
@@ -37,7 +37,7 @@ _LOGGER: Final[logging.Logger] = logging.getLogger(__name__)
 # -----------------------------------------------------------------------------
 DEFAULT_LATITUDE: Final[float] = 52.7875
 DEFAULT_LONGITUDE: Final[float] = 4.79861
-DEFAULT_REFRESH_INTERVAL: Final[int] = 300  # seconds (5 min)
+DEFAULT_REFRESH_INTERVAL: Final[int] = 300  # seconds (5 min)
 DEFAULT_NOTIFICATION_LIMIT: Final[int] = 0  # mm/h – notify on any value
 
 
@@ -50,6 +50,18 @@ def _is_valid_coordinates(latitude: float | str, longitude: float | str) -> bool
         return False
 
     return -90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0
+
+
+def _get_default_coordinates(hass: Any) -> tuple[float, float]:
+    """Get default latitude and longitude from hass.config or fallback."""
+    if hass is not None:
+        config = getattr(hass, "config", None)
+        if config is not None:
+            lat = getattr(config, "latitude", None)
+            lon = getattr(config, "longitude", None)
+            if lat is not None and lon is not None:
+                return float(lat), float(lon)
+    return DEFAULT_LATITUDE, DEFAULT_LONGITUDE
 
 
 # -----------------------------------------------------------------------------
@@ -86,7 +98,7 @@ class BuienalarmConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 await self.async_set_unique_id(unique_id)
                 self._abort_if_unique_id_configured()
 
-                _LOGGER.debug("Creating new config entry: %s", unique_id)
+                _LOGGER.debug("Creating new config entry")
                 location_name = user_input.get(
                     CONF_NAME, NAME
                 )  # Default name if not provided
@@ -115,11 +127,13 @@ class BuienalarmConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     # ------------------------------------------------------------------
     def _show_form(self, errors: dict[str, str] | None = None) -> FlowResult:
         """Return the form definition for the *user* step."""
+        default_lat, default_lon = _get_default_coordinates(self.hass)
+
         data_schema: vol.Schema = vol.Schema(
             {
                 vol.Required(CONF_NAME, default=NAME): str,
-                vol.Required(CONF_LATITUDE, default=DEFAULT_LATITUDE): float,
-                vol.Required(CONF_LONGITUDE, default=DEFAULT_LONGITUDE): float,
+                vol.Required(CONF_LATITUDE, default=default_lat): float,
+                vol.Required(CONF_LONGITUDE, default=default_lon): float,
                 vol.Optional(
                     "notification_limit", default=DEFAULT_NOTIFICATION_LIMIT
                 ): int,
@@ -136,10 +150,10 @@ class BuienalarmConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     # Options flow
     # ------------------------------------------------------------------
     @staticmethod
-    @callback  # noqa: D401 – Home Assistant pattern
+    @callback  # noqa: D401 – Home Assistant pattern
     def async_get_options_flow(
         config_entry: config_entries.ConfigEntry,
-    ) -> "BuienalarmOptionsFlow":
+    ) -> BuienalarmOptionsFlow:
         """Return the options flow handler."""
         return BuienalarmOptionsFlow(config_entry)
 
@@ -160,21 +174,34 @@ class BuienalarmOptionsFlow(config_entries.OptionsFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Manage the Buienalarm options."""
+        errors: dict[str, str] = {}
+
         if user_input is not None:
-            _LOGGER.debug(
-                "Updating options for entry %s: %s", self._entry.entry_id, user_input
-            )
-            return self.async_create_entry(title="", data=user_input)
+            latitude_raw: str = str(user_input[CONF_LATITUDE]).replace(",", ".")
+            longitude_raw: str = str(user_input[CONF_LONGITUDE]).replace(",", ".")
+
+            if not _is_valid_coordinates(latitude_raw, longitude_raw):
+                errors["base"] = "invalid_coordinates"
+            else:
+                _LOGGER.debug(
+                    "Updating options for entry %s", self._entry.entry_id
+                )
+                user_input[CONF_LATITUDE] = float(latitude_raw)
+                user_input[CONF_LONGITUDE] = float(longitude_raw)
+                return self.async_create_entry(title="", data=user_input)
 
         return self.async_show_form(
             step_id="init",
-            data_schema=self._options_schema(),
+            data_schema=self._options_schema(user_input),
+            errors=errors,
         )
 
     # --------------------------------------------------------------
-    def _options_schema(self) -> vol.Schema:  # noqa: D401
+    def _options_schema(
+        self, user_input: dict[str, Any] | None = None
+    ) -> vol.Schema:  # noqa: D401
         """Return schema for the options form."""
-        options = self._entry.options
+        options = user_input if user_input is not None else self._entry.options
         data = self._entry.data
         return vol.Schema(
             {

@@ -53,6 +53,9 @@
                     "refresh_interval": "Data refresh interval in seconds (minimum 300 seconds recommended)."
                 }
             }
+        },
+        "error": {
+            "invalid_coordinates": "The provided coordinates are invalid. Please check latitude (-90 to 90) and longitude (-180 to 180) and try again."
         }
     },
     "entity": {

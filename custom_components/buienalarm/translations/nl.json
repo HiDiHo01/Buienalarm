@@ -53,6 +53,9 @@
                     "refresh_interval": "Dataverversingsinterval in seconden (minimaal 300 seconden aanbevolen)."
                 }
             }
+        },
+        "error": {
+            "invalid_coordinates": "De opgegeven coördinaten zijn ongeldig. Controleer de breedte- en lengtegraad en probeer het opnieuw."
         }
     },
     "entity": {

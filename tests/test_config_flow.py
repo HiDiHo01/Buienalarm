@@ -76,6 +76,50 @@ async def test_options_flow_preserves_data_defaults(hass: HomeAssistant) -> None
 
 
 @pytest.mark.asyncio
+async def test_options_flow_invalid_coordinates(hass: HomeAssistant) -> None:
+    """Test that options flow rejects invalid coordinates with error while preserving submitted input."""
+    custom_data = {
+        CONF_NAME: "Custom Spot",
+        CONF_LATITUDE: 51.5,
+        CONF_LONGITUDE: 4.5,
+        "notification_limit": 10,
+        "refresh_interval": 450,
+    }
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data=custom_data,
+        options={},
+        unique_id="51.5_4.5",
+    )
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert result["type"] == FlowResultType.FORM
+
+    # Submit invalid coordinates along with modified fields
+    result2 = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_NAME: "Modified Spot",
+            CONF_LATITUDE: 999.0,
+            CONF_LONGITUDE: 4.5,
+            "notification_limit": 20,
+            "refresh_interval": 600,
+        },
+    )
+
+    assert result2["type"] == FlowResultType.FORM
+    assert result2["errors"] == {"base": "invalid_coordinates"}
+
+    # Verify that the returned form preserves the attempted user_input values
+    defaults = result2["data_schema"]({})
+    assert defaults[CONF_NAME] == "Modified Spot"
+    assert defaults[CONF_LATITUDE] == 999.0
+    assert defaults["notification_limit"] == 20
+    assert defaults["refresh_interval"] == 600
+
+
+@pytest.mark.asyncio
 async def test_config_flow_user_step(hass: HomeAssistant) -> None:
     """Test the user configuration flow."""
     result = await hass.config_entries.flow.async_init(
@@ -100,3 +144,37 @@ async def test_config_flow_user_step(hass: HomeAssistant) -> None:
     assert result2["data"][CONF_LATITUDE] == 52.3
     assert result2["data"][CONF_LONGITUDE] == 4.9
     assert result2["data"]["refresh_interval"] == 600
+
+
+@pytest.mark.asyncio
+async def test_config_flow_default_coordinates_from_hass_config(
+    hass: HomeAssistant,
+) -> None:
+    """Test that config flow defaults to Home Assistant system location coordinates."""
+    hass.config.latitude = 52.0
+    hass.config.longitude = 5.0
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_USER}
+    )
+    assert result["type"] == FlowResultType.FORM
+    defaults = result["data_schema"]({})
+    assert defaults[CONF_LATITUDE] == 52.0
+    assert defaults[CONF_LONGITUDE] == 5.0
+
+
+@pytest.mark.asyncio
+async def test_config_flow_default_coordinates_zero_latitude(
+    hass: HomeAssistant,
+) -> None:
+    """Test that config flow preserves zero-valued system coordinates (0.0, 5.0)."""
+    hass.config.latitude = 0.0
+    hass.config.longitude = 5.0
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_USER}
+    )
+    assert result["type"] == FlowResultType.FORM
+    defaults = result["data_schema"]({})
+    assert defaults[CONF_LATITUDE] == 0.0
+    assert defaults[CONF_LONGITUDE] == 5.0
