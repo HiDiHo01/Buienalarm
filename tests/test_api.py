@@ -7,16 +7,28 @@ from custom_components.buienalarm.api import BuienalarmApiClient
 from custom_components.buienalarm.exceptions import ApiError
 
 
+import asyncio
+from aiohttp import ClientTimeout
+
+
 @pytest.mark.asyncio
 async def test_async_get_nowcast_timeout(hass: HomeAssistant) -> None:
-    """Test that async_get_nowcast raises ApiError on asyncio.TimeoutError."""
+    """Test that async_get_nowcast raises ApiError when request times out."""
     mock_session = MagicMock()
-    mock_session.get.side_effect = TimeoutError()
+
+    class PendingContextManager:
+        async def __aenter__(self):
+            await asyncio.sleep(10)
+
+        async def __aexit__(self, exc_type, exc, tb):
+            pass
+
+    mock_session.get.return_value = PendingContextManager()
 
     client = BuienalarmApiClient(52.3702, 4.8951, mock_session, hass)
 
     with pytest.raises(ApiError, match="Timeout while requesting Buienalarm data"):
-        await client.async_get_nowcast()
+        await client.async_get_nowcast(timeout=ClientTimeout(total=0.01))
 
 
 @pytest.mark.asyncio
