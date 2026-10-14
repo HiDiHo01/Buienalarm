@@ -600,10 +600,21 @@ async def test_active_5min_bin_included_in_periods_duration_totals(
 
 @pytest.mark.asyncio
 async def test_buienalarm_entity_malformed_non_mapping_list_items(hass: HomeAssistant) -> None:
-    """Verify BuienalarmEntity handles non-mapping items (strings, integers, None) in data list safely."""
+    """Verify BuienalarmEntity handles non-mapping items and items with raising/non-callable .get in data list safely."""
     from datetime import datetime, timezone
     from unittest.mock import MagicMock
     from custom_components.buienalarm.entity import BuienalarmEntity
+
+    class RaisingGetItem:
+        """Object with a get attribute that raises an exception when called."""
+
+        def get(self, *args, **kwargs):
+            raise RuntimeError("Corrupted get call")
+
+    class NonCallableGetItem:
+        """Object with a get attribute that is not callable."""
+
+        get = "not_a_method"
 
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -623,6 +634,8 @@ async def test_buienalarm_entity_malformed_non_mapping_list_items(hass: HomeAssi
             12345,
             None,
             [1, 2, 3],
+            RaisingGetItem(),
+            NonCallableGetItem(),
             {
                 "timestamp": now_ts,
                 "precipitationrate": 2.5,
