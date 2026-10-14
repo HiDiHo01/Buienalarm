@@ -656,6 +656,46 @@ async def test_buienalarm_entity_malformed_non_mapping_list_items(hass: HomeAssi
 
 
 @pytest.mark.asyncio
+async def test_data_points_as_list_skips_entries_without_valid_time_sources(
+    hass: HomeAssistant,
+) -> None:
+    """Verify data_points_as_list skips entries where neither timestamp nor time yields a valid datetime."""
+    from datetime import datetime, timezone
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.entity import BuienalarmEntity
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Data Points Time Test",
+        unique_id="test_time_sources",
+        data={"latitude": 52.3702, "longitude": 4.8952},
+    )
+
+    coordinator = MagicMock()
+    entity = BuienalarmEntity(coordinator, entry, "precipitationrate_total")
+
+    coordinator.data = {
+        "data": [
+            # 1. Missing both timestamp and time -> skipped
+            {"precipitationrate": 1.0, "precipitationtype": "rain"},
+            # 2. Invalid timestamp and invalid time -> skipped
+            {"timestamp": "bad", "time": "invalid_iso", "precipitationrate": 1.0},
+            # 3. Only numeric timestamp present -> kept
+            {"timestamp": 1700000000, "precipitationrate": 2.0, "precipitationtype": "rain"},
+            # 4. Only valid ISO time present -> kept
+            {"time": "2023-11-14T12:00:00Z", "precipitationrate": 0.5, "precipitationtype": "rain"},
+        ]
+    }
+
+    points = entity.data_points_as_list
+    assert len(points) == 2
+    assert points[0]["precipitationrate"] == 2.0
+    assert points[0]["timestamp"] == 1700000000
+    assert points[1]["precipitationrate"] == 0.5
+    assert points[1]["timestamp"] == int(datetime.fromisoformat("2023-11-14T12:00:00Z").timestamp())
+
+
+@pytest.mark.asyncio
 async def test_boolean_timestamps_and_rates_rejected(hass: HomeAssistant) -> None:
     """Verify boolean values in timestamp or precipitationrate fields are safely rejected."""
     from datetime import datetime, timezone
