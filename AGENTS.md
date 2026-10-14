@@ -275,7 +275,6 @@ Coordinator and entity responsibilities:
 * Prevent concurrent duplicate refreshes and ensure outdated requests cannot overwrite newer data where the request flow allows overlap.
 * Preserve cancellation semantics and release listeners, tasks, and resources during unload.
 
-
 Use `DataUpdateCoordinator` when entities share a common data source or polling cycle.
 
 * Keep API communication and data normalization separate from entity presentation.
@@ -475,7 +474,6 @@ Never change established entity unique IDs or translation keys unnecessarily. Pr
 ## 15. Automated testing
 
 For every change, report the affected files and behavior, the exact relevant checks executed and their outcomes, checks not run and why, and any remaining limitations or uncertainty. Never imply that a check passed unless it was actually run.
-
 
 Every behavior change must include appropriate automated tests.
 
