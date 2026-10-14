@@ -92,6 +92,14 @@ Prefer a clean implementation for the declared minimum supported version. If com
 
 Use modern Python syntax and target **Python 3.14+**, subject to the actual Python minimum supported by the target Home Assistant release.
 
+### Python version compatibility
+
+* Determine the minimum Python version from the exact Home Assistant Core release the integration supports. Verify it against that release's `pyproject.toml` (especially `requires-python`), official release requirements, and the integration's declared support policy; do not rely on memory or an unverified version number.
+* For integrations targeting Home Assistant Core 2026.10 development, the observed Core requirement is Python **3.14.2 or newer**. Treat this as a version-specific baseline, not a permanent constant, and re-check it when the target Core release changes.
+* Keep the integration's declared minimum Python version, syntax and standard-library API usage, dependency constraints, and CI test matrix mutually compatible. Do not declare a higher minimum than necessary, or test only on a Python version unsupported by the target Core release.
+* If supporting multiple Home Assistant releases, choose a Python minimum compatible with all supported releases and validate that compatibility in CI. Do not claim compatibility with older releases without checking their actual Python requirements.
+* When the repository's CI pins a Python version, align it with the target Home Assistant release and the project's supported range; do not assume every patch release in a Python minor series is interchangeable.
+
 ### Required conventions
 
 * Use type annotations for all functions, methods, parameters, and return values.
