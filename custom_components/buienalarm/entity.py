@@ -5,7 +5,7 @@ import logging
 import re
 from collections.abc import Mapping
 from datetime import datetime, timedelta, timezone
-from typing import Callable, Final
+from typing import Final
 
 from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
 from homeassistant.config_entries import ConfigEntry
@@ -486,7 +486,7 @@ class BuienalarmEntity(CoordinatorEntity):
 
         # Precipitation continued through all forecast points
         if start_time is not None and last_time is not None:
-            duration = (last_time - start_time).total_seconds() / 60
+            duration = (last_time + timedelta(minutes=5) - start_time).total_seconds() / 60
             return min(MAX_DURATION_MINUTES, int(round(duration)))
 
         return 0
@@ -976,7 +976,7 @@ class BuienalarmEntity(CoordinatorEntity):
                 rain_duration = int((rain_stop_time_utc -
                                      rain_start_time_utc).total_seconds() / 60)
             elif last_valid_time is not None:
-                rain_duration = int((last_valid_time -
+                rain_duration = int((last_valid_time + timedelta(minutes=5) -
                                      rain_start_time_utc).total_seconds() / 60)
             rain_duration = int(rain_duration)
 
@@ -1115,7 +1115,9 @@ class BuienalarmEntity(CoordinatorEntity):
 
         # Bolt optimization: Use last_valid_time tracked in loop instead of O(N) reverse search
         if in_precipitation and precipitation_start is not None and current_rates and last_valid_time is not None:
-            precipitation_periods_internal.append((precipitation_start, last_valid_time, current_rates.copy()))
+            precipitation_periods_internal.append(
+                (precipitation_start, last_valid_time + timedelta(minutes=5), current_rates.copy())
+            )
             current_rates.clear()
 
         # omzetten naar HA-formaat met lokale tijd en gemiddelde neerslagsnelheid

@@ -818,3 +818,105 @@ async def test_dynamic_sensor_icons(hass: HomeAssistant) -> None:
     }
 
     assert precip_type_sensor.icon == "mdi:weather-snowy"
+
+
+@pytest.mark.asyncio
+async def test_precipitation_duration_and_periods_extending_to_end_of_dataset(
+    hass: HomeAssistant,
+) -> None:
+    """Verify duration and period stop time include the final 5-min interval when rain extends to the dataset end."""
+    from datetime import datetime, timezone
+    from unittest.mock import MagicMock
+    from homeassistant.util import dt as dt_util
+    from custom_components.buienalarm.entity import BuienalarmEntity
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="End of Dataset Test",
+        unique_id="test_end_of_dataset",
+        data={"latitude": 52.3702, "longitude": 4.8952},
+    )
+
+    coordinator = MagicMock()
+    entity = BuienalarmEntity(coordinator, entry, "precipitation_periods")
+
+    now = datetime.now(timezone.utc)
+    now_ts = now.timestamp()
+    start_ts = now_ts + 60  # Rain starts 1 min in the future
+
+    # 3 consecutive 5-min forecast bins (start_ts, start_ts+300, start_ts+600)
+    # The last bin starts at start_ts+600 and covers up to start_ts+900 (15 min total duration)
+    coordinator.data = {
+        "data": [
+            {
+                "timestamp": start_ts,
+                "precipitationrate": 2.0,
+                "precipitationtype": "rain",
+            },
+            {
+                "timestamp": start_ts + 300,
+                "precipitationrate": 1.5,
+                "precipitationtype": "rain",
+            },
+            {
+                "timestamp": start_ts + 600,
+                "precipitationrate": 1.0,
+                "precipitationtype": "rain",
+            },
+        ]
+    }
+
+    # 1. get_precipitation_duration should include the full 15 minutes
+    duration = entity.get_precipitation_duration()
+    assert duration == 15
+
+    # 2. _get_precipitation_periods should return a period with 15 min duration and stop_time at start_ts + 900
+    periods = entity._get_precipitation_periods()
+    assert len(periods) == 1
+    assert periods[0]["duration_minutes"] == 15
+    expected_stop = dt_util.as_local(datetime.fromtimestamp(start_ts + 900, tz=timezone.utc))
+    assert periods[0]["stop"] == expected_stop
+
+    # 3. get_rain_start_time_and_duration should report 15 min rain_duration
+    (
+        rain_start,
+        rain_stop,
+        rain_restart,
+        rain_dur,
+        rain_stopped,
+    ) = entity.get_rain_start_time_and_duration(coordinator.data["data"])
+    assert rain_dur == 15
+    assert rain_stop is None  # Never stopped before end of dataset
+    assert rain_stopped is False
+
+    # 4. get_mycastmessage when rain starts in future and extends to end of dataset
+    msg = entity.get_mycastmessage()
+    assert msg is not None
+    assert "Neerslag voor langere tijd begint om" in msg
+
+    # 5. If rain is occurring now and extends to end of dataset, get_mycastmessage includes duration
+    active_start_ts = now_ts - 60  # Started 1 min ago
+    coordinator.data = {
+        "data": [
+            {
+                "timestamp": active_start_ts,
+                "precipitationrate": 2.0,
+                "precipitationtype": "rain",
+            },
+            {
+                "timestamp": active_start_ts + 300,
+                "precipitationrate": 1.5,
+                "precipitationtype": "rain",
+            },
+            {
+                "timestamp": active_start_ts + 600,
+                "precipitationrate": 1.0,
+                "precipitationtype": "rain",
+            },
+        ]
+    }
+
+    assert entity.get_precipitation_duration() == 15
+    msg_active = entity.get_mycastmessage()
+    assert msg_active is not None
+    assert "Neerslag duurt nog 15 minuten" in msg_active
