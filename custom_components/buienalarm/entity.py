@@ -2,6 +2,7 @@
 # entity.py
 
 import logging
+import math
 import re
 from collections.abc import Mapping
 from datetime import datetime, timedelta, timezone
@@ -459,6 +460,8 @@ class BuienalarmEntity(CoordinatorEntity):
 
             try:
                 data_point_ts = float(timestamp)
+                if not math.isfinite(data_point_ts):
+                    continue
             except (ValueError, TypeError):
                 _LOGGER.debug("Skipping invalid timestamp in precipitation entry: %r", timestamp)
                 continue
@@ -488,7 +491,7 @@ class BuienalarmEntity(CoordinatorEntity):
 
         # Precipitation continued through all forecast points
         if start_ts is not None and last_ts is not None:
-            duration = (last_ts - start_ts) / 60
+            duration = (last_ts + 300 - start_ts) / 60
             return min(MAX_DURATION_MINUTES, int(round(duration)))
 
         return 0
@@ -945,6 +948,8 @@ class BuienalarmEntity(CoordinatorEntity):
 
             try:
                 data_point_ts = float(timestamp)
+                if not math.isfinite(data_point_ts):
+                    continue
             except (ValueError, TypeError):
                 continue
 
@@ -979,7 +984,7 @@ class BuienalarmEntity(CoordinatorEntity):
             if rain_stop_ts is not None:
                 rain_duration = int((rain_stop_ts - rain_start_ts) / 60)
             elif last_valid_ts is not None:
-                rain_duration = int((last_valid_ts - rain_start_ts) / 60)
+                rain_duration = int((last_valid_ts + 300 - rain_start_ts) / 60)
             rain_duration = int(rain_duration)
 
         rain_start_time_utc = (
@@ -1116,6 +1121,8 @@ class BuienalarmEntity(CoordinatorEntity):
                 continue
 
             data_ts = float(raw_timestamp)
+            if not math.isfinite(data_ts):
+                continue
             last_valid_ts = data_ts
 
             if data_ts + 300 <= now_ts:
@@ -1135,7 +1142,7 @@ class BuienalarmEntity(CoordinatorEntity):
 
         # Bolt optimization: Use last_valid_ts tracked in loop instead of O(N) reverse search
         if in_precipitation and precipitation_start_ts is not None and current_rates and last_valid_ts is not None:
-            precipitation_periods_internal.append((precipitation_start_ts, last_valid_ts, current_rates.copy()))
+            precipitation_periods_internal.append((precipitation_start_ts, last_valid_ts + 300, current_rates.copy()))
             current_rates.clear()
 
         # omzetten naar HA-formaat met lokale tijd en gemiddelde neerslagsnelheid
