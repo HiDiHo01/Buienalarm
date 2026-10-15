@@ -140,10 +140,34 @@ async def test_config_flow_user_step(hass: HomeAssistant) -> None:
     )
 
     assert result2["type"] == FlowResultType.CREATE_ENTRY
+    assert result2["title"] == "Test Location (52.3, 4.9)"
     assert result2["data"][CONF_NAME] == "Test Location"
     assert result2["data"][CONF_LATITUDE] == 52.3
     assert result2["data"][CONF_LONGITUDE] == 4.9
     assert result2["data"]["refresh_interval"] == 600
+
+
+@pytest.mark.asyncio
+async def test_config_flow_title_coordinate_rounding(hass: HomeAssistant) -> None:
+    """Test that config flow rounds coordinates in entry title to 4 digits."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_USER}
+    )
+    assert result["type"] == FlowResultType.FORM
+
+    result2 = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_NAME: "Buienalarm",
+            CONF_LATITUDE: 52.79346889409631,
+            CONF_LONGITUDE: 4.792772233486176,
+            "notification_limit": 0,
+            "refresh_interval": 300,
+        },
+    )
+
+    assert result2["type"] == FlowResultType.CREATE_ENTRY
+    assert result2["title"] == "Buienalarm (52.7935, 4.7928)"
 
 
 @pytest.mark.asyncio

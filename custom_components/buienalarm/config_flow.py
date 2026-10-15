@@ -103,8 +103,11 @@ class BuienalarmConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     CONF_NAME, NAME
                 )  # Default name if not provided
 
+                lat_title = round(float(latitude_raw), 4)
+                lon_title = round(float(longitude_raw), 4)
+
                 return self.async_create_entry(
-                    title=f"{location_name} ({latitude_raw}, {longitude_raw})",
+                    title=f"{location_name} ({lat_title}, {lon_title})",
                     data={
                         CONF_NAME: user_input.get(CONF_NAME, NAME),
                         CONF_LATITUDE: float(latitude_raw),

@@ -147,7 +147,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     name = entry.options.get(CONF_NAME, entry.data.get(CONF_NAME, NAME))
     unique_id = f"{latitude}_{longitude}"
-    title = f"{name} ({latitude}, {longitude})"
+    title = f"{name} ({round(latitude, 4)}, {round(longitude, 4)})"
 
     # Check if entry options altered location/identity or if data is missing coordinates
     options_lat = entry.options.get(CONF_LATITUDE)
