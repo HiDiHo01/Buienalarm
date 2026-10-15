@@ -734,3 +734,87 @@ async def test_boolean_timestamps_and_rates_rejected(hass: HomeAssistant) -> Non
     assert entity._get_precipitation_periods() == []
     assert entity.get_precipitation_duration() == 0
     assert entity.get_total_precipitation_rate_for_next_hour() == 0.0
+
+
+@pytest.mark.asyncio
+async def test_dynamic_sensor_icons(hass: HomeAssistant) -> None:
+    """Test dynamic icon computation for precipitationrate_now and precipitationtype_now sensors."""
+    from datetime import datetime, timezone
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.sensor import BuienalarmSensor
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Buienalarm Dynamic Icon Test",
+        unique_id="test_dynamic_icons",
+        data={"latitude": 52.3702, "longitude": 4.8952},
+    )
+
+    coordinator = MagicMock()
+    coordinator.last_update_success = True
+
+    now_ts = int(datetime.now(timezone.utc).timestamp())
+
+    # Create sensor instances
+    precip_rate_sensor = BuienalarmSensor(
+        coordinator,
+        entry,
+        name="Current precipitation",
+        unit_of_measurement="mm/h",
+        icon="mdi:weather-rainy",
+        device_class=None,
+        state_class=None,
+        key="precipitationrate_now",
+    )
+
+    precip_type_sensor = BuienalarmSensor(
+        coordinator,
+        entry,
+        name="Current precipitation type",
+        unit_of_measurement=None,
+        icon="mdi:weather-partly-rainy",
+        device_class=None,
+        state_class=None,
+        key="precipitationtype_now",
+    )
+
+    # 1. Test when dry (rate = 0.0, type = "Geen neerslag")
+    coordinator.data = {
+        "data": [
+            {
+                "timestamp": now_ts,
+                "precipitationrate": 0.0,
+                "precipitationtype": "none",
+            }
+        ]
+    }
+
+    assert precip_rate_sensor.icon == "mdi:weather-sunny"
+    assert precip_type_sensor.icon == "mdi:weather-sunny"
+
+    # 2. Test when raining (rate = 2.5, type = "rain")
+    coordinator.data = {
+        "data": [
+            {
+                "timestamp": now_ts,
+                "precipitationrate": 2.5,
+                "precipitationtype": "rain",
+            }
+        ]
+    }
+
+    assert precip_rate_sensor.icon == "mdi:weather-pouring"
+    assert precip_type_sensor.icon == "mdi:weather-pouring"
+
+    # 3. Test when snowing (type = "snow")
+    coordinator.data = {
+        "data": [
+            {
+                "timestamp": now_ts,
+                "precipitationrate": 1.0,
+                "precipitationtype": "snow",
+            }
+        ]
+    }
+
+    assert precip_type_sensor.icon == "mdi:weather-snowy"
