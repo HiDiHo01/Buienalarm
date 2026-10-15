@@ -735,6 +735,43 @@ async def test_boolean_timestamps_and_rates_rejected(hass: HomeAssistant) -> Non
     assert entity.get_precipitation_duration() == 0
     assert entity.get_total_precipitation_rate_for_next_hour() == 0.0
 
+    # Verify current precipitation, rate desc, precip type, and next precip reject booleans
+    coordinator.data = {
+        "data": [
+            {
+                "timestamp": now_ts,
+                "precipitationrate": True,
+                "precipitationtype": "rain",
+            },
+            {
+                "timestamp": now_ts + 300,
+                "precipitationrate": True,
+                "precipitationtype": "rain",
+            },
+        ]
+    }
+
+    assert entity.get_current_precipitation() == 0.0
+    assert entity.get_current_precipitation_rate_desc() == "Geen neerslag"
+    assert entity.get_current_precipitation_type() == "Geen neerslag"
+    assert entity.get_next_precipitation() is None
+
+    # Verify boolean timestamps are rejected
+    coordinator.data = {
+        "data": [
+            {
+                "timestamp": True,
+                "precipitationrate": 2.5,
+                "precipitationtype": "rain",
+            }
+        ]
+    }
+
+    assert entity.get_current_precipitation() == 0.0
+    assert entity.get_current_precipitation_rate_desc() == "Geen neerslag"
+    assert entity.get_current_precipitation_type() == "Geen neerslag"
+    assert entity.get_next_precipitation() is None
+
 
 @pytest.mark.asyncio
 async def test_dynamic_sensor_icons(hass: HomeAssistant) -> None:
