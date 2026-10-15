@@ -145,6 +145,20 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
     @property
     def icon(self) -> str | None:
         """Return the icon to use in the frontend, if any."""
+        if self._key == "precipitationrate_now":
+            val = self.native_value
+            if isinstance(val, (int, float)):
+                return "mdi:weather-pouring" if val > 0 else "mdi:weather-sunny"
+        elif self._key == "precipitationtype_now":
+            val = self.native_value
+            if isinstance(val, str):
+                val_lower = val.lower()
+                if "snow" in val_lower or "sneeuw" in val_lower:
+                    return "mdi:weather-snowy"
+                if any(k in val_lower for k in ("rain", "regen", "mix", "motregen")):
+                    return "mdi:weather-pouring"
+                if any(k in val_lower for k in ("geen", "none", "droog")):
+                    return "mdi:weather-sunny"
         return self._icon
 
     @property
