@@ -6,7 +6,7 @@ import math
 import re
 from collections.abc import Mapping
 from datetime import datetime, timedelta, timezone
-from typing import Callable, Final
+from typing import Final
 
 from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
 from homeassistant.config_entries import ConfigEntry
