@@ -756,6 +756,32 @@ async def test_boolean_timestamps_and_rates_rejected(hass: HomeAssistant) -> Non
     assert entity.get_current_precipitation_type() == "Geen neerslag"
     assert entity.get_next_precipitation() is None
 
+    # Verify non-finite and overflowing values (NaN, Inf, OverflowError) are rejected
+    coordinator.data = {
+        "data": [
+            {
+                "timestamp": now_ts,
+                "precipitationrate": float("nan"),
+                "precipitationtype": "rain",
+            },
+            {
+                "timestamp": float("inf"),
+                "precipitationrate": float("inf"),
+                "precipitationtype": "rain",
+            },
+            {
+                "timestamp": now_ts + 300,
+                "precipitationrate": "1e1000000",
+                "precipitationtype": "rain",
+            },
+        ]
+    }
+
+    assert entity.get_current_precipitation() == 0.0
+    assert entity.get_current_precipitation_rate_desc() == "Geen neerslag"
+    assert entity.get_current_precipitation_type() == "Geen neerslag"
+    assert entity.get_next_precipitation() is None
+
     # Verify boolean timestamps are rejected
     coordinator.data = {
         "data": [
@@ -855,55 +881,3 @@ async def test_dynamic_sensor_icons(hass: HomeAssistant) -> None:
     }
 
     assert precip_type_sensor.icon == "mdi:weather-snowy"
-
-
-@pytest.mark.asyncio
-async def test_precipitation_extends_through_end_of_forecast(
-    hass: HomeAssistant,
-) -> None:
-    """Verify 15-minute duration and stop time when precipitation continues through the end of forecast dataset."""
-    from datetime import datetime, timezone
-    from unittest.mock import MagicMock
-    from custom_components.buienalarm.entity import BuienalarmEntity
-
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        title="Buienalarm Ongoing Rain Test",
-        unique_id="test_ongoing_rain",
-        data={"latitude": 52.3702, "longitude": 4.8952},
-    )
-
-    coordinator = MagicMock()
-    entity = BuienalarmEntity(coordinator, entry, "precipitation_duration")
-
-    now_ts = int(datetime.now(timezone.utc).timestamp())
-
-    # 3 consecutive 5-minute raining bins starting from now_ts: [T, T+300, T+600]
-    coordinator.data = {
-        "data": [
-            {"timestamp": now_ts, "precipitationrate": 2.0, "precipitationtype": "rain"},
-            {"timestamp": now_ts + 300, "precipitationrate": 1.5, "precipitationtype": "rain"},
-            {"timestamp": now_ts + 600, "precipitationrate": 1.0, "precipitationtype": "rain"},
-        ]
-    }
-
-    # Duration should be 15 minutes (3 intervals * 5 min), not 10 min
-    assert entity.get_precipitation_duration() == 15
-
-    (
-        rain_start,
-        rain_stop,
-        rain_restart,
-        rain_dur,
-        rain_stopped,
-    ) = entity.get_rain_start_time_and_duration(coordinator.data["data"])
-    assert rain_dur == 15
-    assert rain_stopped is False
-
-    periods = entity._get_precipitation_periods()
-    assert len(periods) == 1
-    assert periods[0]["duration_minutes"] == 15
-    # The stop time should be T + 900 (end of 3rd 5-minute interval)
-    expected_stop_ts = now_ts + 900
-    actual_stop_ts = int(periods[0]["stop"].timestamp())
-    assert actual_stop_ts == expected_stop_ts

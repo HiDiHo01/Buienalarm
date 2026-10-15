@@ -6,7 +6,7 @@ import math
 import re
 from collections.abc import Mapping
 from datetime import datetime, timedelta, timezone
-from typing import Final
+from typing import Callable, Final
 
 from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
 from homeassistant.config_entries import ConfigEntry
@@ -52,14 +52,18 @@ def _as_float(value: object) -> float | None:
     if isinstance(value, bool):
         return None
 
-    if isinstance(value, (int, float)):
-        return float(value)
+    res: float | None = None
 
-    if isinstance(value, str):
+    if isinstance(value, (int, float)):
+        res = float(value)
+    elif isinstance(value, str):
         try:
-            return float(value.replace(",", "."))
-        except ValueError:
+            res = float(value.replace(",", "."))
+        except (ValueError, OverflowError):
             return None
+
+    if res is not None and math.isfinite(res):
+        return res
 
     return None
 
@@ -455,11 +459,9 @@ class BuienalarmEntity(CoordinatorEntity):
             _LOGGER.debug("No precipitation data available")
             return 0
 
-        # Bolt performance optimization: use float timestamp comparisons directly
-        # in the loop to avoid datetime and timedelta object creation (~5.3x faster).
-        current_ts: float = datetime.now(timezone.utc).timestamp()
-        start_ts: float | None = None
-        last_ts: float | None = None  # Track last processed forecast point timestamp
+        current_time: datetime = datetime.now(timezone.utc)
+        start_time: datetime | None = None
+        last_time: datetime | None = None  # Track last processed forecast point
 
         for entry in precip_data:
             if not isinstance(entry, Mapping) and not callable(getattr(entry, "get", None)):
@@ -476,9 +478,7 @@ class BuienalarmEntity(CoordinatorEntity):
                 continue
 
             try:
-                data_point_ts = float(timestamp)
-                if not math.isfinite(data_point_ts):
-                    continue
+                data_point_time = datetime.fromtimestamp(float(timestamp), tz=timezone.utc)
             except (ValueError, TypeError):
                 _LOGGER.debug("Skipping invalid timestamp in precipitation entry: %r", timestamp)
                 continue
@@ -492,23 +492,23 @@ class BuienalarmEntity(CoordinatorEntity):
                 except (ValueError, TypeError):
                     precip_rate = 0.0
 
-            if data_point_ts + 300 <= current_ts:
+            if data_point_time + timedelta(minutes=5) <= current_time:
                 continue
 
-            last_ts = data_point_ts  # Update on every valid future or active point
+            last_time = data_point_time  # Update on every valid future or active point
 
             if precip_rate > 0:
-                if start_ts is None:
-                    start_ts = data_point_ts
+                if start_time is None:
+                    start_time = data_point_time
             else:
-                if start_ts is not None:
-                    duration = (data_point_ts - start_ts) / 60
+                if start_time is not None:
+                    duration = (data_point_time - start_time).total_seconds() / 60
                     return min(MAX_DURATION_MINUTES, int(round(duration)))
                 return 0
 
         # Precipitation continued through all forecast points
-        if start_ts is not None and last_ts is not None:
-            duration = (last_ts + 300 - start_ts) / 60
+        if start_time is not None and last_time is not None:
+            duration = (last_time - start_time).total_seconds() / 60
             return min(MAX_DURATION_MINUTES, int(round(duration)))
 
         return 0
@@ -887,16 +887,13 @@ class BuienalarmEntity(CoordinatorEntity):
     ) -> tuple[datetime | None, datetime | None, datetime | None, int, bool]:
         """Calculate the start time and duration of rain from the precipitation data."""
         current_time_utc: datetime = datetime.now(timezone.utc)
-        # Bolt performance optimization: use float epoch timestamp comparisons directly
-        # in loop to bypass datetime construction and timedelta math (~6.9x faster).
-        current_ts: float = current_time_utc.timestamp()
-        rain_start_ts: float | None = None
-        rain_stop_ts: float | None = None
-        rain_restart_ts: float | None = None
+        rain_start_time_utc: datetime | None = None
+        rain_stop_time_utc: datetime | None = None
+        rain_restart_time_utc: datetime | None = None
         rain_duration: int = 0
         rain_stopped: bool = True
 
-        last_valid_ts: float | None = None
+        last_valid_time: datetime | None = None
 
         for data_point in precipitation_data:
             if not isinstance(data_point, Mapping) and not callable(getattr(data_point, "get", None)):
@@ -909,13 +906,12 @@ class BuienalarmEntity(CoordinatorEntity):
                 continue  # Skip invalid entries
 
             try:
-                data_point_ts = float(timestamp)
-                if not math.isfinite(data_point_ts):
-                    continue
+                data_point_timestamp = datetime.fromtimestamp(float(timestamp),
+                                                              tz=timezone.utc)
             except (ValueError, TypeError):
                 continue
 
-            last_valid_ts = data_point_ts
+            last_valid_time = data_point_timestamp
 
             if isinstance(raw_rate, bool):
                 precipitation_rate = 0.0
@@ -926,44 +922,30 @@ class BuienalarmEntity(CoordinatorEntity):
                     precipitation_rate = 0.0
 
             # Check if this 5-minute interval ends after current time
-            if data_point_ts + 300 > current_ts:
+            if data_point_timestamp + timedelta(minutes=5) > current_time_utc:
                 if precipitation_rate > 0:
                     rain_stopped = False
-                    if rain_start_ts is None:
-                        rain_start_ts = data_point_ts
-                    if rain_stop_ts is None:
+                    if rain_start_time_utc is None:
+                        rain_start_time_utc = data_point_timestamp
+                    if rain_stop_time_utc is None:
                         rain_duration += 5
                         rain_stopped = False
-                    if rain_restart_ts is None and rain_stop_ts is not None:
-                        rain_restart_ts = data_point_ts
+                    if rain_restart_time_utc is None and rain_stop_time_utc is not None:
+                        rain_restart_time_utc = data_point_timestamp
                 # Check if there's a gap in precipitation
-                elif rain_start_ts is not None and rain_stop_ts is None:
-                    rain_stop_ts = data_point_ts
+                elif rain_start_time_utc is not None and rain_stop_time_utc is None:
+                    rain_stop_time_utc = data_point_timestamp
                     rain_stopped = True
 
         # Calculate rain duration if precipitation has started
-        if rain_start_ts is not None:
-            if rain_stop_ts is not None:
-                rain_duration = int((rain_stop_ts - rain_start_ts) / 60)
-            elif last_valid_ts is not None:
-                rain_duration = int((last_valid_ts + 300 - rain_start_ts) / 60)
+        if rain_start_time_utc is not None:
+            if rain_stop_time_utc is not None:
+                rain_duration = int((rain_stop_time_utc -
+                                     rain_start_time_utc).total_seconds() / 60)
+            elif last_valid_time is not None:
+                rain_duration = int((last_valid_time -
+                                     rain_start_time_utc).total_seconds() / 60)
             rain_duration = int(rain_duration)
-
-        rain_start_time_utc = (
-            datetime.fromtimestamp(rain_start_ts, tz=timezone.utc)
-            if rain_start_ts is not None
-            else None
-        )
-        rain_stop_time_utc = (
-            datetime.fromtimestamp(rain_stop_ts, tz=timezone.utc)
-            if rain_stop_ts is not None
-            else None
-        )
-        rain_restart_time_utc = (
-            datetime.fromtimestamp(rain_restart_ts, tz=timezone.utc)
-            if rain_restart_ts is not None
-            else None
-        )
 
         return rain_start_time_utc, rain_stop_time_utc, rain_restart_time_utc, rain_duration, rain_stopped
 
@@ -1032,9 +1014,7 @@ class BuienalarmEntity(CoordinatorEntity):
                 - precipitationrate (float): gemiddelde neerslagsnelheid in mm/u
         """
         precipitation_data: object = self.data.get("data", [])
-        # Bolt performance optimization: use numeric epoch float timestamps in loop
-        # to avoid datetime and timedelta construction (~3.2x faster).
-        now_ts: float = datetime.now(timezone.utc).timestamp()
+        now_utc = datetime.now(timezone.utc)
 
         if not isinstance(precipitation_data, list):
             _LOGGER.warning("[BUIENALARM ENTITY] 'data' is geen lijst voor '%s'", self.sensor_key)
@@ -1042,11 +1022,11 @@ class BuienalarmEntity(CoordinatorEntity):
 
         _LOGGER.debug("[BUIENALARM ENTITY] Verwerken van %d datapunt(en) voor neerslagperiodes", len(precipitation_data))
 
-        precipitation_periods_internal: list[tuple[float, float, list[float]]] = []
+        precipitation_periods_internal: list[tuple[datetime, datetime, list[float]]] = []
         in_precipitation = False
-        precipitation_start_ts: float | None = None
+        precipitation_start: datetime | None = None
         current_rates: list[float] = []
-        last_valid_ts: float | None = None
+        last_valid_time: datetime | None = None
 
         for i, item in enumerate(precipitation_data):
             if not isinstance(item, dict):
@@ -1082,40 +1062,36 @@ class BuienalarmEntity(CoordinatorEntity):
                 )
                 continue
 
-            data_ts = float(raw_timestamp)
-            if not math.isfinite(data_ts):
-                continue
-            last_valid_ts = data_ts
+            data_time = datetime.fromtimestamp(raw_timestamp, tz=timezone.utc)
+            last_valid_time = data_time
 
-            if data_ts + 300 <= now_ts:
+            if data_time + timedelta(minutes=5) <= now_utc:
                 continue  # negeer historische data
 
             if precipitation_rate > 0:
                 current_rates.append(precipitation_rate)
                 if not in_precipitation:
-                    precipitation_start_ts = data_ts
+                    precipitation_start = data_time
                     in_precipitation = True
             else:
-                if in_precipitation and precipitation_start_ts is not None and current_rates:
-                    precipitation_periods_internal.append((precipitation_start_ts, data_ts, current_rates.copy()))
+                if in_precipitation and precipitation_start is not None and current_rates:
+                    precipitation_periods_internal.append((precipitation_start, data_time, current_rates.copy()))
                     current_rates.clear()
-                    precipitation_start_ts = None
+                    precipitation_start = None
                     in_precipitation = False
 
-        # Bolt optimization: Use last_valid_ts tracked in loop instead of O(N) reverse search
-        if in_precipitation and precipitation_start_ts is not None and current_rates and last_valid_ts is not None:
-            precipitation_periods_internal.append((precipitation_start_ts, last_valid_ts + 300, current_rates.copy()))
+        # Bolt optimization: Use last_valid_time tracked in loop instead of O(N) reverse search
+        if in_precipitation and precipitation_start is not None and current_rates and last_valid_time is not None:
+            precipitation_periods_internal.append((precipitation_start, last_valid_time, current_rates.copy()))
             current_rates.clear()
 
         # omzetten naar HA-formaat met lokale tijd en gemiddelde neerslagsnelheid
         precipitation_periods_ha: list[dict[str, object]] = []
-        for start_ts, stop_ts, rates in precipitation_periods_internal:
-            start_utc = datetime.fromtimestamp(start_ts, tz=timezone.utc)
-            stop_utc = datetime.fromtimestamp(stop_ts, tz=timezone.utc)
+        for start_utc, stop_utc, rates in precipitation_periods_internal:
             local_start = dt.as_local(start_utc)
             local_stop = dt.as_local(stop_utc)
             avg_rate = round(sum(rates) / len(rates), 2)
-            duration_minutes = int((stop_ts - start_ts) // 60)
+            duration_minutes = int((stop_utc - start_utc).total_seconds() // 60)
 
             precipitation_periods_ha.append(
                 {
