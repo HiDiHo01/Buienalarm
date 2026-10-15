@@ -46,6 +46,23 @@ def _safe_get(item: object, key: str, default: object = None) -> object:
         return default
 
 
+def _as_float(value: object) -> float | None:
+    """Convert an API value to float without accepting booleans or raising exceptions."""
+    if isinstance(value, bool):
+        return None
+
+    if isinstance(value, (int, float)):
+        return float(value)
+
+    if isinstance(value, str):
+        try:
+            return float(value.replace(",", "."))
+        except ValueError:
+            return None
+
+    return None
+
+
 class BuienalarmEntity(CoordinatorEntity):
     """A Home Assistant entity that provides current
     and forecasted precipitation data from Buienalarm."""
@@ -635,7 +652,6 @@ class BuienalarmEntity(CoordinatorEntity):
         data: object = self.data.get('data', [])
         # Bolt performance optimization: use epoch timestamps for rapid interval check
         current_ts: float = datetime.now(timezone.utc).timestamp()
-        current_precipitation_rate: float = 0.0
 
         if isinstance(data, list):
             for data_point in data:
@@ -647,8 +663,8 @@ class BuienalarmEntity(CoordinatorEntity):
                     )
                     continue
 
-                timestamp = _safe_get(data_point, "timestamp")
-                precipitation_rate = _safe_get(data_point, "precipitationrate")
+                timestamp = _as_float(_safe_get(data_point, "timestamp"))
+                precipitation_rate = _as_float(_safe_get(data_point, "precipitationrate"))
                 precipitation_type = _safe_get(data_point, "precipitationtype")
 
                 if timestamp is not None and precipitation_rate is not None:
@@ -658,13 +674,9 @@ class BuienalarmEntity(CoordinatorEntity):
                     )
 
                     # Check if current time is within the 5-minute forecast bin [timestamp, timestamp + 300)
-                    if isinstance(timestamp, (int, float)) and timestamp <= current_ts < timestamp + 300:
-                        try:
-                            current_precipitation_rate = float(precipitation_rate)
-                            return current_precipitation_rate
-                        except (ValueError, TypeError):
-                            return 0.0
-        return current_precipitation_rate
+                    if timestamp <= current_ts < timestamp + 300:
+                        return precipitation_rate
+        return 0.0
 
     NO_PRECIPITATION = "Geen neerslag"
 
@@ -713,14 +725,9 @@ class BuienalarmEntity(CoordinatorEntity):
                 )
                 continue
 
-            ts = _safe_get(data_point, "timestamp", 0)
-            # Bolt performance optimization: direct numeric comparison for 5-minute bin
-            if isinstance(ts, (int, float)) and ts <= current_ts < ts + 300:
-                raw_rate = _safe_get(data_point, "precipitationrate", 0.0)
-                try:
-                    current_precipitation_rate = float(raw_rate)
-                except (ValueError, TypeError):
-                    current_precipitation_rate = 0.0
+            ts = _as_float(_safe_get(data_point, "timestamp"))
+            if ts is not None and ts <= current_ts < ts + 300:
+                current_precipitation_rate = _as_float(_safe_get(data_point, "precipitationrate")) or 0.0
 
                 raw_type = _safe_get(data_point, "precipitationtype")
                 current_precipitation_type: str = (
@@ -768,14 +775,9 @@ class BuienalarmEntity(CoordinatorEntity):
                 )
                 continue
 
-            timestamp = _safe_get(data_point, "timestamp", 0.0)
-            # Bolt performance optimization: direct numeric epoch check
-            if isinstance(timestamp, (int, float)) and timestamp <= current_ts < timestamp + 300:
-                raw_rate = _safe_get(data_point, "precipitationrate", 0)
-                try:
-                    current_rate = float(raw_rate)
-                except (ValueError, TypeError):
-                    current_rate = 0.0
+            timestamp = _as_float(_safe_get(data_point, "timestamp"))
+            if timestamp is not None and timestamp <= current_ts < timestamp + 300:
+                current_rate = _as_float(_safe_get(data_point, "precipitationrate")) or 0.0
 
                 if current_rate > 0:
                     current_type = _safe_get(data_point, "precipitationtype")
@@ -834,53 +836,13 @@ class BuienalarmEntity(CoordinatorEntity):
                 continue
 
             # Forecast points are 5‑minute bins.
-            ts_raw: object = _safe_get(data_point, "timestamp")
+            ts = _as_float(_safe_get(data_point, "timestamp"))
 
-            # Skip if timestamp is missing or malformed
-            if not isinstance(ts_raw, (int, float)):
-                _LOGGER.debug(
-                    "[BUIENALARM ENTITY] Skipping invalid timestamp (type=%s) for %s: %r",
-                    type(ts_raw).__name__,
-                    self.sensor_key,
-                    ts_raw,
-                )
+            # Skip if timestamp is missing or malformed or in the past
+            if ts is None or ts < now_ts:
                 continue
 
-            try:
-                ts: float = float(ts_raw)
-            except (TypeError, ValueError):
-                _LOGGER.debug(
-                    "[BUIENALARM ENTITY] Skipping unparsable timestamp for %s: %r",
-                    self.sensor_key,
-                    ts_raw,
-                )
-                continue
-
-            # Ignore any point that lies in the past
-            if ts < now_ts:
-                continue
-
-            # Extract and validate precipitation rate
-            raw_rate: object = _safe_get(data_point, "precipitationrate", 0.0)
-
-            if not isinstance(raw_rate, (int, float, str)):
-                _LOGGER.debug(
-                    "[BUIENALARM ENTITY] Skipping invalid precipitation rate (type=%s) for %s: %r",
-                    type(raw_rate).__name__,
-                    self.sensor_key,
-                    raw_rate,
-                )
-                rate: float = 0.0
-            else:
-                try:
-                    rate: float = float(raw_rate)
-                except (TypeError, ValueError):
-                    _LOGGER.debug(
-                        "[BUIENALARM ENTITY] Failed to parse precipitation rate for %s: %r",
-                        self.sensor_key,
-                        raw_rate,
-                    )
-                    rate = 0.0
+            rate = _as_float(_safe_get(data_point, "precipitationrate")) or 0.0
 
             if rate > 0:
                 # Found the first future bin with precipitation
