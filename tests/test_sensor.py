@@ -157,6 +157,10 @@ async def test_nowcastmessage_edge_cases(hass: HomeAssistant) -> None:
     coordinator.data = {"nowcastmessage": {"nl": "Geen neerslag"}}
     assert entity.get_nowcastmessage() == "Geen neerslag"
 
+    # 8. Out-of-bounds timestamp placeholder in nowcastmessage
+    coordinator.data = {"nowcastmessage": {"nl": "Regen om {99999999999999999999}"}}
+    assert entity.get_nowcastmessage() == "Regen om {99999999999999999999}"
+
 
 @pytest.mark.asyncio
 async def test_buienalarm_entity_untrusted_data_handling(hass: HomeAssistant) -> None:

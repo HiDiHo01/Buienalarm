@@ -326,10 +326,18 @@ class BuienalarmEntity(CoordinatorEntity):
         if not matches:
             return nowcastmessage_data
 
-        datetimes_local = [
-            dt.as_local(dt.utc_from_timestamp(int(timestamp)))
-            for timestamp in matches
-        ]
+        try:
+            datetimes_local = [
+                dt.as_local(datetime.fromtimestamp(int(timestamp), tz=timezone.utc))
+                for timestamp in matches
+            ]
+        except (ValueError, OverflowError, OSError) as exc:
+            _LOGGER.debug(
+                "[BUIENALARM ENTITY] Could not format timestamp in nowcastmessage '%s': %s",
+                nowcastmessage_data,
+                exc,
+            )
+            return nowcastmessage_data
 
         for timestamp, local_dt in zip(matches, datetimes_local):
             formatted_time = f"{local_dt.hour}:{local_dt.minute:02d}"
