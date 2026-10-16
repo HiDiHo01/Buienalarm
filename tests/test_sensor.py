@@ -255,11 +255,10 @@ async def test_buienalarm_entity_invalid_precipitation_rates(hass: HomeAssistant
 
 
 @pytest.mark.asyncio
-async def test_buienalarm_sensor_entity_availability(hass: HomeAssistant) -> None:
-    """Test BuienalarmSensorEntity available property returns False when coordinator data is empty."""
+async def test_buienalarm_sensor_availability(hass: HomeAssistant) -> None:
+    """Test BuienalarmSensor available property returns False when coordinator data is empty or invalid."""
     from unittest.mock import MagicMock
-    from homeassistant.components.sensor import SensorEntityDescription
-    from custom_components.buienalarm.entity import BuienalarmSensorEntity
+    from custom_components.buienalarm.sensor import BuienalarmSensor
 
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -270,25 +269,33 @@ async def test_buienalarm_sensor_entity_availability(hass: HomeAssistant) -> Non
 
     coordinator = MagicMock()
     coordinator.last_update_success = True
-    desc = SensorEntityDescription(key="nowcastmessage", name="Test Sensor")
-    sensor_entity = BuienalarmSensorEntity(coordinator, entry, desc, "loc_123", "Test Location")
+    sensor = BuienalarmSensor(
+        coordinator,
+        entry,
+        name="Nowcast message",
+        unit_of_measurement=None,
+        icon="mdi:weather-rainy",
+        device_class=None,
+        state_class=None,
+        key="nowcastmessage",
+    )
 
     # When coordinator data is valid dict
-    coordinator.data = {"nowcastmessage": "Rain expected"}
-    assert sensor_entity.available is True
+    coordinator.data = {"nowcastmessage": {"nl": "Regen verwacht"}}
+    assert sensor.available is True
 
     # When coordinator data is empty dict
     coordinator.data = {}
-    assert sensor_entity.available is False
+    assert sensor.available is False
 
     # When coordinator data is None or non-mapping
     coordinator.data = None
-    assert sensor_entity.available is False
+    assert sensor.available is False
 
     # When last_update_success is False
     coordinator.last_update_success = False
-    coordinator.data = {"nowcastmessage": "Rain expected"}
-    assert sensor_entity.available is False
+    coordinator.data = {"nowcastmessage": {"nl": "Regen verwacht"}}
+    assert sensor.available is False
 
 
 @pytest.mark.asyncio
@@ -885,3 +892,35 @@ async def test_dynamic_sensor_icons(hass: HomeAssistant) -> None:
     }
 
     assert precip_type_sensor.icon == "mdi:weather-snowy"
+
+
+@pytest.mark.asyncio
+async def test_overflow_timestamps_in_duration_and_rain_start(hass: HomeAssistant) -> None:
+    """Verify extreme timestamps causing OverflowError or OSError are handled safely."""
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.entity import BuienalarmEntity
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Buienalarm Overflow Timestamp Test",
+        unique_id="test_overflow_ts",
+        data={"latitude": 52.3702, "longitude": 4.8952},
+    )
+
+    coordinator = MagicMock()
+    entity = BuienalarmEntity(coordinator, entry, "precipitation_duration")
+
+    coordinator.data = {
+        "data": [
+            {
+                "timestamp": 1e300,
+                "precipitationrate": 2.5,
+                "precipitationtype": "rain",
+            }
+        ]
+    }
+
+    assert entity.get_precipitation_duration() == 0
+    (start, stop, restart, dur, stopped) = entity.get_rain_start_time_and_duration(coordinator.data["data"])
+    assert start is None
+    assert dur == 0

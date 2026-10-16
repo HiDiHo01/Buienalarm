@@ -239,25 +239,23 @@ async def test_binary_sensors_missing_or_invalid_data(hass: HomeAssistant) -> No
 
 
 @pytest.mark.asyncio
-async def test_binary_sensors_historical_precipitation_ignored(hass: HomeAssistant) -> None:
-    """Test precipitation_expected remains off when precipitation only occurred in historical periods."""
+async def test_binary_sensor_precipitation_expected_historical_only(
+    hass: HomeAssistant,
+) -> None:
+    """Test precipitation_expected is off when rain occurred only in an expired historical interval."""
     now_ts = datetime.now(timezone.utc).timestamp()
+    past_ts = now_ts - 600  # 10 minutes ago (interval ended 5 minutes ago)
     data = {
         "data": [
             {
-                "precipitationrate": 3.0,
+                "precipitationrate": 2.5,
                 "precipitationtype": "rain",
-                "timestamp": now_ts - 600,  # 10 min ago, interval ended 5 min ago
+                "timestamp": past_ts,
             },
             {
                 "precipitationrate": 0.0,
                 "precipitationtype": "rain",
                 "timestamp": now_ts,
-            },
-            {
-                "precipitationrate": 0.0,
-                "precipitationtype": "rain",
-                "timestamp": now_ts + 300,
             },
         ]
     }
@@ -268,7 +266,7 @@ async def test_binary_sensors_historical_precipitation_ignored(hass: HomeAssista
     ):
         entry = MockConfigEntry(
             domain=DOMAIN,
-            title="Buienalarm Test Historical",
+            title="Buienalarm Historical Test",
             unique_id="test_historical",
             data={"latitude": 52.3702, "longitude": 4.8952},
         )
@@ -278,7 +276,6 @@ async def test_binary_sensors_historical_precipitation_ignored(hass: HomeAssista
         await hass.async_block_till_done()
 
         entity_registry = async_get_entity_registry(hass)
-
         exp_id = entity_registry.async_get_entity_id(
             "binary_sensor", DOMAIN, f"{entry.entry_id}_precipitation_expected"
         )
