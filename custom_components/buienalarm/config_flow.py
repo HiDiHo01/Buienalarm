@@ -71,6 +71,27 @@ def _get_default_coordinates(hass: Any) -> tuple[float, float]:
     return DEFAULT_LATITUDE, DEFAULT_LONGITUDE
 
 
+def _parse_refresh_interval(val: Any) -> int:
+    """Parse refresh interval value returning -1 if invalid or boolean."""
+    if isinstance(val, bool):
+        return -1
+    try:
+        return int(val)
+    except (ValueError, TypeError, OverflowError):
+        return -1
+
+
+def _parse_notification_limit(val: Any) -> float:
+    """Parse notification limit value returning -1.0 if invalid, non-finite, or boolean."""
+    if isinstance(val, bool):
+        return -1.0
+    try:
+        limit = float(val)
+        return -1.0 if math.isnan(limit) or math.isinf(limit) else limit
+    except (ValueError, TypeError, OverflowError):
+        return -1.0
+
+
 def _validate_flow_input(
     user_input: dict[str, Any],
 ) -> tuple[dict[str, str], float, float, int, float]:
@@ -79,25 +100,12 @@ def _validate_flow_input(
     latitude_raw: str = str(user_input[CONF_LATITUDE]).replace(",", ".")
     longitude_raw: str = str(user_input[CONF_LONGITUDE]).replace(",", ".")
 
-    raw_refresh = user_input.get("refresh_interval", DEFAULT_REFRESH_INTERVAL)
-    if isinstance(raw_refresh, bool):
-        refresh_interval = -1
-    else:
-        try:
-            refresh_interval = int(raw_refresh)
-        except (ValueError, TypeError, OverflowError):
-            refresh_interval = -1
-
-    raw_notif = user_input.get("notification_limit", DEFAULT_NOTIFICATION_LIMIT)
-    if isinstance(raw_notif, bool):
-        notification_limit = -1.0
-    else:
-        try:
-            notification_limit = float(raw_notif)
-            if math.isnan(notification_limit) or math.isinf(notification_limit):
-                notification_limit = -1.0
-        except (ValueError, TypeError, OverflowError):
-            notification_limit = -1.0
+    refresh_interval = _parse_refresh_interval(
+        user_input.get("refresh_interval", DEFAULT_REFRESH_INTERVAL)
+    )
+    notification_limit = _parse_notification_limit(
+        user_input.get("notification_limit", DEFAULT_NOTIFICATION_LIMIT)
+    )
 
     if not _is_valid_coordinates(latitude_raw, longitude_raw):
         errors["base"] = "invalid_coordinates"
