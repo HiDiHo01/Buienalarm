@@ -70,6 +70,87 @@ def _get_default_coordinates(hass: Any) -> tuple[float, float]:
     return DEFAULT_LATITUDE, DEFAULT_LONGITUDE
 
 
+def _validate_flow_input(
+    user_input: dict[str, Any],
+) -> tuple[dict[str, str], float, float, int, float]:
+    """Validate user input for config and options flows."""
+    errors: dict[str, str] = {}
+    latitude_raw: str = str(user_input[CONF_LATITUDE]).replace(",", ".")
+    longitude_raw: str = str(user_input[CONF_LONGITUDE]).replace(",", ".")
+
+    try:
+        refresh_interval: int = int(user_input.get("refresh_interval", DEFAULT_REFRESH_INTERVAL))
+    except (ValueError, TypeError):
+        refresh_interval = -1
+
+    try:
+        notification_limit: float = float(user_input.get("notification_limit", DEFAULT_NOTIFICATION_LIMIT))
+    except (ValueError, TypeError):
+        notification_limit = -1.0
+
+    if not _is_valid_coordinates(latitude_raw, longitude_raw):
+        errors["base"] = "invalid_coordinates"
+    elif refresh_interval < 60:
+        errors["base"] = "invalid_refresh_interval"
+    elif notification_limit < 0:
+        errors["base"] = "invalid_notification_limit"
+
+    lat = float(latitude_raw) if not errors else 0.0
+    lon = float(longitude_raw) if not errors else 0.0
+
+    return errors, lat, lon, refresh_interval, notification_limit
+
+
+def _build_flow_schema(
+    defaults: dict[str, Any], is_optional: bool = False
+) -> vol.Schema:
+    """Build the voluptuous schema with selectors for forms."""
+    opt_or_req = vol.Optional if is_optional else vol.Required
+    return vol.Schema(
+        {
+            vol.Required(CONF_NAME, default=defaults.get(CONF_NAME, NAME)): TextSelector(),
+            vol.Required(
+                CONF_LATITUDE, default=defaults.get(CONF_LATITUDE, DEFAULT_LATITUDE)
+            ): NumberSelector(
+                NumberSelectorConfig(
+                    step="any",
+                    mode=NumberSelectorMode.BOX,
+                )
+            ),
+            vol.Required(
+                CONF_LONGITUDE, default=defaults.get(CONF_LONGITUDE, DEFAULT_LONGITUDE)
+            ): NumberSelector(
+                NumberSelectorConfig(
+                    step="any",
+                    mode=NumberSelectorMode.BOX,
+                )
+            ),
+            opt_or_req(
+                "notification_limit",
+                default=defaults.get(
+                    "notification_limit", DEFAULT_NOTIFICATION_LIMIT
+                ),
+            ): NumberSelector(
+                NumberSelectorConfig(
+                    step=0.1,
+                    mode=NumberSelectorMode.BOX,
+                    unit_of_measurement="mm/h",
+                )
+            ),
+            opt_or_req(
+                "refresh_interval",
+                default=defaults.get("refresh_interval", DEFAULT_REFRESH_INTERVAL),
+            ): NumberSelector(
+                NumberSelectorConfig(
+                    step=1,
+                    mode=NumberSelectorMode.BOX,
+                    unit_of_measurement="s",
+                )
+            ),
+        }
+    )
+
+
 # -----------------------------------------------------------------------------
 # Config Flow
 # -----------------------------------------------------------------------------
@@ -92,27 +173,10 @@ class BuienalarmConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            latitude_raw: str = str(user_input[CONF_LATITUDE]).replace(",", ".")
-            longitude_raw: str = str(user_input[CONF_LONGITUDE]).replace(",", ".")
+            errors, lat, lon, refresh_interval, notification_limit = _validate_flow_input(user_input)
 
-            try:
-                refresh_interval: int = int(user_input.get("refresh_interval", DEFAULT_REFRESH_INTERVAL))
-            except (ValueError, TypeError):
-                refresh_interval = -1
-
-            try:
-                notification_limit: float = float(user_input.get("notification_limit", DEFAULT_NOTIFICATION_LIMIT))
-            except (ValueError, TypeError):
-                notification_limit = -1.0
-
-            if not _is_valid_coordinates(latitude_raw, longitude_raw):
-                errors["base"] = "invalid_coordinates"
-            elif refresh_interval < 60:
-                errors["base"] = "invalid_refresh_interval"
-            elif notification_limit < 0:
-                errors["base"] = "invalid_notification_limit"
-            else:
-                unique_id: str = f"{latitude_raw}_{longitude_raw}"
+            if not errors:
+                unique_id: str = f"{lat}_{lon}"
 
                 # Register unique_id with HA and abort if it already exists.
                 await self.async_set_unique_id(unique_id)
@@ -123,15 +187,15 @@ class BuienalarmConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     CONF_NAME, NAME
                 )  # Default name if not provided
 
-                lat_title = round(float(latitude_raw), 4)
-                lon_title = round(float(longitude_raw), 4)
+                lat_title = round(lat, 4)
+                lon_title = round(lon, 4)
 
                 return self.async_create_entry(
                     title=f"{location_name} ({lat_title}, {lon_title})",
                     data={
-                        CONF_NAME: user_input.get(CONF_NAME, NAME),
-                        CONF_LATITUDE: float(latitude_raw),
-                        CONF_LONGITUDE: float(longitude_raw),
+                        CONF_NAME: location_name,
+                        CONF_LATITUDE: lat,
+                        CONF_LONGITUDE: lon,
                         "location_id": unique_id,
                         "location_name": location_name,
                         "notification_limit": notification_limit,
@@ -147,45 +211,16 @@ class BuienalarmConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def _show_form(self, errors: dict[str, str] | None = None) -> FlowResult:
         """Return the form definition for the *user* step."""
         default_lat, default_lon = _get_default_coordinates(self.hass)
-
-        data_schema: vol.Schema = vol.Schema(
-            {
-                vol.Required(CONF_NAME, default=NAME): TextSelector(),
-                vol.Required(CONF_LATITUDE, default=default_lat): NumberSelector(
-                    NumberSelectorConfig(
-                        step="any",
-                        mode=NumberSelectorMode.BOX,
-                    )
-                ),
-                vol.Required(CONF_LONGITUDE, default=default_lon): NumberSelector(
-                    NumberSelectorConfig(
-                        step="any",
-                        mode=NumberSelectorMode.BOX,
-                    )
-                ),
-                vol.Optional(
-                    "notification_limit", default=DEFAULT_NOTIFICATION_LIMIT
-                ): NumberSelector(
-                    NumberSelectorConfig(
-                        step=0.1,
-                        mode=NumberSelectorMode.BOX,
-                        unit_of_measurement="mm/h",
-                    )
-                ),
-                vol.Optional(
-                    "refresh_interval", default=DEFAULT_REFRESH_INTERVAL
-                ): NumberSelector(
-                    NumberSelectorConfig(
-                        step=1,
-                        mode=NumberSelectorMode.BOX,
-                        unit_of_measurement="s",
-                    )
-                ),
-            }
-        )
+        defaults = {
+            CONF_NAME: NAME,
+            CONF_LATITUDE: default_lat,
+            CONF_LONGITUDE: default_lon,
+            "notification_limit": DEFAULT_NOTIFICATION_LIMIT,
+            "refresh_interval": DEFAULT_REFRESH_INTERVAL,
+        }
         return self.async_show_form(
             step_id="user",
-            data_schema=data_schema,
+            data_schema=_build_flow_schema(defaults, is_optional=True),
             errors=errors or {},
         )
 
@@ -220,31 +255,14 @@ class BuienalarmOptionsFlow(config_entries.OptionsFlow):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            latitude_raw: str = str(user_input[CONF_LATITUDE]).replace(",", ".")
-            longitude_raw: str = str(user_input[CONF_LONGITUDE]).replace(",", ".")
+            errors, lat, lon, refresh_interval, notification_limit = _validate_flow_input(user_input)
 
-            try:
-                refresh_interval: int = int(user_input.get("refresh_interval", DEFAULT_REFRESH_INTERVAL))
-            except (ValueError, TypeError):
-                refresh_interval = -1
-
-            try:
-                notification_limit: float = float(user_input.get("notification_limit", DEFAULT_NOTIFICATION_LIMIT))
-            except (ValueError, TypeError):
-                notification_limit = -1.0
-
-            if not _is_valid_coordinates(latitude_raw, longitude_raw):
-                errors["base"] = "invalid_coordinates"
-            elif refresh_interval < 60:
-                errors["base"] = "invalid_refresh_interval"
-            elif notification_limit < 0:
-                errors["base"] = "invalid_notification_limit"
-            else:
+            if not errors:
                 _LOGGER.debug(
                     "Updating options for entry %s", self._entry.entry_id
                 )
-                user_input[CONF_LATITUDE] = float(latitude_raw)
-                user_input[CONF_LONGITUDE] = float(longitude_raw)
+                user_input[CONF_LATITUDE] = lat
+                user_input[CONF_LONGITUDE] = lon
                 user_input["refresh_interval"] = refresh_interval
                 user_input["notification_limit"] = notification_limit
                 return self.async_create_entry(title="", data=user_input)
@@ -262,62 +280,24 @@ class BuienalarmOptionsFlow(config_entries.OptionsFlow):
         """Return schema for the options form."""
         options = user_input if user_input is not None else self._entry.options
         data = self._entry.data
-        return vol.Schema(
-            {
-                vol.Required(
-                    CONF_NAME,
-                    default=options.get(CONF_NAME, data.get(CONF_NAME, NAME)),
-                ): TextSelector(),
-                vol.Required(
-                    CONF_LATITUDE,
-                    default=options.get(
-                        CONF_LATITUDE, data.get(CONF_LATITUDE, DEFAULT_LATITUDE)
-                    ),
-                ): NumberSelector(
-                    NumberSelectorConfig(
-                        step="any",
-                        mode=NumberSelectorMode.BOX,
-                    )
-                ),
-                vol.Required(
-                    CONF_LONGITUDE,
-                    default=options.get(
-                        CONF_LONGITUDE, data.get(CONF_LONGITUDE, DEFAULT_LONGITUDE)
-                    ),
-                ): NumberSelector(
-                    NumberSelectorConfig(
-                        step="any",
-                        mode=NumberSelectorMode.BOX,
-                    )
-                ),
-                vol.Required(
-                    "notification_limit",
-                    default=options.get(
-                        "notification_limit",
-                        data.get("notification_limit", DEFAULT_NOTIFICATION_LIMIT),
-                    ),
-                ): NumberSelector(
-                    NumberSelectorConfig(
-                        step=0.1,
-                        mode=NumberSelectorMode.BOX,
-                        unit_of_measurement="mm/h",
-                    )
-                ),
-                vol.Required(
-                    "refresh_interval",
-                    default=options.get(
-                        "refresh_interval",
-                        data.get("refresh_interval", DEFAULT_REFRESH_INTERVAL),
-                    ),
-                ): NumberSelector(
-                    NumberSelectorConfig(
-                        step=1,
-                        mode=NumberSelectorMode.BOX,
-                        unit_of_measurement="s",
-                    )
-                ),
-            }
-        )
+        defaults = {
+            CONF_NAME: options.get(CONF_NAME, data.get(CONF_NAME, NAME)),
+            CONF_LATITUDE: options.get(
+                CONF_LATITUDE, data.get(CONF_LATITUDE, DEFAULT_LATITUDE)
+            ),
+            CONF_LONGITUDE: options.get(
+                CONF_LONGITUDE, data.get(CONF_LONGITUDE, DEFAULT_LONGITUDE)
+            ),
+            "notification_limit": options.get(
+                "notification_limit",
+                data.get("notification_limit", DEFAULT_NOTIFICATION_LIMIT),
+            ),
+            "refresh_interval": options.get(
+                "refresh_interval",
+                data.get("refresh_interval", DEFAULT_REFRESH_INTERVAL),
+            ),
+        }
+        return _build_flow_schema(defaults, is_optional=False)
 
 
 # -----------------------------------------------------------------------------

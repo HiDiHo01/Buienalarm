@@ -120,8 +120,17 @@ async def test_options_flow_invalid_coordinates(hass: HomeAssistant) -> None:
 
 
 @pytest.mark.asyncio
-async def test_options_flow_invalid_refresh_interval(hass: HomeAssistant) -> None:
-    """Test that options flow rejects refresh interval less than 60 seconds."""
+@pytest.mark.parametrize(
+    "field,value,expected_error",
+    [
+        ("refresh_interval", 30, "invalid_refresh_interval"),
+        ("notification_limit", -5, "invalid_notification_limit"),
+    ],
+)
+async def test_options_flow_invalid_inputs(
+    hass: HomeAssistant, field: str, value: int, expected_error: str
+) -> None:
+    """Test that options flow rejects invalid numeric inputs."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={
@@ -136,95 +145,54 @@ async def test_options_flow_invalid_refresh_interval(hass: HomeAssistant) -> Non
     )
     entry.add_to_hass(hass)
 
-    result = await hass.config_entries.options.async_init(entry.entry_id)
-    result2 = await hass.config_entries.options.async_configure(
-        result["flow_id"],
-        user_input={
-            CONF_NAME: "Custom Spot",
-            CONF_LATITUDE: 51.5,
-            CONF_LONGITUDE: 4.5,
-            "notification_limit": 0,
-            "refresh_interval": 30,
-        },
-    )
-
-    assert result2["type"] == FlowResultType.FORM
-    assert result2["errors"] == {"base": "invalid_refresh_interval"}
-
-
-@pytest.mark.asyncio
-async def test_options_flow_invalid_notification_limit(hass: HomeAssistant) -> None:
-    """Test that options flow rejects negative notification limit."""
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        data={
-            CONF_NAME: "Custom Spot",
-            CONF_LATITUDE: 51.5,
-            CONF_LONGITUDE: 4.5,
-            "notification_limit": 0,
-            "refresh_interval": 300,
-        },
-        options={},
-        unique_id="51.5_4.5",
-    )
-    entry.add_to_hass(hass)
+    user_input = {
+        CONF_NAME: "Custom Spot",
+        CONF_LATITUDE: 51.5,
+        CONF_LONGITUDE: 4.5,
+        "notification_limit": 0,
+        "refresh_interval": 300,
+        field: value,
+    }
 
     result = await hass.config_entries.options.async_init(entry.entry_id)
     result2 = await hass.config_entries.options.async_configure(
-        result["flow_id"],
-        user_input={
-            CONF_NAME: "Custom Spot",
-            CONF_LATITUDE: 51.5,
-            CONF_LONGITUDE: 4.5,
-            "notification_limit": -5,
-            "refresh_interval": 300,
-        },
+        result["flow_id"], user_input=user_input
     )
 
     assert result2["type"] == FlowResultType.FORM
-    assert result2["errors"] == {"base": "invalid_notification_limit"}
+    assert result2["errors"] == {"base": expected_error}
 
 
 @pytest.mark.asyncio
-async def test_config_flow_invalid_refresh_interval(hass: HomeAssistant) -> None:
-    """Test that config flow rejects refresh interval less than 60 seconds."""
+@pytest.mark.parametrize(
+    "field,value,expected_error",
+    [
+        ("refresh_interval", 10, "invalid_refresh_interval"),
+        ("notification_limit", -1, "invalid_notification_limit"),
+    ],
+)
+async def test_config_flow_invalid_inputs(
+    hass: HomeAssistant, field: str, value: int, expected_error: str
+) -> None:
+    """Test that config flow rejects invalid numeric inputs."""
+    user_input = {
+        CONF_NAME: "Test Location",
+        CONF_LATITUDE: 52.3,
+        CONF_LONGITUDE: 4.9,
+        "notification_limit": 0,
+        "refresh_interval": 300,
+        field: value,
+    }
+
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": SOURCE_USER}
     )
     result2 = await hass.config_entries.flow.async_configure(
-        result["flow_id"],
-        user_input={
-            CONF_NAME: "Test Location",
-            CONF_LATITUDE: 52.3,
-            CONF_LONGITUDE: 4.9,
-            "notification_limit": 0,
-            "refresh_interval": 10,
-        },
+        result["flow_id"], user_input=user_input
     )
 
     assert result2["type"] == FlowResultType.FORM
-    assert result2["errors"] == {"base": "invalid_refresh_interval"}
-
-
-@pytest.mark.asyncio
-async def test_config_flow_invalid_notification_limit(hass: HomeAssistant) -> None:
-    """Test that config flow rejects negative notification limit."""
-    result = await hass.config_entries.flow.async_init(
-        DOMAIN, context={"source": SOURCE_USER}
-    )
-    result2 = await hass.config_entries.flow.async_configure(
-        result["flow_id"],
-        user_input={
-            CONF_NAME: "Test Location",
-            CONF_LATITUDE: 52.3,
-            CONF_LONGITUDE: 4.9,
-            "notification_limit": -1,
-            "refresh_interval": 300,
-        },
-    )
-
-    assert result2["type"] == FlowResultType.FORM
-    assert result2["errors"] == {"base": "invalid_notification_limit"}
+    assert result2["errors"] == {"base": expected_error}
 
 
 @pytest.mark.asyncio
