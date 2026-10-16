@@ -1,5 +1,6 @@
 """Tests for the Buienalarm config and options flow."""
 
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -125,10 +126,12 @@ async def test_options_flow_invalid_coordinates(hass: HomeAssistant) -> None:
     [
         ("refresh_interval", 30, "invalid_refresh_interval"),
         ("notification_limit", -5, "invalid_notification_limit"),
+        ("notification_limit", float("nan"), "invalid_notification_limit"),
+        ("notification_limit", float("inf"), "invalid_notification_limit"),
     ],
 )
 async def test_options_flow_invalid_inputs(
-    hass: HomeAssistant, field: str, value: int, expected_error: str
+    hass: HomeAssistant, field: str, value: Any, expected_error: str
 ) -> None:
     """Test that options flow rejects invalid numeric inputs."""
     entry = MockConfigEntry(
@@ -169,10 +172,12 @@ async def test_options_flow_invalid_inputs(
     [
         ("refresh_interval", 10, "invalid_refresh_interval"),
         ("notification_limit", -1, "invalid_notification_limit"),
+        ("notification_limit", float("nan"), "invalid_notification_limit"),
+        ("notification_limit", float("inf"), "invalid_notification_limit"),
     ],
 )
 async def test_config_flow_invalid_inputs(
-    hass: HomeAssistant, field: str, value: int, expected_error: str
+    hass: HomeAssistant, field: str, value: Any, expected_error: str
 ) -> None:
     """Test that config flow rejects invalid numeric inputs."""
     user_input = {
