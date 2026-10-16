@@ -202,3 +202,48 @@ async def test_config_flow_default_coordinates_zero_latitude(
     defaults = result["data_schema"]({})
     assert defaults[CONF_LATITUDE] == 0.0
     assert defaults[CONF_LONGITUDE] == 5.0
+
+
+@pytest.mark.asyncio
+async def test_options_flow_range_validation(hass: HomeAssistant) -> None:
+    """Test that options flow schema enforces range limits on notification_limit and refresh_interval."""
+    import voluptuous as vol
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            CONF_NAME: "Spot",
+            CONF_LATITUDE: 52.0,
+            CONF_LONGITUDE: 5.0,
+        },
+        options={},
+        unique_id="52.0_5.0",
+    )
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert result["type"] == FlowResultType.FORM
+
+    # Submit refresh_interval below 60
+    with pytest.raises(vol.MultipleInvalid):
+        result["data_schema"](
+            {
+                CONF_NAME: "Spot",
+                CONF_LATITUDE: 52.0,
+                CONF_LONGITUDE: 5.0,
+                "notification_limit": 0,
+                "refresh_interval": 10,
+            }
+        )
+
+    # Submit notification_limit below 0
+    with pytest.raises(vol.MultipleInvalid):
+        result["data_schema"](
+            {
+                CONF_NAME: "Spot",
+                CONF_LATITUDE: 52.0,
+                CONF_LONGITUDE: 5.0,
+                "notification_limit": -1,
+                "refresh_interval": 300,
+            }
+        )

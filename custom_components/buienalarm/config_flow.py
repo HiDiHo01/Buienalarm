@@ -139,8 +139,10 @@ class BuienalarmConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_LONGITUDE, default=default_lon): float,
                 vol.Optional(
                     "notification_limit", default=DEFAULT_NOTIFICATION_LIMIT
-                ): int,
-                vol.Optional("refresh_interval", default=DEFAULT_REFRESH_INTERVAL): int,
+                ): vol.All(vol.Coerce(int), vol.Range(min=0)),
+                vol.Optional(
+                    "refresh_interval", default=DEFAULT_REFRESH_INTERVAL
+                ): vol.All(vol.Coerce(int), vol.Range(min=60)),
             }
         )
         return self.async_show_form(
@@ -230,14 +232,14 @@ class BuienalarmOptionsFlow(config_entries.OptionsFlow):
                         "notification_limit",
                         data.get("notification_limit", DEFAULT_NOTIFICATION_LIMIT),
                     ),
-                ): int,
+                ): vol.All(vol.Coerce(int), vol.Range(min=0)),
                 vol.Required(
                     "refresh_interval",
                     default=options.get(
                         "refresh_interval",
                         data.get("refresh_interval", DEFAULT_REFRESH_INTERVAL),
                     ),
-                ): int,
+                ): vol.All(vol.Coerce(int), vol.Range(min=60)),
             }
         )
 
