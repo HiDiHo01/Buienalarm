@@ -998,20 +998,33 @@ class BuienalarmEntity(CoordinatorEntity):
 
     def _get_precipitation_periods(self) -> list[dict[str, object]]:
         """
-        Bepaal toekomstige neerslagperiodes op basis van neerslagdata.
+        Return ongoing and future periods of positive forecast precipitation.
 
-        De coordinator bevat ruwe API-data als een lijst van dicts met de keys:
-            - 'timestamp' (int|float): UNIX epoch in seconden
-            - 'precipitationrate' (float): neerslagsnelheid in mm/u
+        Read self.data["data"] in input order, using timestamp as Unix seconds
+        and precipitationrate as mm/h. Include a five-minute interval only if
+        its end is strictly after the current UTC time, even if it has already
+        started.
 
-        Alleen toekomstige datapunten worden meegenomen.
+        A period ends at the next retained rate that is not greater than zero,
+        or at the last retained timestamp if still open. No five minutes are
+        added to that final timestamp, so an open period with one point lasts
+        zero minutes. Return an empty list for missing or non-list data, or when
+        there are no precipitation periods. Rate conversions raising TypeError
+        or ValueError are skipped; timestamp conversion errors propagate.
 
         Returns:
-            list[dict[str, object]]: Een lijst met dicts per neerslagperiode:
-                - start (datetime): starttijd in lokale tijd
-                - stop (datetime): stoptijd in lokale tijd
-                - duration_minutes (int): duur van de periode in minuten
-                - precipitationrate (float): gemiddelde neerslagsnelheid in mm/u
+            A list of dictionaries per period:
+                - start: aware datetime in Home Assistant's local timezone.
+                - stop: aware datetime in Home Assistant's local timezone.
+                - duration_minutes: elapsed whole minutes from start to stop.
+                - precipitationrate: arithmetic mean of the positive rates in
+                  mm/h, rounded to two decimal places.
+
+        Raises:
+            ValueError: A retained timestamp is NaN or outside datetime's range.
+            OverflowError: A timestamp or precipitation rate exceeds numeric
+                conversion limits.
+            OSError: The system cannot convert a retained timestamp.
         """
         precipitation_data: object = self.data.get("data", [])
         now_utc = datetime.now(timezone.utc)
