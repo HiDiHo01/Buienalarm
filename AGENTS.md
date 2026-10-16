@@ -649,12 +649,6 @@ Before refactoring:
 
 During refactoring:
 
-* Keep each function's Cognitive Complexity at **15 or below**, following the configured SonarQube/SonarLint threshold.
-* When a function exceeds the threshold, refactor its control flow by reducing nesting, using early returns where appropriate, and extracting cohesive helper functions with clear responsibilities.
-* Preserve behavior, error handling, type safety, and public interfaces. Do not split functions into trivial helpers solely to lower the score; improve readability and maintainability.
-* Add or update tests as needed, then run the relevant tests and configured quality checks to verify the refactor.
-
-
 * Preserve externally observable behavior unless a change is intentional.
 * Preserve existing entity unique IDs, device identifiers, config-entry data, and supported public APIs.
 * Add migrations when stored configuration formats change.

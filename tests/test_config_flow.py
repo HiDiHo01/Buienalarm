@@ -10,6 +10,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.buienalarm.config_flow import _validate_flow_input
 from custom_components.buienalarm.const import DOMAIN
 
 
@@ -308,3 +309,26 @@ async def test_config_flow_normalized_unique_id(hass: HomeAssistant) -> None:
 
     assert result2["type"] == FlowResultType.CREATE_ENTRY
     assert result2["result"].unique_id == "52.37_4.895"
+
+
+def test_validate_flow_input_missing_coordinates() -> None:
+    """Test that _validate_flow_input handles missing latitude/longitude without KeyError."""
+    errors, lat, lon, refresh, notif = _validate_flow_input({CONF_NAME: "Missing Lat"})
+    assert errors == {"base": "invalid_coordinates"}
+
+
+def test_validate_flow_input_none_optional_inputs() -> None:
+    """Test that _validate_flow_input handles None for optional fields cleanly."""
+    user_input = {
+        CONF_NAME: "Default Spot",
+        CONF_LATITUDE: 52.3,
+        CONF_LONGITUDE: 4.9,
+        "notification_limit": None,
+        "refresh_interval": None,
+    }
+    errors, lat, lon, refresh, notif = _validate_flow_input(user_input)
+    assert errors == {}
+    assert lat == 52.3
+    assert lon == 4.9
+    assert refresh == 300
+    assert notif == 0.0

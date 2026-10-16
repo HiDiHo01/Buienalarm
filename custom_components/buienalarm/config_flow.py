@@ -73,6 +73,8 @@ def _get_default_coordinates(hass: Any) -> tuple[float, float]:
 
 def _parse_refresh_interval(val: Any) -> int:
     """Parse refresh interval value returning -1 if invalid or boolean."""
+    if val is None:
+        return DEFAULT_REFRESH_INTERVAL
     if isinstance(val, bool):
         return -1
     try:
@@ -83,6 +85,8 @@ def _parse_refresh_interval(val: Any) -> int:
 
 def _parse_notification_limit(val: Any) -> float:
     """Parse notification limit value returning -1.0 if invalid, non-finite, or boolean."""
+    if val is None:
+        return float(DEFAULT_NOTIFICATION_LIMIT)
     if isinstance(val, bool):
         return -1.0
     try:
@@ -97,17 +101,16 @@ def _validate_flow_input(
 ) -> tuple[dict[str, str], float, float, int, float]:
     """Validate user input for config and options flows."""
     errors: dict[str, str] = {}
-    latitude_raw: str = str(user_input[CONF_LATITUDE]).replace(",", ".")
-    longitude_raw: str = str(user_input[CONF_LONGITUDE]).replace(",", ".")
+    lat_val = user_input.get(CONF_LATITUDE)
+    lon_val = user_input.get(CONF_LONGITUDE)
 
-    refresh_interval = _parse_refresh_interval(
-        user_input.get("refresh_interval", DEFAULT_REFRESH_INTERVAL)
-    )
-    notification_limit = _parse_notification_limit(
-        user_input.get("notification_limit", DEFAULT_NOTIFICATION_LIMIT)
-    )
+    latitude_raw = str(lat_val).replace(",", ".") if lat_val is not None else ""
+    longitude_raw = str(lon_val).replace(",", ".") if lon_val is not None else ""
 
-    if not _is_valid_coordinates(latitude_raw, longitude_raw):
+    refresh_interval = _parse_refresh_interval(user_input.get("refresh_interval"))
+    notification_limit = _parse_notification_limit(user_input.get("notification_limit"))
+
+    if lat_val is None or lon_val is None or not _is_valid_coordinates(latitude_raw, longitude_raw):
         errors["base"] = "invalid_coordinates"
     elif refresh_interval < 60:
         errors["base"] = "invalid_refresh_interval"
