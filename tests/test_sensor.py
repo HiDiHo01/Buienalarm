@@ -770,6 +770,11 @@ async def test_boolean_timestamps_and_rates_rejected(hass: HomeAssistant) -> Non
                 "precipitationtype": "rain",
             },
             {
+                "timestamp": float("nan"),
+                "precipitationrate": 2.5,
+                "precipitationtype": "rain",
+            },
+            {
                 "timestamp": now_ts + 300,
                 "precipitationrate": "1e1000000",
                 "precipitationtype": "rain",
@@ -781,6 +786,7 @@ async def test_boolean_timestamps_and_rates_rejected(hass: HomeAssistant) -> Non
     assert entity.get_current_precipitation_rate_desc() == "Geen neerslag"
     assert entity.get_current_precipitation_type() == "Geen neerslag"
     assert entity.get_next_precipitation() is None
+    assert entity._get_precipitation_periods() == []
 
     # Verify boolean timestamps are rejected
     coordinator.data = {
