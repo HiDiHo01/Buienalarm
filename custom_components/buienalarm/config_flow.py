@@ -16,6 +16,7 @@ The flow follows Home Assistant best-practices:
 from __future__ import annotations
 
 import logging
+import math
 from typing import Any, Final
 
 import voluptuous as vol
@@ -80,12 +81,14 @@ def _validate_flow_input(
 
     try:
         refresh_interval: int = int(user_input.get("refresh_interval", DEFAULT_REFRESH_INTERVAL))
-    except (ValueError, TypeError):
+    except (ValueError, TypeError, OverflowError):
         refresh_interval = -1
 
     try:
         notification_limit: float = float(user_input.get("notification_limit", DEFAULT_NOTIFICATION_LIMIT))
-    except (ValueError, TypeError):
+        if math.isnan(notification_limit) or math.isinf(notification_limit):
+            notification_limit = -1.0
+    except (ValueError, TypeError, OverflowError):
         notification_limit = -1.0
 
     if not _is_valid_coordinates(latitude_raw, longitude_raw):
