@@ -855,6 +855,11 @@ class BuienalarmEntity(CoordinatorEntity):
             if ts is None or ts < now_ts:
                 continue
 
+            try:
+                datetime.fromtimestamp(ts, tz=timezone.utc)
+            except (ValueError, OverflowError, OSError):
+                continue
+
             rate = _as_float(_safe_get(data_point, "precipitationrate")) or 0.0
 
             if rate > 0:
@@ -926,7 +931,9 @@ class BuienalarmEntity(CoordinatorEntity):
             else:
                 try:
                     precipitation_rate = float(raw_rate)
-                except (ValueError, TypeError):
+                    if not math.isfinite(precipitation_rate):
+                        precipitation_rate = 0.0
+                except (ValueError, TypeError, OverflowError):
                     precipitation_rate = 0.0
 
             # Check if this 5-minute interval ends after current time

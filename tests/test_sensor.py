@@ -768,7 +768,7 @@ async def test_boolean_timestamps_and_rates_rejected(hass: HomeAssistant) -> Non
     assert entity.get_current_precipitation_type() == "Geen neerslag"
     assert entity.get_next_precipitation() is None
 
-    # Verify non-finite and overflowing values (NaN, Inf, OverflowError) are rejected
+    # Verify non-finite and overflowing values (NaN, Inf, OverflowError, 1e300) are rejected
     coordinator.data = {
         "data": [
             {
@@ -779,6 +779,11 @@ async def test_boolean_timestamps_and_rates_rejected(hass: HomeAssistant) -> Non
             {
                 "timestamp": float("inf"),
                 "precipitationrate": float("inf"),
+                "precipitationtype": "rain",
+            },
+            {
+                "timestamp": 1e300,
+                "precipitationrate": 2.5,
                 "precipitationtype": "rain",
             },
             {
@@ -793,6 +798,10 @@ async def test_boolean_timestamps_and_rates_rejected(hass: HomeAssistant) -> Non
     assert entity.get_current_precipitation_rate_desc() == "Geen neerslag"
     assert entity.get_current_precipitation_type() == "Geen neerslag"
     assert entity.get_next_precipitation() is None
+    assert entity.get_precipitation_duration() == 0
+    (overflow_start, _, _, overflow_dur, _) = entity.get_rain_start_time_and_duration(coordinator.data["data"])
+    assert overflow_start is None
+    assert overflow_dur == 0
 
     # Verify boolean timestamps are rejected
     coordinator.data = {
@@ -893,35 +902,3 @@ async def test_dynamic_sensor_icons(hass: HomeAssistant) -> None:
     }
 
     assert precip_type_sensor.icon == "mdi:weather-snowy"
-
-
-@pytest.mark.asyncio
-async def test_overflow_timestamps_in_duration_and_rain_start(hass: HomeAssistant) -> None:
-    """Verify extreme timestamps causing OverflowError or OSError are handled safely."""
-    from unittest.mock import MagicMock
-    from custom_components.buienalarm.entity import BuienalarmEntity
-
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        title="Buienalarm Overflow Timestamp Test",
-        unique_id="test_overflow_ts",
-        data={"latitude": 52.3702, "longitude": 4.8952},
-    )
-
-    coordinator = MagicMock()
-    entity = BuienalarmEntity(coordinator, entry, "precipitation_duration")
-
-    coordinator.data = {
-        "data": [
-            {
-                "timestamp": 1e300,
-                "precipitationrate": 2.5,
-                "precipitationtype": "rain",
-            }
-        ]
-    }
-
-    assert entity.get_precipitation_duration() == 0
-    (start, stop, restart, dur, stopped) = entity.get_rain_start_time_and_duration(coordinator.data["data"])
-    assert start is None
-    assert dur == 0

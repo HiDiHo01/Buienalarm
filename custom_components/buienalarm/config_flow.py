@@ -40,6 +40,9 @@ DEFAULT_LONGITUDE: Final[float] = 4.79861
 DEFAULT_REFRESH_INTERVAL: Final[int] = 300  # seconds (5 min)
 DEFAULT_NOTIFICATION_LIMIT: Final[int] = 0  # mm/h – notify on any value
 
+_NOTIFICATION_LIMIT_SCHEMA: Final[vol.All] = vol.All(vol.Coerce(int), vol.Range(min=0))
+_REFRESH_INTERVAL_SCHEMA: Final[vol.All] = vol.All(vol.Coerce(int), vol.Range(min=60))
+
 
 def _is_valid_coordinates(latitude: float | str, longitude: float | str) -> bool:
     """Return *True* if *latitude* and *longitude* are within valid ranges."""
@@ -139,10 +142,10 @@ class BuienalarmConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_LONGITUDE, default=default_lon): float,
                 vol.Optional(
                     "notification_limit", default=DEFAULT_NOTIFICATION_LIMIT
-                ): vol.All(vol.Coerce(int), vol.Range(min=0)),
+                ): _NOTIFICATION_LIMIT_SCHEMA,
                 vol.Optional(
                     "refresh_interval", default=DEFAULT_REFRESH_INTERVAL
-                ): vol.All(vol.Coerce(int), vol.Range(min=60)),
+                ): _REFRESH_INTERVAL_SCHEMA,
             }
         )
         return self.async_show_form(
@@ -232,14 +235,14 @@ class BuienalarmOptionsFlow(config_entries.OptionsFlow):
                         "notification_limit",
                         data.get("notification_limit", DEFAULT_NOTIFICATION_LIMIT),
                     ),
-                ): vol.All(vol.Coerce(int), vol.Range(min=0)),
+                ): _NOTIFICATION_LIMIT_SCHEMA,
                 vol.Required(
                     "refresh_interval",
                     default=options.get(
                         "refresh_interval",
                         data.get("refresh_interval", DEFAULT_REFRESH_INTERVAL),
                     ),
-                ): vol.All(vol.Coerce(int), vol.Range(min=60)),
+                ): _REFRESH_INTERVAL_SCHEMA,
             }
         )
 

@@ -28,15 +28,20 @@ def mock_api_calls():
 
 @pytest.mark.asyncio
 async def test_binary_sensors_no_precipitation(hass: HomeAssistant) -> None:
-    """Test binary sensors when there is no precipitation."""
+    """Test binary sensors when there is no precipitation or only historical rain."""
     now_ts = datetime.now(timezone.utc).timestamp()
     data = {
         "data": [
             {
+                "precipitationrate": 2.5,
+                "precipitationtype": "rain",
+                "timestamp": now_ts - 600,
+            },
+            {
                 "precipitationrate": 0.0,
                 "precipitationtype": "rain",
                 "timestamp": now_ts,
-            }
+            },
         ]
     }
 
@@ -211,99 +216,34 @@ async def test_binary_sensors_nested_timeseries_data(hass: HomeAssistant) -> Non
 
 
 @pytest.mark.asyncio
-async def test_binary_sensors_missing_or_invalid_data(hass: HomeAssistant) -> None:
-    """Test binary sensors when precipitation data is missing or invalid."""
-    data = {"data": "invalid"}
-
-    with patch("custom_components.buienalarm.api.BuienalarmApiClient.async_get_data", return_value=data):
-        entry = MockConfigEntry(
-            domain=DOMAIN,
-            title="Buienalarm Test Empty Data",
-            unique_id="test_empty_data",
-            data={"latitude": 52.3702, "longitude": 4.8952},
-        )
-        entry.add_to_hass(hass)
-
-        assert await hass.config_entries.async_setup(entry.entry_id)
-        await hass.async_block_till_done()
-
-        entity_registry = async_get_entity_registry(hass)
-
-        for key in ("precipitation_expected", "currently_raining", "currently_snowing"):
-            unique_id = f"{entry.entry_id}_{key}"
-            entity_id = entity_registry.async_get_entity_id("binary_sensor", DOMAIN, unique_id)
-            assert entity_id is not None
-            state = hass.states.get(entity_id)
-            assert state is not None
-            assert state.state == "unknown"
-
-
-@pytest.mark.asyncio
-async def test_binary_sensor_precipitation_expected_historical_only(
+@pytest.mark.parametrize(
+    "data_payload",
+    [
+        {"data": "invalid"},
+        {
+            "data": [
+                {
+                    "precipitationrate": 1.5,
+                    "precipitationtype": "rain",
+                    "timestamp": "invalid_timestamp",
+                }
+            ]
+        },
+    ],
+)
+async def test_binary_sensors_missing_or_invalid_data(
     hass: HomeAssistant,
+    data_payload: dict,
 ) -> None:
-    """Test precipitation_expected is off when rain occurred only in an expired historical interval."""
-    now_ts = datetime.now(timezone.utc).timestamp()
-    past_ts = now_ts - 600  # 10 minutes ago (interval ended 5 minutes ago)
-    data = {
-        "data": [
-            {
-                "precipitationrate": 2.5,
-                "precipitationtype": "rain",
-                "timestamp": past_ts,
-            },
-            {
-                "precipitationrate": 0.0,
-                "precipitationtype": "rain",
-                "timestamp": now_ts,
-            },
-        ]
-    }
-
+    """Test binary sensors when precipitation data or period timestamp is missing/unparseable."""
     with patch(
         "custom_components.buienalarm.api.BuienalarmApiClient.async_get_data",
-        return_value=data,
+        return_value=data_payload,
     ):
         entry = MockConfigEntry(
             domain=DOMAIN,
-            title="Buienalarm Historical Test",
-            unique_id="test_historical",
-            data={"latitude": 52.3702, "longitude": 4.8952},
-        )
-        entry.add_to_hass(hass)
-
-        assert await hass.config_entries.async_setup(entry.entry_id)
-        await hass.async_block_till_done()
-
-        entity_registry = async_get_entity_registry(hass)
-        exp_id = entity_registry.async_get_entity_id(
-            "binary_sensor", DOMAIN, f"{entry.entry_id}_precipitation_expected"
-        )
-        assert exp_id is not None
-        assert hass.states.get(exp_id).state == "off"
-
-
-@pytest.mark.asyncio
-async def test_binary_sensors_invalid_period_timestamp(hass: HomeAssistant) -> None:
-    """Test binary sensors become unavailable when a period has a missing or unparseable timestamp."""
-    data = {
-        "data": [
-            {
-                "precipitationrate": 1.5,
-                "precipitationtype": "rain",
-                "timestamp": "invalid_timestamp",
-            }
-        ]
-    }
-
-    with patch(
-        "custom_components.buienalarm.api.BuienalarmApiClient.async_get_data",
-        return_value=data,
-    ):
-        entry = MockConfigEntry(
-            domain=DOMAIN,
-            title="Buienalarm Invalid TS Test",
-            unique_id="test_invalid_ts",
+            title="Buienalarm Test Invalid Data",
+            unique_id="test_invalid_data",
             data={"latitude": 52.3702, "longitude": 4.8952},
         )
         entry.add_to_hass(hass)
