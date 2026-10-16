@@ -487,7 +487,7 @@ class BuienalarmEntity(CoordinatorEntity):
 
             try:
                 data_point_time = datetime.fromtimestamp(float(timestamp), tz=timezone.utc)
-            except (ValueError, TypeError):
+            except (ValueError, TypeError, OverflowError, OSError):
                 _LOGGER.debug("Skipping invalid timestamp in precipitation entry: %r", timestamp)
                 continue
 
@@ -916,7 +916,7 @@ class BuienalarmEntity(CoordinatorEntity):
             try:
                 data_point_timestamp = datetime.fromtimestamp(float(timestamp),
                                                               tz=timezone.utc)
-            except (ValueError, TypeError):
+            except (ValueError, TypeError, OverflowError, OSError):
                 continue
 
             last_valid_time = data_point_timestamp
@@ -1128,69 +1128,3 @@ class BuienalarmEntity(CoordinatorEntity):
             )
 
         return precipitation_periods_ha
-
-
-class BuienalarmSensorEntity(CoordinatorEntity, SensorEntity):
-    def __init__(
-        self,
-        coordinator: BuienalarmDataUpdateCoordinator,
-        entry: ConfigEntry,
-        description: SensorEntityDescription,
-        location_id: str,
-        location_name: str,
-    ) -> None:
-        super().__init__(coordinator)
-        self._entry = entry
-        self._name = description.name
-        self.entity_description = description
-        self._location_id = location_id
-        self._key = description.key
-        # self._attr_unique_id = f"{entry.entry_id}_{description.key}"
-        self._attr_unique_id = f"{location_id}_{description.key}"
-        self._location_name = location_name
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, entry.entry_id)},
-            "manufacturer": "Buienalarm",
-            "name": entry.title,
-            "model": "Neerslag data",
-            "entry_type": DeviceEntryType.SERVICE,
-            "configuration_url": "https://buienalarm.nl",
-            "sw_version": "2025.9.17",
-        }
-
-    @property
-    def native_value(self) -> str | int | float | None:
-        """Return the state of the sensor."""
-        if not self.coordinator.last_update_success or not isinstance(self.coordinator.data, Mapping):
-            _LOGGER.debug(
-                "[SENSOR ENTITY] Last update not successful or data invalid for %s, returning None",
-                self.name,
-            )
-            return None
-        value = self.coordinator.data.get(self.entity_description.key)
-        return value
-
-    @property
-    def available(self) -> bool:
-        """Geeft aan of de sensor data heeft opgehaald."""
-        if not self.coordinator.last_update_success:
-            return False
-        if not isinstance(self.coordinator.data, Mapping) or not self.coordinator.data:
-            _LOGGER.debug(
-                "[SENSOR ENTITY] Coordinator data is empty or not a Mapping: %s",
-                type(self.coordinator.data).__name__,
-            )
-            return False
-        return True
-
-    @property
-    def unique_id(self) -> str:
-        """Return a unique ID to use for this entity."""
-        return f"{self._entry.entry_id}-{self.name.lower().replace(' ', '_')}"
-
-    @property
-    def name(self) -> str:
-        """Return the sensor name."""
-        # if self._entry.entry_place:
-        #     return f"{self._name} {self._entry.entry_place}"
-        return self._name

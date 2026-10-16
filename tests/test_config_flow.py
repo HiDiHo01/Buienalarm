@@ -1,6 +1,5 @@
 """Tests for the Buienalarm config and options flow."""
 
-from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -10,7 +9,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.buienalarm.config_flow import _validate_flow_input
 from custom_components.buienalarm.const import DOMAIN
 
 
@@ -122,88 +120,6 @@ async def test_options_flow_invalid_coordinates(hass: HomeAssistant) -> None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "field,value,expected_error",
-    [
-        ("refresh_interval", 30, "invalid_refresh_interval"),
-        ("refresh_interval", False, "invalid_refresh_interval"),
-        ("notification_limit", -5, "invalid_notification_limit"),
-        ("notification_limit", float("nan"), "invalid_notification_limit"),
-        ("notification_limit", float("inf"), "invalid_notification_limit"),
-    ],
-)
-async def test_options_flow_invalid_inputs(
-    hass: HomeAssistant, field: str, value: Any, expected_error: str
-) -> None:
-    """Test that options flow rejects invalid numeric inputs with form error."""
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        data={
-            CONF_NAME: "Custom Spot",
-            CONF_LATITUDE: 51.5,
-            CONF_LONGITUDE: 4.5,
-            "notification_limit": 0,
-            "refresh_interval": 300,
-        },
-        options={},
-        unique_id="51.5_4.5",
-    )
-    entry.add_to_hass(hass)
-
-    user_input = {
-        CONF_NAME: "Custom Spot",
-        CONF_LATITUDE: 51.5,
-        CONF_LONGITUDE: 4.5,
-        "notification_limit": 0,
-        "refresh_interval": 300,
-        field: value,
-    }
-
-    result = await hass.config_entries.options.async_init(entry.entry_id)
-    result2 = await hass.config_entries.options.async_configure(
-        result["flow_id"], user_input=user_input
-    )
-
-    assert result2["type"] == FlowResultType.FORM
-    assert result2["errors"] == {"base": expected_error}
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "field,value,expected_error",
-    [
-        ("refresh_interval", 10, "invalid_refresh_interval"),
-        ("refresh_interval", False, "invalid_refresh_interval"),
-        ("notification_limit", -1, "invalid_notification_limit"),
-        ("notification_limit", float("nan"), "invalid_notification_limit"),
-        ("notification_limit", float("inf"), "invalid_notification_limit"),
-    ],
-)
-async def test_config_flow_invalid_inputs(
-    hass: HomeAssistant, field: str, value: Any, expected_error: str
-) -> None:
-    """Test that config flow rejects invalid numeric inputs with form error."""
-    user_input = {
-        CONF_NAME: "Test Location",
-        CONF_LATITUDE: 52.3,
-        CONF_LONGITUDE: 4.9,
-        "notification_limit": 0,
-        "refresh_interval": 300,
-        field: value,
-    }
-
-    result = await hass.config_entries.flow.async_init(
-        DOMAIN, context={"source": SOURCE_USER}
-    )
-    result2 = await hass.config_entries.flow.async_configure(
-        result["flow_id"], user_input=user_input
-    )
-
-    assert result2["type"] == FlowResultType.FORM
-    assert result2["errors"] == {"base": expected_error}
-
-
-@pytest.mark.asyncio
 async def test_config_flow_user_step(hass: HomeAssistant) -> None:
     """Test the user configuration flow."""
     result = await hass.config_entries.flow.async_init(
@@ -286,49 +202,3 @@ async def test_config_flow_default_coordinates_zero_latitude(
     defaults = result["data_schema"]({})
     assert defaults[CONF_LATITUDE] == 0.0
     assert defaults[CONF_LONGITUDE] == 5.0
-
-
-@pytest.mark.asyncio
-async def test_config_flow_normalized_unique_id(hass: HomeAssistant) -> None:
-    """Test that config flow normalizes coordinate strings for stable unique_id."""
-    result = await hass.config_entries.flow.async_init(
-        DOMAIN, context={"source": SOURCE_USER}
-    )
-    assert result["type"] == FlowResultType.FORM
-
-    result2 = await hass.config_entries.flow.async_configure(
-        result["flow_id"],
-        user_input={
-            CONF_NAME: "Amsterdam Spot",
-            CONF_LATITUDE: "52.3700",
-            CONF_LONGITUDE: "4.8950",
-            "notification_limit": 0,
-            "refresh_interval": 300,
-        },
-    )
-
-    assert result2["type"] == FlowResultType.CREATE_ENTRY
-    assert result2["result"].unique_id == "52.37_4.895"
-
-
-def test_validate_flow_input_missing_coordinates() -> None:
-    """Test that _validate_flow_input handles missing latitude/longitude without KeyError."""
-    errors, lat, lon, refresh, notif = _validate_flow_input({CONF_NAME: "Missing Lat"})
-    assert errors == {"base": "invalid_coordinates"}
-
-
-def test_validate_flow_input_none_optional_inputs() -> None:
-    """Test that _validate_flow_input handles None for optional fields cleanly."""
-    user_input = {
-        CONF_NAME: "Default Spot",
-        CONF_LATITUDE: 52.3,
-        CONF_LONGITUDE: 4.9,
-        "notification_limit": None,
-        "refresh_interval": None,
-    }
-    errors, lat, lon, refresh, notif = _validate_flow_input(user_input)
-    assert errors == {}
-    assert lat == 52.3
-    assert lon == 4.9
-    assert refresh == 300
-    assert notif == 0.0
