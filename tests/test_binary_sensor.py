@@ -281,3 +281,42 @@ async def test_binary_sensor_precipitation_expected_historical_only(
         )
         assert exp_id is not None
         assert hass.states.get(exp_id).state == "off"
+
+
+@pytest.mark.asyncio
+async def test_binary_sensors_invalid_period_timestamp(hass: HomeAssistant) -> None:
+    """Test binary sensors become unavailable when a period has a missing or unparseable timestamp."""
+    data = {
+        "data": [
+            {
+                "precipitationrate": 1.5,
+                "precipitationtype": "rain",
+                "timestamp": "invalid_timestamp",
+            }
+        ]
+    }
+
+    with patch(
+        "custom_components.buienalarm.api.BuienalarmApiClient.async_get_data",
+        return_value=data,
+    ):
+        entry = MockConfigEntry(
+            domain=DOMAIN,
+            title="Buienalarm Invalid TS Test",
+            unique_id="test_invalid_ts",
+            data={"latitude": 52.3702, "longitude": 4.8952},
+        )
+        entry.add_to_hass(hass)
+
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        entity_registry = async_get_entity_registry(hass)
+
+        for key in ("precipitation_expected", "currently_raining", "currently_snowing"):
+            unique_id = f"{entry.entry_id}_{key}"
+            entity_id = entity_registry.async_get_entity_id("binary_sensor", DOMAIN, unique_id)
+            assert entity_id is not None
+            state = hass.states.get(entity_id)
+            assert state is not None
+            assert state.state == "unknown"

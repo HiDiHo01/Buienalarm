@@ -89,7 +89,7 @@ class BuienalarmBinarySensor(
             case "precipitation_expected":
                 self._attr_is_on = any(
                     _is_precipitation_period(period)
-                    and (_as_float(period.get("timestamp")) or 0) + 300 > current_ts
+                    and (_as_float(period.get("timestamp")) or 0.0) + 300 > current_ts
                     for period in periods
                 )
             case "currently_raining":
@@ -123,6 +123,9 @@ def _get_precipitation_periods(
 
     periods = [period for period in raw_periods if isinstance(period, Mapping)]
     if len(periods) != len(raw_periods):
+        return None
+
+    if any(_as_float(period.get("timestamp")) is None for period in periods):
         return None
 
     return periods
