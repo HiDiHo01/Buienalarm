@@ -24,7 +24,9 @@
         "error": {
             "general": "Onbekende fout bij het ophalen van weergegevens, probeer het later opnieuw.",
             "invalid_coordinates": "De opgegeven coördinaten zijn ongeldig. Controleer de breedte- en lengtegraad en probeer het opnieuw.",
-            "cannot_connect": "Kan geen verbinding maken met de Buienalarm API. Controleer je internetverbinding en probeer het later opnieuw."
+            "cannot_connect": "Kan geen verbinding maken met de Buienalarm API. Controleer je internetverbinding en probeer het later opnieuw.",
+            "invalid_refresh_interval": "Dataverversingsinterval moet minimaal 60 seconden zijn.",
+            "invalid_notification_limit": "Limiet voor meldingen kan niet negatief zijn."
         },
         "abort": {
             "single_instance_allowed": "Al geconfigureerd. Slechts één configuratie mogelijk.",
@@ -55,7 +57,9 @@
             }
         },
         "error": {
-            "invalid_coordinates": "De opgegeven coördinaten zijn ongeldig. Controleer de breedte- en lengtegraad en probeer het opnieuw."
+            "invalid_coordinates": "De opgegeven coördinaten zijn ongeldig. Controleer de breedte- en lengtegraad en probeer het opnieuw.",
+            "invalid_refresh_interval": "Dataverversingsinterval moet minimaal 60 seconden zijn.",
+            "invalid_notification_limit": "Limiet voor meldingen kan niet negatief zijn."
         }
     },
     "entity": {

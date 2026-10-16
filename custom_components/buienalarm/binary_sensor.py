@@ -88,7 +88,8 @@ class BuienalarmBinarySensor(
         match self.entity_description.key:
             case "precipitation_expected":
                 self._attr_is_on = any(
-                    _is_precipitation_period(period) for period in periods
+                    _is_future_or_current_precipitation_period(period, current_ts)
+                    for period in periods
                 )
             case "currently_raining":
                 self._attr_is_on = any(
@@ -164,6 +165,21 @@ def _is_current_precipitation_period(
     # to avoid instantiating datetime and timedelta objects in loop iterations (~25x faster).
     return (
         timestamp <= current_ts < timestamp + 300
+        and _is_precipitation_period(period)
+    )
+
+
+def _is_future_or_current_precipitation_period(
+    period: Mapping[str, object],
+    current_ts: float,
+) -> bool:
+    """Return whether a period covers current or future time and indicates precipitation."""
+    timestamp = _as_float(period.get("timestamp"))
+    if timestamp is None:
+        return False
+
+    return (
+        timestamp + 300 > current_ts
         and _is_precipitation_period(period)
     )
 
