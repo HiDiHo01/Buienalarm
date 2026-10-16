@@ -147,11 +147,12 @@ async def test_nowcastmessage_edge_cases(hass: HomeAssistant) -> None:
     coordinator.data = None
     assert entity.get_nowcastmessage() is None
 
+    await hass.config.async_set_time_zone("Europe/Amsterdam")
+
     # 6. Valid nowcastmessage with timestamp substitution
     coordinator.data = {"nowcastmessage": {"nl": "Regen om {1700000000}"}}
     result = entity.get_nowcastmessage()
-    assert result is not None
-    assert "Regen om" in result
+    assert result == "Regen om 23:13"
 
     # 7. Valid nowcastmessage without placeholders
     coordinator.data = {"nowcastmessage": {"nl": "Geen neerslag"}}
