@@ -125,6 +125,7 @@ async def test_options_flow_invalid_coordinates(hass: HomeAssistant) -> None:
     "field,value,expected_error",
     [
         ("refresh_interval", 30, "invalid_refresh_interval"),
+        ("refresh_interval", False, "invalid_refresh_interval"),
         ("notification_limit", -5, "invalid_notification_limit"),
         ("notification_limit", float("nan"), "invalid_notification_limit"),
         ("notification_limit", float("inf"), "invalid_notification_limit"),
@@ -133,7 +134,7 @@ async def test_options_flow_invalid_coordinates(hass: HomeAssistant) -> None:
 async def test_options_flow_invalid_inputs(
     hass: HomeAssistant, field: str, value: Any, expected_error: str
 ) -> None:
-    """Test that options flow rejects invalid numeric inputs."""
+    """Test that options flow rejects invalid numeric inputs with form error."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={
@@ -171,6 +172,7 @@ async def test_options_flow_invalid_inputs(
     "field,value,expected_error",
     [
         ("refresh_interval", 10, "invalid_refresh_interval"),
+        ("refresh_interval", False, "invalid_refresh_interval"),
         ("notification_limit", -1, "invalid_notification_limit"),
         ("notification_limit", float("nan"), "invalid_notification_limit"),
         ("notification_limit", float("inf"), "invalid_notification_limit"),
@@ -179,7 +181,7 @@ async def test_options_flow_invalid_inputs(
 async def test_config_flow_invalid_inputs(
     hass: HomeAssistant, field: str, value: Any, expected_error: str
 ) -> None:
-    """Test that config flow rejects invalid numeric inputs."""
+    """Test that config flow rejects invalid numeric inputs with form error."""
     user_input = {
         CONF_NAME: "Test Location",
         CONF_LATITUDE: 52.3,
@@ -283,3 +285,26 @@ async def test_config_flow_default_coordinates_zero_latitude(
     defaults = result["data_schema"]({})
     assert defaults[CONF_LATITUDE] == 0.0
     assert defaults[CONF_LONGITUDE] == 5.0
+
+
+@pytest.mark.asyncio
+async def test_config_flow_normalized_unique_id(hass: HomeAssistant) -> None:
+    """Test that config flow normalizes coordinate strings for stable unique_id."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_USER}
+    )
+    assert result["type"] == FlowResultType.FORM
+
+    result2 = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_NAME: "Amsterdam Spot",
+            CONF_LATITUDE: "52.3700",
+            CONF_LONGITUDE: "4.8950",
+            "notification_limit": 0,
+            "refresh_interval": 300,
+        },
+    )
+
+    assert result2["type"] == FlowResultType.CREATE_ENTRY
+    assert result2["result"].unique_id == "52.37_4.895"

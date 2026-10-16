@@ -79,17 +79,25 @@ def _validate_flow_input(
     latitude_raw: str = str(user_input[CONF_LATITUDE]).replace(",", ".")
     longitude_raw: str = str(user_input[CONF_LONGITUDE]).replace(",", ".")
 
-    try:
-        refresh_interval: int = int(user_input.get("refresh_interval", DEFAULT_REFRESH_INTERVAL))
-    except (ValueError, TypeError, OverflowError):
+    raw_refresh = user_input.get("refresh_interval", DEFAULT_REFRESH_INTERVAL)
+    if isinstance(raw_refresh, bool):
         refresh_interval = -1
+    else:
+        try:
+            refresh_interval = int(raw_refresh)
+        except (ValueError, TypeError, OverflowError):
+            refresh_interval = -1
 
-    try:
-        notification_limit: float = float(user_input.get("notification_limit", DEFAULT_NOTIFICATION_LIMIT))
-        if math.isnan(notification_limit) or math.isinf(notification_limit):
-            notification_limit = -1.0
-    except (ValueError, TypeError, OverflowError):
+    raw_notif = user_input.get("notification_limit", DEFAULT_NOTIFICATION_LIMIT)
+    if isinstance(raw_notif, bool):
         notification_limit = -1.0
+    else:
+        try:
+            notification_limit = float(raw_notif)
+            if math.isnan(notification_limit) or math.isinf(notification_limit):
+                notification_limit = -1.0
+        except (ValueError, TypeError, OverflowError):
+            notification_limit = -1.0
 
     if not _is_valid_coordinates(latitude_raw, longitude_raw):
         errors["base"] = "invalid_coordinates"
