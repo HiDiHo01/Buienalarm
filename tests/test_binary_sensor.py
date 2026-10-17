@@ -257,6 +257,85 @@ async def test_binary_sensors_nested_timeseries_data(hass: HomeAssistant) -> Non
 
 
 @pytest.mark.asyncio
+async def test_binary_sensors_empty_data_list(hass: HomeAssistant) -> None:
+    """Test binary sensors remain available and off when API returns an empty data list."""
+    with patch(
+        "custom_components.buienalarm.api.BuienalarmApiClient.async_get_data",
+        return_value={"data": []},
+    ):
+        entry = MockConfigEntry(
+            domain=DOMAIN,
+            title="Buienalarm Test Empty Data List",
+            unique_id="test_empty_data_list",
+            data={"latitude": 52.3702, "longitude": 4.8952},
+        )
+        entry.add_to_hass(hass)
+
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        entity_registry = async_get_entity_registry(hass)
+
+        for key in ("precipitation_expected", "currently_raining", "currently_snowing"):
+            unique_id = f"{entry.entry_id}_{key}"
+            entity_id = entity_registry.async_get_entity_id("binary_sensor", DOMAIN, unique_id)
+            assert entity_id is not None
+            state = hass.states.get(entity_id)
+            assert state is not None
+            assert state.state == "off"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("unclassified_type", [None, "unknown", "hail"])
+async def test_binary_sensor_precipitation_expected_unclassified_type(
+    hass: HomeAssistant,
+    unclassified_type: str | None,
+) -> None:
+    """Test precipitation_expected turns on for positive rate even with unclassified precipitationtype."""
+    now_ts = datetime.now(timezone.utc).timestamp()
+    period = {
+        "precipitationrate": 1.5,
+        "timestamp": now_ts + 300,
+    }
+    if unclassified_type is not None:
+        period["precipitationtype"] = unclassified_type
+
+    data = {"data": [period]}
+
+    with patch(
+        "custom_components.buienalarm.api.BuienalarmApiClient.async_get_data",
+        return_value=data,
+    ):
+        entry = MockConfigEntry(
+            domain=DOMAIN,
+            title="Buienalarm Test Unclassified Type",
+            unique_id=f"test_unclassified_{unclassified_type}",
+            data={"latitude": 52.3702, "longitude": 4.8952},
+        )
+        entry.add_to_hass(hass)
+
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        entity_registry = async_get_entity_registry(hass)
+
+        exp_id = entity_registry.async_get_entity_id(
+            "binary_sensor", DOMAIN, f"{entry.entry_id}_precipitation_expected"
+        )
+        assert exp_id is not None
+        assert hass.states.get(exp_id).state == "on"
+
+        rain_id = entity_registry.async_get_entity_id(
+            "binary_sensor", DOMAIN, f"{entry.entry_id}_currently_raining"
+        )
+        snow_id = entity_registry.async_get_entity_id(
+            "binary_sensor", DOMAIN, f"{entry.entry_id}_currently_snowing"
+        )
+        assert hass.states.get(rain_id).state == "off"
+        assert hass.states.get(snow_id).state == "off"
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "data_payload",
     [
