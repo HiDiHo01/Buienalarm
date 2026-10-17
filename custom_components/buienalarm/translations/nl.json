@@ -23,7 +23,6 @@
         },
         "error": {
             "general": "Onbekende fout bij het ophalen van weergegevens, probeer het later opnieuw.",
-            "invalid_refresh_interval": "Voer een eindig, geheel aantal seconden in (minimaal 60).",
             "invalid_coordinates": "De opgegeven coördinaten zijn ongeldig. Controleer de breedte- en lengtegraad en probeer het opnieuw.",
             "cannot_connect": "Kan geen verbinding maken met de Buienalarm API. Controleer je internetverbinding en probeer het later opnieuw."
         },
@@ -56,7 +55,6 @@
             }
         },
         "error": {
-            "invalid_refresh_interval": "Voer een eindig, geheel aantal seconden in (minimaal 60).",
             "invalid_coordinates": "De opgegeven coördinaten zijn ongeldig. Controleer de breedte- en lengtegraad en probeer het opnieuw."
         }
     },

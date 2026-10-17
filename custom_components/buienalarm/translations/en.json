@@ -23,7 +23,6 @@
         },
         "error": {
             "general": "Unknown error fetching weather data, please try again later.",
-            "invalid_refresh_interval": "Enter a finite whole number of seconds (at least 60).",
             "invalid_coordinates": "The provided coordinates are invalid. Please check latitude (-90 to 90) and longitude (-180 to 180) and try again.",
             "cannot_connect": "Unable to connect to Buienalarm API. Please check your internet connection and try again."
         },
@@ -56,7 +55,6 @@
             }
         },
         "error": {
-            "invalid_refresh_interval": "Enter a finite whole number of seconds (at least 60).",
             "invalid_coordinates": "The provided coordinates are invalid. Please check latitude (-90 to 90) and longitude (-180 to 180) and try again."
         }
     },
