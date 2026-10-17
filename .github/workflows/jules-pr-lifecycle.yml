@@ -92,6 +92,12 @@ jobs:
               continue
             fi
 
+            SESSION_URL=$(jq -r '.url // empty' <<< "${SESSION_JSON}")
+            if [ -z "${SESSION_URL}" ]; then
+              SESSION_URL="https://jules.google/session/${SESSION_RESOURCE#sessions/}"
+            fi
+            echo "Verified Jules session URL: ${SESSION_URL}"
+
             STATE=$(jq -r '.state // empty' <<< "${SESSION_JSON}")
             if [ -z "${STATE}" ]; then
               echo "Jules returned no state for ${SESSION_RESOURCE}; leaving it untouched." >&2
