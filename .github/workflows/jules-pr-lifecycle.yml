@@ -1,0 +1,187 @@
+name: Jules PR Lifecycle
+
+on:
+  pull_request:
+    types:
+      - closed
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+concurrency:
+  group: jules-lifecycle-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  close-linked-sessions:
+    name: Reconcile linked Jules sessions
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    # Do not expose the Jules API key to pull requests originating from forks.
+    if: >-
+      github.event.pull_request.head.repo &&
+      github.event.pull_request.head.repo.full_name ==
+      github.repository
+
+    steps:
+      - name: Notify Jules and clean up terminal sessions
+        env:
+          JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_MERGED: ${{ github.event.pull_request.merged }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ -z "${JULES_API_KEY:-}" ]; then
+            echo "::warning::JULES_API_KEY is not configured; linked Jules sessions were not changed."
+            exit 0
+          fi
+
+          API="https://jules.googleapis.com/v1alpha"
+          AUTH_HEADER="X-Goog-Api-Key: ${JULES_API_KEY}"
+          COMMENTS_ENDPOINT="repos/${REPOSITORY}/issues/${PR_NUMBER}/comments"
+
+          # Read the resource names from Jules session markers in PR comments.
+          # The broad extraction also supports comments posted by the previous
+          # version of jules-pr-review.yml, which did not include a marker.
+          SESSION_RESOURCES=$(gh api --paginate "${COMMENTS_ENDPOINT}" --jq '.[].body // empty' |
+            grep -oE 'sessions/[A-Za-z0-9_-]+' |
+            sort -u || true)
+
+          if [ -z "${SESSION_RESOURCES}" ]; then
+            echo "No linked Jules sessions found on ${PR_URL}."
+            exit 0
+          fi
+
+          if [ "${PR_MERGED}" = "true" ]; then
+            CLOSURE_MESSAGE="Pull request #${PR_NUMBER} was merged (${PR_URL}). Treat this task as complete and do not make further changes for this pull request."
+            CLOSURE_REASON="merged"
+          else
+            CLOSURE_MESSAGE="Pull request #${PR_NUMBER} was closed without merging (${PR_URL}). This work is abandoned; stop work on this task and do not create or update a pull request for it."
+            CLOSURE_REASON="closed without merging"
+          fi
+
+          SUMMARY_FILE=$(mktemp)
+          trap 'rm -f "${SUMMARY_FILE}"' EXIT
+
+          while IFS= read -r SESSION_RESOURCE; do
+            [ -n "${SESSION_RESOURCE}" ] || continue
+
+            # Validate extracted values before using them in API paths.
+            if ! [[ "${SESSION_RESOURCE}" =~ ^sessions/[A-Za-z0-9_-]+$ ]]; then
+              echo "Skipping invalid Jules session resource: ${SESSION_RESOURCE}" >&2
+              printf -- '- Skipped an invalid session reference.\n' >> "${SUMMARY_FILE}"
+              continue
+            fi
+
+            SESSION_URL="https://jules.google/session/${SESSION_RESOURCE#sessions/}"
+            echo "Checking ${SESSION_RESOURCE} (${SESSION_URL})"
+
+            if ! SESSION_JSON=$(curl --fail-with-body --silent --show-error \
+              --url "${API}/${SESSION_RESOURCE}" \
+              --header "${AUTH_HEADER}"); then
+              echo "Could not verify state for ${SESSION_RESOURCE}; leaving it untouched." >&2
+              printf -- '- [%s](%s): state lookup failed; session was left untouched.\n' "${SESSION_RESOURCE}" "${SESSION_URL}" >> "${SUMMARY_FILE}"
+              continue
+            fi
+
+            SESSION_URL=$(jq -r '.url // empty' <<< "${SESSION_JSON}")
+            if [ -z "${SESSION_URL}" ]; then
+              SESSION_URL="https://jules.google/session/${SESSION_RESOURCE#sessions/}"
+            fi
+            echo "Verified Jules session URL: ${SESSION_URL}"
+
+            STATE=$(jq -r '.state // empty' <<< "${SESSION_JSON}")
+            if [ -z "${STATE}" ]; then
+              echo "Jules returned no state for ${SESSION_RESOURCE}; leaving it untouched." >&2
+              printf -- '- [%s](%s): API returned no state; session was left untouched.\n' "${SESSION_RESOURCE}" "${SESSION_URL}" >> "${SUMMARY_FILE}"
+              continue
+            fi
+
+            case "${STATE}" in
+              COMPLETED|FAILED)
+                echo "${SESSION_RESOURCE} is terminal (${STATE}); deleting session."
+                if curl --fail-with-body --silent --show-error \
+                  --request DELETE \
+                  --url "${API}/${SESSION_RESOURCE}" \
+                  --header "${AUTH_HEADER}" >/dev/null; then
+                  printf -- '- [%s](%s): terminal state `%s`; session deleted.\n' "${SESSION_RESOURCE}" "${SESSION_URL}" "${STATE}" >> "${SUMMARY_FILE}"
+                else
+                  echo "Deletion failed for ${SESSION_RESOURCE}; manual cleanup may be needed." >&2
+                  printf -- '- [%s](%s): terminal state `%s`; deletion failed.\n' "${SESSION_RESOURCE}" "${SESSION_URL}" "${STATE}" >> "${SUMMARY_FILE}"
+                fi
+                continue
+                ;;
+            esac
+
+            # Jules has no documented cancel/complete endpoint. Send an explicit
+            # instruction, but never treat DELETE as cancellation of live work.
+            MESSAGE_PAYLOAD=$(jq -n --arg prompt "${CLOSURE_MESSAGE}" '{prompt: $prompt}')
+            if ! curl --fail-with-body --silent --show-error \
+              --request POST \
+              --url "${API}/${SESSION_RESOURCE}:sendMessage" \
+              --header "${AUTH_HEADER}" \
+              --header "Content-Type: application/json" \
+              --data "${MESSAGE_PAYLOAD}" >/dev/null; then
+              echo "Could not notify active session ${SESSION_RESOURCE}; leaving it untouched." >&2
+              printf -- '- [%s](%s): state `%s`; notification failed and session was left untouched.\n' "${SESSION_RESOURCE}" "${SESSION_URL}" "${STATE}" >> "${SUMMARY_FILE}"
+              continue
+            fi
+
+            # Re-check state after notification. Delete only after Jules reports
+            # a terminal state; an active session is retained for manual follow-up.
+            for attempt in 1 2 3; do
+              sleep 10
+              if SESSION_JSON=$(curl --fail-with-body --silent --show-error \
+                --url "${API}/${SESSION_RESOURCE}" \
+                --header "${AUTH_HEADER}"); then
+                STATE=$(jq -r '.state // empty' <<< "${SESSION_JSON}")
+                case "${STATE}" in
+                  COMPLETED|FAILED) break ;;
+                esac
+              else
+                echo "State re-check failed for ${SESSION_RESOURCE}; it will not be deleted." >&2
+                STATE="UNKNOWN"
+                break
+              fi
+            done
+
+            case "${STATE}" in
+              COMPLETED|FAILED)
+                if curl --fail-with-body --silent --show-error \
+                  --request DELETE \
+                  --url "${API}/${SESSION_RESOURCE}" \
+                  --header "${AUTH_HEADER}" >/dev/null; then
+                  printf -- '- [%s](%s): notified that the PR was %s; session reached `%s` and was deleted.\n' "${SESSION_RESOURCE}" "${SESSION_URL}" "${CLOSURE_REASON}" "${STATE}" >> "${SUMMARY_FILE}"
+                else
+                  printf -- '- [%s](%s): reached `%s` after notification, but deletion failed.\n' "${SESSION_RESOURCE}" "${SESSION_URL}" "${STATE}" >> "${SUMMARY_FILE}"
+                fi
+                ;;
+              *)
+                printf -- '- [%s](%s): notified that the PR was %s; session remains `%s` and was **not deleted** because termination is unconfirmed. Manual follow-up is required.\n' "${SESSION_RESOURCE}" "${SESSION_URL}" "${CLOSURE_REASON}" "${STATE:-UNKNOWN}" >> "${SUMMARY_FILE}"
+                ;;
+            esac
+          done <<< "${SESSION_RESOURCES}"
+
+          if [ -s "${SUMMARY_FILE}" ]; then
+            SUMMARY=$(cat "${SUMMARY_FILE}")
+            gh api "${COMMENTS_ENDPOINT}" \
+              --method POST \
+              --field body="$(cat <<EOF
+          ## Jules session lifecycle
+
+          Pull request status: **${CLOSURE_REASON}**
+
+          ${SUMMARY}
+
+          Sessions are deleted only after the Jules API reports a terminal state (`COMPLETED` or `FAILED`). The Jules API does not document a cancellation endpoint; any session still active after notification is retained rather than assuming deletion stops execution.
+          EOF
+          )"
+          fi
