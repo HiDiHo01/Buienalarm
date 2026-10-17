@@ -3,6 +3,7 @@
 from unittest.mock import patch
 
 import pytest
+import voluptuous as vol
 from homeassistant.config_entries import SOURCE_USER
 from homeassistant.const import CONF_LATITUDE, CONF_LONGITUDE, CONF_NAME
 from homeassistant.core import HomeAssistant
@@ -207,8 +208,6 @@ async def test_config_flow_default_coordinates_zero_latitude(
 @pytest.mark.asyncio
 async def test_options_flow_range_validation(hass: HomeAssistant) -> None:
     """Test that options flow schema enforces range limits on notification_limit and refresh_interval."""
-    import voluptuous as vol
-
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={
@@ -225,7 +224,7 @@ async def test_options_flow_range_validation(hass: HomeAssistant) -> None:
     assert result["type"] == FlowResultType.FORM
 
     # Submit refresh_interval below 60
-    with pytest.raises(vol.MultipleInvalid):
+    with pytest.raises((vol.Invalid, vol.MultipleInvalid)):
         result["data_schema"](
             {
                 CONF_NAME: "Spot",
@@ -237,13 +236,37 @@ async def test_options_flow_range_validation(hass: HomeAssistant) -> None:
         )
 
     # Submit notification_limit below 0
-    with pytest.raises(vol.MultipleInvalid):
+    with pytest.raises((vol.Invalid, vol.MultipleInvalid)):
         result["data_schema"](
             {
                 CONF_NAME: "Spot",
                 CONF_LATITUDE: 52.0,
                 CONF_LONGITUDE: 5.0,
                 "notification_limit": -1,
+                "refresh_interval": 300,
+            }
+        )
+
+    # Submit fractional refresh_interval (e.g. 300.5)
+    with pytest.raises((vol.Invalid, vol.MultipleInvalid)):
+        result["data_schema"](
+            {
+                CONF_NAME: "Spot",
+                CONF_LATITUDE: 52.0,
+                CONF_LONGITUDE: 5.0,
+                "notification_limit": 0,
+                "refresh_interval": 300.5,
+            }
+        )
+
+    # Submit fractional notification_limit (e.g. 2.5)
+    with pytest.raises((vol.Invalid, vol.MultipleInvalid)):
+        result["data_schema"](
+            {
+                CONF_NAME: "Spot",
+                CONF_LATITUDE: 52.0,
+                CONF_LONGITUDE: 5.0,
+                "notification_limit": 2.5,
                 "refresh_interval": 300,
             }
         )
