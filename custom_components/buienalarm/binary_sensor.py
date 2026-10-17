@@ -116,8 +116,11 @@ def _get_precipitation_periods(
         if isinstance(timeseries, Mapping):
             raw_periods = timeseries.get("data")
 
-    if not isinstance(raw_periods, list) or not raw_periods:
+    if not isinstance(raw_periods, list):
         return None
+
+    if not raw_periods:
+        return []
 
     periods = [period for period in raw_periods if isinstance(period, Mapping)]
     if len(periods) != len(raw_periods):
@@ -135,7 +138,7 @@ def _is_precipitation_period(period: Mapping[str, object]) -> bool:
     if precipitation_rate is None or precipitation_rate <= 0:
         return False
 
-    return _is_rain_period(period) or _is_snow_period(period)
+    return True
 
 
 def _is_rain_period(period: Mapping[str, object]) -> bool:
