@@ -8,9 +8,11 @@ Keep AI work accurate across long sessions and different agents by loading only 
 
 | Context | Canonical location | Load when |
 |---|---|---|
-| Shared engineering standards and required workflow | `/AGENTS.md` | Every task |
+| Task routing and non-negotiable repository requirements | `/AGENTS.md` | Every task |
 | Buienalarm behavior, API assumptions, entity semantics, testing | `/home-assistant.md` | Every task |
 | AI usage, trust boundaries, verification and handoff policy | `/AI_POLICY.md` | Every AI-assisted task |
+| Python/Home Assistant engineering rules, tests, typing, Quality Scale, HACS | `/docs/ai/engineering-standards.md` | Implementation, refactoring, debugging, code review, or related engineering work |
+| Git/GitHub, pull-request review cycles, diagnostics, labels, instruction maintenance | `/docs/ai/repository-workflow.md` | Repository operations, PR work, reviews, diagnostics, labels, or instruction changes |
 | Agent-specific entry point | `/CLAUDE.md`, `/.github/copilot-instructions.md`, or tool configuration | When using that agent |
 | Actual implementation and runtime contract | `custom_components/buienalarm/` | According to task scope |
 | Expected behavior and regression evidence | `tests/` and fixtures | Before behavior changes |
@@ -36,10 +38,11 @@ Prefer one independently verifiable change per task. Split unrelated goals into 
 ### 2. Load context progressively
 
 1. Read all applicable instructions, including parent and nested instructions.
-2. Inspect the repository status, relevant files, manifest, and configuration.
-3. Search for call sites, data producers/consumers, tests, fixtures, translations, and workflows affected by the change.
-4. Read additional files only when needed to establish the actual behavior or contract.
-5. Verify version-sensitive Home Assistant APIs against current official documentation or source.
+2. Follow the task-routing requirements in `AGENTS.md`; load detailed engineering and repository-workflow references when applicable.
+3. Inspect the repository status, relevant files, manifest, and configuration.
+4. Search for call sites, data producers/consumers, tests, fixtures, translations, and workflows affected by the change.
+5. Read additional files only when needed to establish the actual behavior or contract.
+6. Verify version-sensitive Home Assistant APIs against current official documentation or source.
 
 Do not substitute broad summaries for the source that determines the answer. Do not assume a filename, function, endpoint, entity, test, or workflow exists until verified.
 
