@@ -23,6 +23,9 @@ _LOGGER.debug("[COORD] coordinator loaded")
 _API_TIMEOUT = 30
 
 
+type BuienalarmConfigEntry = ConfigEntry["BuienalarmDataUpdateCoordinator"]
+
+
 class BuienalarmDataUpdateCoordinator(DataUpdateCoordinator[dict[str, object]]):
     """Class to manage fetching data from the Buienalarm API."""
 

@@ -27,7 +27,7 @@ from .const import (
     SENSORS,
     VERSION,
 )
-from .coordinator import BuienalarmDataUpdateCoordinator
+from .coordinator import BuienalarmConfigEntry, BuienalarmDataUpdateCoordinator
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -114,7 +114,7 @@ def _has_duplicate_entry(
     return dup
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def async_setup_entry(hass: HomeAssistant, entry: BuienalarmConfigEntry) -> bool:
     """Set up Buienalarm integration from a config entry."""
     _LOGGER.debug(
         "[INIT_SETUP_ENTRY] Starting setup for entry_id=%s, title=%s",
@@ -266,7 +266,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         raise ConfigEntryNotReady(f"Failed to fetch initial data for {entry.title}")
     # --------------------------------------------------
 
-    # Store coordinator
+    # Store coordinator in entry runtime_data and hass.data
+    entry.runtime_data = coordinator
     hass.data[DOMAIN][entry.entry_id] = coordinator
     _LOGGER.debug(
         "[INIT_SETUP_ENTRY] Coordinator stored in hass.data[%s][%s]",
@@ -293,7 +294,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return True
 
 
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def async_unload_entry(hass: HomeAssistant, entry: BuienalarmConfigEntry) -> bool:
     """Handle removal of an entry."""
     _LOGGER.debug("[INIT_UNLOAD_ENTRY] Unloading entry_id=%s", entry.entry_id)
     if unloaded := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):

@@ -61,6 +61,7 @@ async def test_async_setup_entry_success(
     await hass.async_block_till_done()
 
     assert result is True
+    assert entry.runtime_data is coordinator
     assert DOMAIN in hass.data
     assert entry.entry_id in hass.data[DOMAIN]
     assert hass.data[DOMAIN][entry.entry_id] is coordinator

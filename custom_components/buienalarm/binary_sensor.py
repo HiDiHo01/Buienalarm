@@ -8,13 +8,12 @@ from homeassistant.components.binary_sensor import (
     BinarySensorEntity,
     BinarySensorEntityDescription,
 )
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
-from .coordinator import BuienalarmDataUpdateCoordinator
+from .coordinator import BuienalarmConfigEntry, BuienalarmDataUpdateCoordinator
 from .sensor_types import BINARY_SENSOR_DESCRIPTIONS
 
 _RAIN_TYPES: Final[frozenset[str]] = frozenset(
@@ -48,7 +47,7 @@ class BuienalarmBinarySensor(
     def __init__(
         self,
         coordinator: BuienalarmDataUpdateCoordinator,
-        config_entry: ConfigEntry,
+        config_entry: BuienalarmConfigEntry,
         description: BinarySensorEntityDescription,
     ) -> None:
         """Initialize a Buienalarm binary sensor."""
@@ -192,11 +191,11 @@ def _as_float(value: object) -> float | None:
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    config_entry: ConfigEntry,
+    config_entry: BuienalarmConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up Buienalarm binary sensors from their descriptions."""
-    coordinator = hass.data.get(DOMAIN, {}).get(config_entry.entry_id)
+    coordinator = getattr(config_entry, "runtime_data", None) or hass.data.get(DOMAIN, {}).get(config_entry.entry_id)
     if coordinator is None:
         raise RuntimeError(
             "Buienalarm coordinator is not available for config entry "
