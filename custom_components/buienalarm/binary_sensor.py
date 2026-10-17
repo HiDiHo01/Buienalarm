@@ -12,7 +12,6 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
 from .coordinator import BuienalarmConfigEntry, BuienalarmDataUpdateCoordinator
 from .sensor_types import BINARY_SENSOR_DESCRIPTIONS
 
@@ -195,7 +194,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up Buienalarm binary sensors from their descriptions."""
-    coordinator = getattr(config_entry, "runtime_data", None) or hass.data.get(DOMAIN, {}).get(config_entry.entry_id)
+    coordinator = getattr(config_entry, "runtime_data", None)
     if coordinator is None:
         raise RuntimeError(
             "Buienalarm coordinator is not available for config entry "
