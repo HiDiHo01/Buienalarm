@@ -168,6 +168,7 @@ jobs:
             --field body="$(cat <<EOF
           **Jules review started**
 
+          <!-- jules-session: ${SESSION} -->
           Jules session: \`${SESSION}\`
 
           The review is instructed to verify findings against the code and
