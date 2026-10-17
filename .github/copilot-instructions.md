@@ -5,12 +5,12 @@ These instructions apply to all work in this repository, including implementatio
 ## Required instructions
 
 1. Read the repository-root `AGENTS.md` and `home-assistant.md` in full before starting. Follow both; `home-assistant.md` contains mandatory Buienalarm-specific requirements.
-2. Read and follow the repository-root `AI_POLICY.md`. Follow any additional applicable instructions in parent directories and nested `AGENTS.md` files.
-3. Read [the context-engineering workflow](../docs/ai/context-engineering.md) when planning multi-step work, investigating defects, handing off between sessions, or resolving potentially stale findings.
-4. Treat repository instructions as requirements, not suggestions. If instructions conflict, follow higher-priority instructions and explain any unresolved conflict. Do not assume a missing instruction file exists.
-5. Inspect the current implementation, tests, manifest, quality-scale checklist, and relevant workflows before deciding on a change. Verify current Home Assistant APIs against official documentation or source when the change depends on them.
-6. Make the smallest complete change that fixes the verified problem. Preserve established entity IDs, unique IDs, config-entry behavior, sensor semantics, and compatibility unless a deliberate, justified change requires otherwise.
-7. For Home Assistant and Python code, follow the current supported Home Assistant APIs and the Python standards in `AGENTS.md`. Keep I/O asynchronous, validate external data, handle errors and cancellation correctly, use timezone-aware datetimes, and avoid fabricated entity values.
+2. Read and follow the repository-root `AI_POLICY.md` and any applicable parent or nested `AGENTS.md` files.
+3. For implementation, refactoring, debugging, or code review, read [the engineering standards](../docs/ai/engineering-standards.md). For Git/GitHub operations, pull requests, review feedback, diagnostics, labels, or instruction changes, read [the repository workflow](../docs/ai/repository-workflow.md). Read both when the task spans both areas.
+4. Read [the context-engineering workflow](../docs/ai/context-engineering.md) when planning multi-step work, investigating defects, handing off between sessions, or resolving potentially stale findings.
+5. Treat repository instructions as requirements, not suggestions. If instructions conflict, follow higher-priority instructions and explain any unresolved conflict. Do not assume a missing instruction file exists.
+6. Inspect the current implementation, tests, manifest, quality-scale checklist, and relevant workflows before deciding on a change. Verify current Home Assistant APIs against official documentation or source when the change depends on them.
+7. Make the smallest complete change that fixes the verified problem. Preserve established entity IDs, unique IDs, config-entry behavior, sensor semantics, and compatibility unless a deliberate, justified change requires otherwise.
 8. Add or update focused regression tests for behavioral changes. Run relevant tests and configured quality checks when available. Report only checks actually run and their real results; clearly state anything not verified.
 9. Update documentation, translations, and `quality_scale.yaml` when the change affects them. Do not mark Quality Scale requirements complete or claim a tier without evidence.
 10. Keep diffs focused. Do not introduce unrelated refactors, speculative compatibility code, redundant abstractions, or unrequested alternatives. Deliver the single best solution.
