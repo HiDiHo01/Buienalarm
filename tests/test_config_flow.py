@@ -148,6 +148,82 @@ async def test_config_flow_user_step(hass: HomeAssistant) -> None:
     assert result2["data"]["refresh_interval"] == 600
 
 
+@pytest.mark.parametrize(
+    "refresh_interval",
+    [float("nan"), float("inf"), float("-inf"), "nan", "inf", "-inf", "1e309"],
+)
+@pytest.mark.asyncio
+async def test_config_flow_rejects_non_finite_refresh_interval(
+    hass: HomeAssistant, refresh_interval: float | str
+) -> None:
+    """Reject non-finite intervals without saving and allow a corrected submission."""
+    user_input = {
+        CONF_NAME: "Test Location",
+        CONF_LATITUDE: 52.3,
+        CONF_LONGITUDE: 4.9,
+        "notification_limit": 0,
+        "refresh_interval": refresh_interval,
+    }
+
+    # Initial data reaches the handler without the form schema validating it first.
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_USER}, data=user_input
+    )
+
+    assert result["type"] == FlowResultType.FORM
+    assert result["errors"] == {"refresh_interval": "invalid_refresh_interval"}
+    assert not hass.config_entries.async_entries(DOMAIN)
+
+    user_input["refresh_interval"] = 600
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input=user_input
+    )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["data"]["refresh_interval"] == 600
+    assert isinstance(result["data"]["refresh_interval"], int)
+
+
+@pytest.mark.parametrize(
+    "refresh_interval",
+    [float("nan"), float("inf"), float("-inf"), "nan", "inf", "-inf", "1e309"],
+)
+@pytest.mark.asyncio
+async def test_options_flow_rejects_non_finite_refresh_interval(
+    hass: HomeAssistant, refresh_interval: float | str
+) -> None:
+    """Keep saved options intact when rejecting a non-finite refresh interval."""
+    user_input = {
+        CONF_NAME: "Test Location",
+        CONF_LATITUDE: 52.3,
+        CONF_LONGITUDE: 4.9,
+        "notification_limit": 0,
+        "refresh_interval": 450,
+    }
+    entry = MockConfigEntry(
+        domain=DOMAIN, data=user_input.copy(), options=user_input.copy()
+    )
+    entry.add_to_hass(hass)
+    user_input["refresh_interval"] = refresh_interval
+
+    # Initial data reaches the handler without the form schema validating it first.
+    result = await hass.config_entries.options.async_init(
+        entry.entry_id, data=user_input
+    )
+
+    assert result["type"] == FlowResultType.FORM
+    assert result["errors"] == {"refresh_interval": "invalid_refresh_interval"}
+    assert entry.options["refresh_interval"] == 450
+    assert entry.data["refresh_interval"] == 450
+
+    user_input["refresh_interval"] = 600
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input=user_input
+    )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert entry.options["refresh_interval"] == 600
+    assert isinstance(entry.options["refresh_interval"], int)
+
+
 @pytest.mark.asyncio
 async def test_config_flow_title_coordinate_rounding(hass: HomeAssistant) -> None:
     """Test that config flow rounds coordinates in entry title to 4 digits."""

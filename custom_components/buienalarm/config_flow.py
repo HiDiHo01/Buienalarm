@@ -41,6 +41,7 @@ DEFAULT_LONGITUDE: Final[float] = 4.79861
 DEFAULT_REFRESH_INTERVAL: Final[int] = 300  # seconds (5 min)
 DEFAULT_NOTIFICATION_LIMIT: Final[int] = 0  # mm/h – notify on any value
 
+
 def _validate_integer(val: object) -> int:
     """Validate that val is or can be represented as an integer without fractional loss."""
     if isinstance(val, float) and not val.is_integer():
@@ -128,12 +129,19 @@ class BuienalarmConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
+            try:
+                refresh_interval = _REFRESH_INTERVAL_SCHEMA(
+                    user_input.get("refresh_interval", DEFAULT_REFRESH_INTERVAL)
+                )
+            except vol.Invalid:
+                errors["refresh_interval"] = "invalid_refresh_interval"
+
             latitude_raw: str = str(user_input[CONF_LATITUDE]).replace(",", ".")
             longitude_raw: str = str(user_input[CONF_LONGITUDE]).replace(",", ".")
 
             if not _is_valid_coordinates(latitude_raw, longitude_raw):
                 errors["base"] = "invalid_coordinates"
-            else:
+            elif not errors:
                 lat_float = float(latitude_raw)
                 lon_float = float(longitude_raw)
                 unique_id: str = f"{lat_float}_{lon_float}"
@@ -163,11 +171,7 @@ class BuienalarmConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                                 "notification_limit", DEFAULT_NOTIFICATION_LIMIT
                             )
                         ),
-                        "refresh_interval": int(
-                            user_input.get(
-                                "refresh_interval", DEFAULT_REFRESH_INTERVAL
-                            )
-                        ),
+                        "refresh_interval": refresh_interval,
                     },
                 )
 
@@ -244,15 +248,20 @@ class BuienalarmOptionsFlow(config_entries.OptionsFlow):
         errors: dict[str, str] = {}
 
         if user_input is not None:
+            try:
+                refresh_interval = _REFRESH_INTERVAL_SCHEMA(
+                    user_input.get("refresh_interval", DEFAULT_REFRESH_INTERVAL)
+                )
+            except vol.Invalid:
+                errors["refresh_interval"] = "invalid_refresh_interval"
+
             latitude_raw: str = str(user_input[CONF_LATITUDE]).replace(",", ".")
             longitude_raw: str = str(user_input[CONF_LONGITUDE]).replace(",", ".")
 
             if not _is_valid_coordinates(latitude_raw, longitude_raw):
                 errors["base"] = "invalid_coordinates"
-            else:
-                _LOGGER.debug(
-                    "Updating options for entry %s", self._entry.entry_id
-                )
+            elif not errors:
+                _LOGGER.debug("Updating options for entry %s", self._entry.entry_id)
                 user_input[CONF_LATITUDE] = float(latitude_raw)
                 user_input[CONF_LONGITUDE] = float(longitude_raw)
                 if "notification_limit" in user_input:
@@ -260,9 +269,7 @@ class BuienalarmOptionsFlow(config_entries.OptionsFlow):
                         user_input["notification_limit"]
                     )
                 if "refresh_interval" in user_input:
-                    user_input["refresh_interval"] = int(
-                        user_input["refresh_interval"]
-                    )
+                    user_input["refresh_interval"] = refresh_interval
                 return self.async_create_entry(title="", data=user_input)
 
         return self.async_show_form(
