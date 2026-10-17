@@ -9,11 +9,13 @@ Use AI tools to improve correctness and maintainability without allowing generat
 Follow instructions in this order:
 
 1. Applicable platform, security, and repository-owner requirements.
-2. `AGENTS.md` for shared engineering and workflow rules.
+2. `AGENTS.md` for task routing and non-negotiable repository requirements, plus the detailed reference it identifies for the task.
 3. `home-assistant.md` for Buienalarm-specific implementation and domain semantics.
 4. Applicable nested instructions and task-specific documentation.
 5. Agent-specific files, which may route to shared instructions but must not silently contradict them.
 6. A task prompt or conversation summary.
+
+Load `docs/ai/engineering-standards.md` for implementation, refactoring, debugging, or code review involving Python, Home Assistant behavior, dependencies, tests, typing/linting, Quality Scale, HACS, or compatibility. Load `docs/ai/repository-workflow.md` for Git/GitHub operations, pull requests, review feedback, diagnostics, label maintenance, or instruction-file changes. Load both when the task spans both areas.
 
 The implementation, tests, fixtures, manifest, workflows, and current official Home Assistant documentation are evidence of behavior. Instructions and summaries do not override verified source behavior.
 
@@ -31,7 +33,7 @@ The implementation, tests, fixtures, manifest, workflows, and current official H
 
 ## Context hygiene
 
-- Keep root instructions concise and stable; put detailed domain rules in `home-assistant.md` and procedural references in `docs/ai/`.
+- Keep root instructions concise and stable; put detailed engineering rules in `docs/ai/engineering-standards.md`, repository procedures in `docs/ai/repository-workflow.md`, and Buienalarm behavior in `home-assistant.md`.
 - Do not copy long rules between instruction files. Link to the canonical source instead.
 - Re-read relevant source and tests at the start of each task. Do not treat previous conversation summaries as current repository state.
 - For multi-step work, maintain a short task handoff with objective, verified findings, files changed, checks run, unresolved questions, and next action.
