@@ -41,46 +41,29 @@ DEFAULT_LONGITUDE: Final[float] = 4.79861
 DEFAULT_REFRESH_INTERVAL: Final[int] = 300  # seconds (5 min)
 DEFAULT_NOTIFICATION_LIMIT: Final[int] = 0  # mm/h – notify on any value
 
-
-def _validate_integer(val: object) -> int:
-    """Validate that val is or can be represented as an integer without fractional loss."""
-    if isinstance(val, float) and not val.is_integer():
-        raise vol.Invalid(f"Value {val} must be an integer.")
-    try:
-        fval = float(str(val))
-        if not fval.is_integer():
-            raise vol.Invalid(f"Value {val} must be an integer.")
-        return int(fval)
-    except (ValueError, TypeError) as err:
-        raise vol.Invalid(f"Invalid integer: {val}") from err
-
-
-_NOTIFICATION_LIMIT_SCHEMA: Final[vol.All] = vol.All(
-    _validate_integer,
-    vol.Range(min=0),
-    selector.NumberSelector(
-        selector.NumberSelectorConfig(
-            min=0.0,
-            step=1.0,
-            mode=selector.NumberSelectorMode.BOX,
-            unit_of_measurement="mm/h",
-        )
-    ),
-    _validate_integer,
+_COORDINATE_SELECTOR: Final[selector.NumberSelector] = selector.NumberSelector(
+    selector.NumberSelectorConfig(
+        step="any",
+        mode=selector.NumberSelectorMode.BOX,
+    )
 )
 
-_REFRESH_INTERVAL_SCHEMA: Final[vol.All] = vol.All(
-    _validate_integer,
-    vol.Range(min=60),
-    selector.NumberSelector(
-        selector.NumberSelectorConfig(
-            min=60.0,
-            step=1.0,
-            mode=selector.NumberSelectorMode.BOX,
-            unit_of_measurement="s",
-        )
-    ),
-    _validate_integer,
+_NOTIFICATION_LIMIT_SCHEMA: Final[selector.NumberSelector] = selector.NumberSelector(
+    selector.NumberSelectorConfig(
+        min=0.0,
+        step=1.0,
+        mode=selector.NumberSelectorMode.BOX,
+        unit_of_measurement="mm/h",
+    )
+)
+
+_REFRESH_INTERVAL_SCHEMA: Final[selector.NumberSelector] = selector.NumberSelector(
+    selector.NumberSelectorConfig(
+        min=60.0,
+        step=1.0,
+        mode=selector.NumberSelectorMode.BOX,
+        unit_of_measurement="s",
+    )
 )
 
 
@@ -129,19 +112,24 @@ class BuienalarmConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            try:
-                refresh_interval = _REFRESH_INTERVAL_SCHEMA(
-                    user_input.get("refresh_interval", DEFAULT_REFRESH_INTERVAL)
-                )
-            except vol.Invalid:
-                errors["refresh_interval"] = "invalid_refresh_interval"
-
             latitude_raw: str = str(user_input[CONF_LATITUDE]).replace(",", ".")
             longitude_raw: str = str(user_input[CONF_LONGITUDE]).replace(",", ".")
+            notif_limit = user_input.get("notification_limit")
+            refresh_int = user_input.get("refresh_interval")
 
             if not _is_valid_coordinates(latitude_raw, longitude_raw):
                 errors["base"] = "invalid_coordinates"
-            elif not errors:
+            elif notif_limit is not None and (
+                (isinstance(notif_limit, float) and not notif_limit.is_integer())
+                or float(notif_limit) < 0
+            ):
+                errors["base"] = "invalid_notification_limit"
+            elif refresh_int is not None and (
+                (isinstance(refresh_int, float) and not refresh_int.is_integer())
+                or float(refresh_int) < 60
+            ):
+                errors["base"] = "invalid_refresh_interval"
+            else:
                 lat_float = float(latitude_raw)
                 lon_float = float(longitude_raw)
                 unique_id: str = f"{lat_float}_{lon_float}"
@@ -151,9 +139,7 @@ class BuienalarmConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self._abort_if_unique_id_configured()
 
                 _LOGGER.debug("Creating new config entry")
-                location_name = user_input.get(
-                    CONF_NAME, NAME
-                )  # Default name if not provided
+                location_name = user_input.get(CONF_NAME, NAME)
 
                 lat_title = round(lat_float, 4)
                 lon_title = round(lon_float, 4)
@@ -161,17 +147,17 @@ class BuienalarmConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return self.async_create_entry(
                     title=f"{location_name} ({lat_title}, {lon_title})",
                     data={
-                        CONF_NAME: user_input.get(CONF_NAME, NAME),
+                        CONF_NAME: location_name,
                         CONF_LATITUDE: lat_float,
                         CONF_LONGITUDE: lon_float,
                         "location_id": unique_id,
                         "location_name": location_name,
-                        "notification_limit": int(
-                            user_input.get(
-                                "notification_limit", DEFAULT_NOTIFICATION_LIMIT
-                            )
-                        ),
-                        "refresh_interval": refresh_interval,
+                        "notification_limit": int(notif_limit)
+                        if notif_limit is not None
+                        else DEFAULT_NOTIFICATION_LIMIT,
+                        "refresh_interval": int(refresh_int)
+                        if refresh_int is not None
+                        else DEFAULT_REFRESH_INTERVAL,
                     },
                 )
 
@@ -187,22 +173,8 @@ class BuienalarmConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         data_schema: vol.Schema = vol.Schema(
             {
                 vol.Required(CONF_NAME, default=NAME): selector.TextSelector(),
-                vol.Required(
-                    CONF_LATITUDE, default=default_lat
-                ): selector.NumberSelector(
-                    selector.NumberSelectorConfig(
-                        step="any",
-                        mode=selector.NumberSelectorMode.BOX,
-                    )
-                ),
-                vol.Required(
-                    CONF_LONGITUDE, default=default_lon
-                ): selector.NumberSelector(
-                    selector.NumberSelectorConfig(
-                        step="any",
-                        mode=selector.NumberSelectorMode.BOX,
-                    )
-                ),
+                vol.Required(CONF_LATITUDE, default=default_lat): _COORDINATE_SELECTOR,
+                vol.Required(CONF_LONGITUDE, default=default_lon): _COORDINATE_SELECTOR,
                 vol.Optional(
                     "notification_limit", default=DEFAULT_NOTIFICATION_LIMIT
                 ): _NOTIFICATION_LIMIT_SCHEMA,
@@ -248,28 +220,33 @@ class BuienalarmOptionsFlow(config_entries.OptionsFlow):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            try:
-                refresh_interval = _REFRESH_INTERVAL_SCHEMA(
-                    user_input.get("refresh_interval", DEFAULT_REFRESH_INTERVAL)
-                )
-            except vol.Invalid:
-                errors["refresh_interval"] = "invalid_refresh_interval"
-
             latitude_raw: str = str(user_input[CONF_LATITUDE]).replace(",", ".")
             longitude_raw: str = str(user_input[CONF_LONGITUDE]).replace(",", ".")
+            notif_limit = user_input.get("notification_limit")
+            refresh_int = user_input.get("refresh_interval")
 
             if not _is_valid_coordinates(latitude_raw, longitude_raw):
                 errors["base"] = "invalid_coordinates"
-            elif not errors:
-                _LOGGER.debug("Updating options for entry %s", self._entry.entry_id)
+            elif notif_limit is not None and (
+                (isinstance(notif_limit, float) and not notif_limit.is_integer())
+                or float(notif_limit) < 0
+            ):
+                errors["base"] = "invalid_notification_limit"
+            elif refresh_int is not None and (
+                (isinstance(refresh_int, float) and not refresh_int.is_integer())
+                or float(refresh_int) < 60
+            ):
+                errors["base"] = "invalid_refresh_interval"
+            else:
+                _LOGGER.debug(
+                    "Updating options for entry %s", self._entry.entry_id
+                )
                 user_input[CONF_LATITUDE] = float(latitude_raw)
                 user_input[CONF_LONGITUDE] = float(longitude_raw)
-                if "notification_limit" in user_input:
-                    user_input["notification_limit"] = int(
-                        user_input["notification_limit"]
-                    )
-                if "refresh_interval" in user_input:
-                    user_input["refresh_interval"] = refresh_interval
+                if notif_limit is not None:
+                    user_input["notification_limit"] = int(notif_limit)
+                if refresh_int is not None:
+                    user_input["refresh_interval"] = int(refresh_int)
                 return self.async_create_entry(title="", data=user_input)
 
         return self.async_show_form(
@@ -296,23 +273,13 @@ class BuienalarmOptionsFlow(config_entries.OptionsFlow):
                     default=options.get(
                         CONF_LATITUDE, data.get(CONF_LATITUDE, DEFAULT_LATITUDE)
                     ),
-                ): selector.NumberSelector(
-                    selector.NumberSelectorConfig(
-                        step="any",
-                        mode=selector.NumberSelectorMode.BOX,
-                    )
-                ),
+                ): _COORDINATE_SELECTOR,
                 vol.Required(
                     CONF_LONGITUDE,
                     default=options.get(
                         CONF_LONGITUDE, data.get(CONF_LONGITUDE, DEFAULT_LONGITUDE)
                     ),
-                ): selector.NumberSelector(
-                    selector.NumberSelectorConfig(
-                        step="any",
-                        mode=selector.NumberSelectorMode.BOX,
-                    )
-                ),
+                ): _COORDINATE_SELECTOR,
                 vol.Required(
                     "notification_limit",
                     default=options.get(

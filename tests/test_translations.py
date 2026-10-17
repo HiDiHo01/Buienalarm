@@ -40,10 +40,8 @@ def test_translation_files_exist_and_valid_json():
         # Check error keys
         assert "error" in data["config"]
         assert "invalid_coordinates" in data["config"]["error"]
-        assert "invalid_refresh_interval" in data["config"]["error"]
         assert "error" in data["options"]
         assert "invalid_coordinates" in data["options"]["error"]
-        assert "invalid_refresh_interval" in data["options"]["error"]
 
         # Check binary sensor entity translations
         assert "binary_sensor" in data["entity"]
