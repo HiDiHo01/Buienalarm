@@ -90,6 +90,45 @@ def _get_default_coordinates(hass: Any) -> tuple[float, float]:
     return DEFAULT_LATITUDE, DEFAULT_LONGITUDE
 
 
+def _validate_flow_input(
+    user_input: dict[str, Any],
+) -> tuple[dict[str, str], float, float, int, int]:
+    """Validate flow input and return errors and normalized values."""
+    errors: dict[str, str] = {}
+    latitude_raw: str = str(user_input.get(CONF_LATITUDE, "")).replace(",", ".")
+    longitude_raw: str = str(user_input.get(CONF_LONGITUDE, "")).replace(",", ".")
+    notif_limit = user_input.get("notification_limit")
+    refresh_int = user_input.get("refresh_interval")
+
+    if not _is_valid_coordinates(latitude_raw, longitude_raw):
+        errors["base"] = "invalid_coordinates"
+    elif notif_limit is not None and (
+        (isinstance(notif_limit, float) and not notif_limit.is_integer())
+        or float(notif_limit) < 0
+    ):
+        errors["base"] = "invalid_notification_limit"
+    elif refresh_int is not None and (
+        (isinstance(refresh_int, float) and not refresh_int.is_integer())
+        or float(refresh_int) < 60
+    ):
+        errors["base"] = "invalid_refresh_interval"
+
+    lat_float = float(latitude_raw) if not errors else 0.0
+    lon_float = float(longitude_raw) if not errors else 0.0
+    parsed_notif = (
+        int(notif_limit)
+        if notif_limit is not None and not errors
+        else DEFAULT_NOTIFICATION_LIMIT
+    )
+    parsed_refresh = (
+        int(refresh_int)
+        if refresh_int is not None and not errors
+        else DEFAULT_REFRESH_INTERVAL
+    )
+
+    return errors, lat_float, lon_float, parsed_notif, parsed_refresh
+
+
 # -----------------------------------------------------------------------------
 # Config Flow
 # -----------------------------------------------------------------------------
@@ -112,26 +151,10 @@ class BuienalarmConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            latitude_raw: str = str(user_input[CONF_LATITUDE]).replace(",", ".")
-            longitude_raw: str = str(user_input[CONF_LONGITUDE]).replace(",", ".")
-            notif_limit = user_input.get("notification_limit")
-            refresh_int = user_input.get("refresh_interval")
-
-            if not _is_valid_coordinates(latitude_raw, longitude_raw):
-                errors["base"] = "invalid_coordinates"
-            elif notif_limit is not None and (
-                (isinstance(notif_limit, float) and not notif_limit.is_integer())
-                or float(notif_limit) < 0
-            ):
-                errors["base"] = "invalid_notification_limit"
-            elif refresh_int is not None and (
-                (isinstance(refresh_int, float) and not refresh_int.is_integer())
-                or float(refresh_int) < 60
-            ):
-                errors["base"] = "invalid_refresh_interval"
-            else:
-                lat_float = float(latitude_raw)
-                lon_float = float(longitude_raw)
+            errors, lat_float, lon_float, notif_limit, refresh_int = (
+                _validate_flow_input(user_input)
+            )
+            if not errors:
                 unique_id: str = f"{lat_float}_{lon_float}"
 
                 # Register unique_id with HA and abort if it already exists.
@@ -152,12 +175,8 @@ class BuienalarmConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_LONGITUDE: lon_float,
                         "location_id": unique_id,
                         "location_name": location_name,
-                        "notification_limit": int(notif_limit)
-                        if notif_limit is not None
-                        else DEFAULT_NOTIFICATION_LIMIT,
-                        "refresh_interval": int(refresh_int)
-                        if refresh_int is not None
-                        else DEFAULT_REFRESH_INTERVAL,
+                        "notification_limit": notif_limit,
+                        "refresh_interval": refresh_int,
                     },
                 )
 
@@ -220,33 +239,17 @@ class BuienalarmOptionsFlow(config_entries.OptionsFlow):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            latitude_raw: str = str(user_input[CONF_LATITUDE]).replace(",", ".")
-            longitude_raw: str = str(user_input[CONF_LONGITUDE]).replace(",", ".")
-            notif_limit = user_input.get("notification_limit")
-            refresh_int = user_input.get("refresh_interval")
-
-            if not _is_valid_coordinates(latitude_raw, longitude_raw):
-                errors["base"] = "invalid_coordinates"
-            elif notif_limit is not None and (
-                (isinstance(notif_limit, float) and not notif_limit.is_integer())
-                or float(notif_limit) < 0
-            ):
-                errors["base"] = "invalid_notification_limit"
-            elif refresh_int is not None and (
-                (isinstance(refresh_int, float) and not refresh_int.is_integer())
-                or float(refresh_int) < 60
-            ):
-                errors["base"] = "invalid_refresh_interval"
-            else:
+            errors, lat_float, lon_float, notif_limit, refresh_int = (
+                _validate_flow_input(user_input)
+            )
+            if not errors:
                 _LOGGER.debug(
                     "Updating options for entry %s", self._entry.entry_id
                 )
-                user_input[CONF_LATITUDE] = float(latitude_raw)
-                user_input[CONF_LONGITUDE] = float(longitude_raw)
-                if notif_limit is not None:
-                    user_input["notification_limit"] = int(notif_limit)
-                if refresh_int is not None:
-                    user_input["refresh_interval"] = int(refresh_int)
+                user_input[CONF_LATITUDE] = lat_float
+                user_input[CONF_LONGITUDE] = lon_float
+                user_input["notification_limit"] = notif_limit
+                user_input["refresh_interval"] = refresh_int
                 return self.async_create_entry(title="", data=user_input)
 
         return self.async_show_form(
