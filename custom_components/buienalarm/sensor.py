@@ -3,14 +3,13 @@ import logging
 from typing import Final
 
 from homeassistant.components.sensor import SensorEntity
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import StateType
 
 from .const import ATTR_ATTRIBUTION, DOMAIN, SENSORS
-from .coordinator import BuienalarmDataUpdateCoordinator
+from .coordinator import BuienalarmConfigEntry, BuienalarmDataUpdateCoordinator
 from .entity import BuienalarmEntity
 
 _LOGGER = logging.getLogger(__name__)
@@ -18,7 +17,7 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    config_entry: ConfigEntry,
+    config_entry: BuienalarmConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up Buienalarm sensors from config entry."""
@@ -26,7 +25,10 @@ async def async_setup_entry(
         "[SENSOR SETUP] Setting up Buienalarm sensors for %s", config_entry.unique_id
     )
 
-    coordinator: BuienalarmDataUpdateCoordinator | None = hass.data.get(DOMAIN, {}).get(config_entry.entry_id)
+    coordinator: BuienalarmDataUpdateCoordinator | None = (
+        getattr(config_entry, "runtime_data", None)
+        or hass.data.get(DOMAIN, {}).get(config_entry.entry_id)
+    )
     if not coordinator:
         raise RuntimeError(
             "Buienalarm coordinator is not available for config entry "
@@ -61,7 +63,7 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
     def __init__(
         self,
         coordinator: BuienalarmDataUpdateCoordinator,
-        config_entry: ConfigEntry,
+        config_entry: BuienalarmConfigEntry,
         name: str,
         unit_of_measurement: str | None,
         icon: str | None,
