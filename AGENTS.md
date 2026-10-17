@@ -9,7 +9,7 @@ Deliver the single best, smallest complete solution. Avoid speculative assumptio
 ## Required context for every task
 
 1. Read this file and the repository-root `home-assistant.md` **in full**. The latter is authoritative for Buienalarm-specific API payloads, sensor semantics, precipitation calculations, binary-sensor behavior, availability, timestamps, and testing.
-2. Read the repository-root `AI_POLICY.md` in full and any applicable parent or nested `AGENTS.md` files. Follow `.github/copilot-instructions.md` when using Copilot or when its repository-wide requirements apply. Do not assume a file exists without checking.
+2. Read every applicable `AI_POLICY.md` in the repository root, `.github/`, or `docs/`, starting with the root policy, and any applicable parent or nested `AGENTS.md` files. Follow `.github/copilot-instructions.md` when using Copilot or when its repository-wide requirements apply. Do not assume a file exists without checking.
 3. Read [the context-engineering workflow](docs/ai/context-engineering.md) for multi-step investigations, debugging, handoffs, or potentially stale findings.
 4. Load the relevant reference below before acting. These references contain mandatory rules; moving them out of this entry point does not make them optional when applicable.
 
