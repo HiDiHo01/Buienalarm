@@ -27,6 +27,7 @@ from homeassistant.const import (
 )
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
+from homeassistant.helpers import selector
 
 from .const import DOMAIN, NAME
 
@@ -137,15 +138,43 @@ class BuienalarmConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         data_schema: vol.Schema = vol.Schema(
             {
-                vol.Required(CONF_NAME, default=NAME): str,
-                vol.Required(CONF_LATITUDE, default=default_lat): float,
-                vol.Required(CONF_LONGITUDE, default=default_lon): float,
+                vol.Required(CONF_NAME, default=NAME): selector.TextSelector(),
+                vol.Required(
+                    CONF_LATITUDE, default=default_lat
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        step="any",
+                        mode=selector.NumberSelectorMode.BOX,
+                    )
+                ),
+                vol.Required(
+                    CONF_LONGITUDE, default=default_lon
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        step="any",
+                        mode=selector.NumberSelectorMode.BOX,
+                    )
+                ),
                 vol.Optional(
                     "notification_limit", default=DEFAULT_NOTIFICATION_LIMIT
-                ): _NOTIFICATION_LIMIT_SCHEMA,
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=0.0,
+                        step=1.0,
+                        mode=selector.NumberSelectorMode.BOX,
+                        unit_of_measurement="mm/h",
+                    )
+                ),
                 vol.Optional(
                     "refresh_interval", default=DEFAULT_REFRESH_INTERVAL
-                ): _REFRESH_INTERVAL_SCHEMA,
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=60.0,
+                        step=1.0,
+                        mode=selector.NumberSelectorMode.BOX,
+                        unit_of_measurement="s",
+                    )
+                ),
             }
         )
         return self.async_show_form(
@@ -216,33 +245,57 @@ class BuienalarmOptionsFlow(config_entries.OptionsFlow):
                 vol.Required(
                     CONF_NAME,
                     default=options.get(CONF_NAME, data.get(CONF_NAME, NAME)),
-                ): str,
+                ): selector.TextSelector(),
                 vol.Required(
                     CONF_LATITUDE,
                     default=options.get(
                         CONF_LATITUDE, data.get(CONF_LATITUDE, DEFAULT_LATITUDE)
                     ),
-                ): float,
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        step="any",
+                        mode=selector.NumberSelectorMode.BOX,
+                    )
+                ),
                 vol.Required(
                     CONF_LONGITUDE,
                     default=options.get(
                         CONF_LONGITUDE, data.get(CONF_LONGITUDE, DEFAULT_LONGITUDE)
                     ),
-                ): float,
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        step="any",
+                        mode=selector.NumberSelectorMode.BOX,
+                    )
+                ),
                 vol.Required(
                     "notification_limit",
                     default=options.get(
                         "notification_limit",
                         data.get("notification_limit", DEFAULT_NOTIFICATION_LIMIT),
                     ),
-                ): _NOTIFICATION_LIMIT_SCHEMA,
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=0.0,
+                        step=1.0,
+                        mode=selector.NumberSelectorMode.BOX,
+                        unit_of_measurement="mm/h",
+                    )
+                ),
                 vol.Required(
                     "refresh_interval",
                     default=options.get(
                         "refresh_interval",
                         data.get("refresh_interval", DEFAULT_REFRESH_INTERVAL),
                     ),
-                ): _REFRESH_INTERVAL_SCHEMA,
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=60.0,
+                        step=1.0,
+                        mode=selector.NumberSelectorMode.BOX,
+                        unit_of_measurement="s",
+                    )
+                ),
             }
         )
 
