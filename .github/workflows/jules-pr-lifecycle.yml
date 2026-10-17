@@ -8,7 +8,7 @@ on:
 permissions:
   contents: read
   issues: write
-  pull-requests: read
+  pull-requests: write
 
 concurrency:
   group: jules-lifecycle-${{ github.event.pull_request.number }}
@@ -172,16 +172,31 @@ jobs:
 
           if [ -s "${SUMMARY_FILE}" ]; then
             SUMMARY=$(cat "${SUMMARY_FILE}")
-            gh api "${COMMENTS_ENDPOINT}" \
-              --method POST \
-              --field body="$(cat <<EOF
+            COMMENT_BODY=$(cat <<EOF
           ## Jules session lifecycle
 
           Pull request status: **${CLOSURE_REASON}**
 
           ${SUMMARY}
 
-          Sessions are deleted only after the Jules API reports a terminal state (`COMPLETED` or `FAILED`). The Jules API does not document a cancellation endpoint; any session still active after notification is retained rather than assuming deletion stops execution.
+          Sessions are deleted only after the Jules API reports a terminal state (\`COMPLETED\` or \`FAILED\`). The Jules API does not document a cancellation endpoint; any session still active after notification is retained rather than assuming deletion stops execution.
           EOF
-          )"
+          )
+
+            # Always preserve the lifecycle report in the Actions run summary.
+            {
+              printf '%s\n\n' '## Jules session lifecycle'
+              printf '%s\n\n' "Pull request status: **${CLOSURE_REASON}**"
+              printf '%s\n\n' "${SUMMARY}"
+            } >> "${GITHUB_STEP_SUMMARY}"
+
+            # Some repository/organization Actions policies can still deny
+            # write access despite the workflow permissions declaration.
+            if ! gh api "${COMMENTS_ENDPOINT}" \
+              --method POST \
+              --field body="${COMMENT_BODY}" >/dev/null; then
+              echo "::warning::Unable to post Jules lifecycle comment. See the Actions run summary; check Actions workflow token write permissions."
+            else
+              echo "Posted Jules lifecycle comment to ${PR_URL}."
+            fi
           fi
