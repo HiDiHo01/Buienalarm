@@ -380,3 +380,49 @@ async def test_binary_sensors_missing_or_invalid_data(
             state = hass.states.get(entity_id)
             assert state is not None
             assert state.state == "unknown"
+
+
+@pytest.mark.asyncio
+async def test_binary_sensors_freezing_rain_now(hass: HomeAssistant) -> None:
+    """Test currently_raining is on and currently_snowing is off for freezing rain."""
+    now_ts = datetime.now(timezone.utc).timestamp()
+    data = {
+        "data": [
+            {
+                "precipitationrate": 1.8,
+                "precipitationtype": "freezing rain",
+                "timestamp": now_ts,
+            }
+        ]
+    }
+
+    with patch(
+        "custom_components.buienalarm.api.BuienalarmApiClient.async_get_data",
+        return_value=data,
+    ):
+        entry = MockConfigEntry(
+            domain=DOMAIN,
+            title="Buienalarm Test Freezing Rain",
+            unique_id="test_freezing_rain",
+            data={"latitude": 52.3702, "longitude": 4.8952},
+        )
+        entry.add_to_hass(hass)
+
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        entity_registry = async_get_entity_registry(hass)
+
+        exp_id = entity_registry.async_get_entity_id(
+            "binary_sensor", DOMAIN, f"{entry.entry_id}_precipitation_expected"
+        )
+        rain_id = entity_registry.async_get_entity_id(
+            "binary_sensor", DOMAIN, f"{entry.entry_id}_currently_raining"
+        )
+        snow_id = entity_registry.async_get_entity_id(
+            "binary_sensor", DOMAIN, f"{entry.entry_id}_currently_snowing"
+        )
+
+        assert hass.states.get(exp_id).state == "on"
+        assert hass.states.get(rain_id).state == "on"
+        assert hass.states.get(snow_id).state == "off"
