@@ -41,7 +41,7 @@
                 "title": "Settings",
                 "description": "Options for Buienalarm:",
                 "data": {
-                    "name": "Name",
+                    "name": "Place / Name",
                     "latitude": "Latitude",
                     "longitude": "Longitude",
                     "notification_limit": "Notification limit (mm/h)",
