@@ -1,4 +1,5 @@
 # sensor.py
+from collections.abc import Mapping
 import logging
 from typing import Final
 
@@ -96,21 +97,32 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
 
     @property
     def available(self) -> bool:
-        """Return True if coordinator data and unwrapped forecast payload are available."""
+        """Return True if coordinator data and unwrapped forecast payload are available with valid fields."""
         if not self.coordinator.last_update_success:
             return False
-        if not self.coordinator.data or not isinstance(self.coordinator.data, dict):
+        if not self.coordinator.data or not isinstance(self.coordinator.data, Mapping):
             _LOGGER.debug(
-                "[SENSOR ENTITY] Coordinator data is not a dict or empty: %s",
+                "[SENSOR ENTITY] Coordinator data is not a Mapping or empty: %s",
                 type(self.coordinator.data).__name__,
             )
             return False
-        if not self.data or not isinstance(self.data, dict):
+        if not self.data or not isinstance(self.data, Mapping):
             _LOGGER.debug(
-                "[SENSOR ENTITY] Unwrapped payload is not a dict or empty: %s",
+                "[SENSOR ENTITY] Unwrapped payload is not a Mapping or empty: %s",
                 type(self.data).__name__,
             )
             return False
+
+        has_data_list = isinstance(self.data.get("data"), list)
+        has_nowcast_msg = isinstance(self.data.get("nowcastmessage"), Mapping)
+
+        if not (has_data_list or has_nowcast_msg):
+            _LOGGER.debug(
+                "[SENSOR ENTITY] Payload missing forecast fields ('data' list or 'nowcastmessage' mapping) for key %s",
+                self._key,
+            )
+            return False
+
         return True
 
     @property
