@@ -206,6 +206,26 @@ async def test_config_flow_default_coordinates_zero_latitude(
 
 
 @pytest.mark.asyncio
+async def test_config_flow_selector_configs(hass: HomeAssistant) -> None:
+    """Test that number selectors have step=1.0 and min bounds set."""
+    from custom_components.buienalarm.config_flow import (
+        _NOTIFICATION_LIMIT_SCHEMA,
+        _REFRESH_INTERVAL_SCHEMA,
+    )
+
+    notif_config = _NOTIFICATION_LIMIT_SCHEMA.config
+    refresh_config = _REFRESH_INTERVAL_SCHEMA.config
+
+    assert notif_config["min"] == 0.0
+    assert notif_config["step"] == 1.0
+    assert notif_config["unit_of_measurement"] == "mm/h"
+
+    assert refresh_config["min"] == 60.0
+    assert refresh_config["step"] == 1.0
+    assert refresh_config["unit_of_measurement"] == "s"
+
+
+@pytest.mark.asyncio
 async def test_options_flow_range_validation(hass: HomeAssistant) -> None:
     """Test that options flow schema enforces range limits on notification_limit and refresh_interval."""
     entry = MockConfigEntry(
