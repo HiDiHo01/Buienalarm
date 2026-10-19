@@ -131,9 +131,11 @@ class BuienalarmEntity(CoordinatorEntity):
 
         # The API client wraps the raw endpoint payload in the timeseries key
         # together with retrieval metadata. Entity calculations consume the raw payload.
-        timeseries = coordinator_data.get("timeseries")
-        if isinstance(timeseries, Mapping):
-            return timeseries
+        if "timeseries" in coordinator_data:
+            timeseries = coordinator_data.get("timeseries")
+            if isinstance(timeseries, Mapping):
+                return timeseries
+            return {}
 
         # Retain compatibility with existing fixtures and cached coordinator data
         # that already contain the unwrapped endpoint payload.

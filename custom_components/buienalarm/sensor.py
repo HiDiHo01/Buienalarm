@@ -96,15 +96,19 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
 
     @property
     def available(self) -> bool:
-        """Return True if coordinator data is available."""
+        """Return True if coordinator data and unwrapped forecast payload are available."""
         if not self.coordinator.last_update_success:
             return False
-        if not self.coordinator.data:
-            return False
-        if not isinstance(self.coordinator.data, dict):
+        if not self.coordinator.data or not isinstance(self.coordinator.data, dict):
             _LOGGER.debug(
-                "[SENSOR ENTITY] Coordinator data is not a dict: %s",
+                "[SENSOR ENTITY] Coordinator data is not a dict or empty: %s",
                 type(self.coordinator.data).__name__,
+            )
+            return False
+        if not self.data or not isinstance(self.data, dict):
+            _LOGGER.debug(
+                "[SENSOR ENTITY] Unwrapped payload is not a dict or empty: %s",
+                type(self.data).__name__,
             )
             return False
         return True
