@@ -13,6 +13,6 @@ Critical learnings on performance optimizations for this repository.
 **Learning:** Computing Home Assistant sensor states using methods that format rich attribute objects (e.g. `get_precipitation_periods_as_dict()`) causes duplicate timestamp parsing and ISO string serialization overhead when evaluating condition checks or counts.
 **Action:** When evaluating numerical properties or counts for sensors, query raw internal lists or counts directly (e.g. `len(self._get_precipitation_periods())`) rather than invoking attribute formatting helpers that build complex dictionaries.
 
-## 2026-10-25 - Avoid bound method allocation in generic mapping getter helpers
+## 2026-10-19 - Avoid bound method allocation in generic mapping getter helpers
 **Learning:** Generic dictionary getter functions like `_safe_get()` that use `getattr(item, "get")` to extract keys dynamically instantiate bound method objects (`PyMethod_New`) on every call. In hot loops processing timeseries data points, checking `isinstance(item, dict)` first and invoking `item.get(key, default)` directly avoids method object allocations and speeds up key lookups by 4x (~75% reduction in lookup latency), reducing overall entity state attribute evaluation time by ~31%.
 **Action:** Always provide an explicit `if isinstance(item, dict): return item.get(key, default)` fast path in dynamic dictionary lookup helpers before falling back to `getattr`.
