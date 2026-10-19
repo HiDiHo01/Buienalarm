@@ -257,7 +257,7 @@ async def test_buienalarm_entity_invalid_precipitation_rates(hass: HomeAssistant
 
 @pytest.mark.asyncio
 async def test_buienalarm_sensor_availability(hass: HomeAssistant) -> None:
-    """Test BuienalarmSensor available property returns False when coordinator data is empty or invalid."""
+    """Test BuienalarmSensor available property returns False when coordinator data or unwrapped payload is empty or invalid."""
     from unittest.mock import MagicMock
     from custom_components.buienalarm.sensor import BuienalarmSensor
 
@@ -284,6 +284,20 @@ async def test_buienalarm_sensor_availability(hass: HomeAssistant) -> None:
     # When coordinator data is valid dict
     coordinator.data = {"nowcastmessage": {"nl": "Regen verwacht"}}
     assert sensor.available is True
+
+    # When coordinator data wraps timeseries with valid payload
+    coordinator.data = {"timeseries": {"nowcastmessage": {"nl": "Regen verwacht"}}}
+    assert sensor.available is True
+
+    # When coordinator data wraps timeseries but timeseries is empty dict or None
+    coordinator.data = {"timeseries": {}}
+    assert sensor.available is False
+
+    coordinator.data = {"timeseries": None}
+    assert sensor.available is False
+
+    coordinator.data = {"timeseries": "not_a_dict"}
+    assert sensor.available is False
 
     # When coordinator data is empty dict
     coordinator.data = {}
