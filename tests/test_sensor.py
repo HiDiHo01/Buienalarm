@@ -258,6 +258,7 @@ async def test_buienalarm_entity_invalid_precipitation_rates(hass: HomeAssistant
 @pytest.mark.asyncio
 async def test_buienalarm_sensor_availability(hass: HomeAssistant) -> None:
     """Test BuienalarmSensor available property returns False when coordinator data or unwrapped payload is empty or invalid."""
+    from collections import UserDict
     from unittest.mock import MagicMock
     from custom_components.buienalarm.sensor import BuienalarmSensor
 
@@ -281,13 +282,30 @@ async def test_buienalarm_sensor_availability(hass: HomeAssistant) -> None:
         key="nowcastmessage",
     )
 
-    # When coordinator data is valid dict
+    # When coordinator data is valid dict with nowcastmessage or data
     coordinator.data = {"nowcastmessage": {"nl": "Regen verwacht"}}
+    assert sensor.available is True
+
+    coordinator.data = {"data": []}
+    assert sensor.available is True
+
+    # When coordinator data is a custom Mapping (UserDict)
+    coordinator.data = UserDict({"nowcastmessage": {"nl": "Regen verwacht"}})
     assert sensor.available is True
 
     # When coordinator data wraps timeseries with valid payload
     coordinator.data = {"timeseries": {"nowcastmessage": {"nl": "Regen verwacht"}}}
     assert sensor.available is True
+
+    # When payload is missing forecast fields ('data' list or 'nowcastmessage' mapping)
+    coordinator.data = {"unrelated_field": "some_value"}
+    assert sensor.available is False
+
+    coordinator.data = {"data": "not_a_list"}
+    assert sensor.available is False
+
+    coordinator.data = {"nowcastmessage": "not_a_mapping"}
+    assert sensor.available is False
 
     # When coordinator data wraps timeseries but timeseries is empty dict or None
     coordinator.data = {"timeseries": {}}
