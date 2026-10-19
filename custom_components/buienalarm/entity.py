@@ -117,6 +117,7 @@ class BuienalarmEntity(CoordinatorEntity):
 
         # ========== Entity & unique_id ==========
         self._attr_translation_key = sensor_key
+        # Unique ID format is <entry_id>_<sensor_key> for stable entity registry references
         self._attr_unique_id = f"{config_entry.entry_id}_{sensor_key}"
         # =======================================
 
