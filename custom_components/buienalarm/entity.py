@@ -115,11 +115,10 @@ class BuienalarmEntity(CoordinatorEntity):
         self.sensor_key: str = sensor_key
         self._location_name: str = config_entry.data.get("location_name", "Unknown")
 
-        # ========== Entity & unique‑id ==========
+        # ========== Entity & unique_id ==========
         self._attr_translation_key = sensor_key
-        # -> <config_entry.unique_id>_<key>   (falls back to entry‑id)
-        base = config_entry.unique_id or config_entry.entry_id
-        self._attr_unique_id = f"{base}_{sensor_key}"
+        # Unique ID format is <entry_id>_<sensor_key> for stable entity registry references
+        self._attr_unique_id = f"{config_entry.entry_id}_{sensor_key}"
         # =======================================
 
     @property
@@ -194,10 +193,6 @@ class BuienalarmEntity(CoordinatorEntity):
             raise ValueError("Precipitation data missing or empty")
         return data
 
-    @property
-    def unique_id(self) -> str:
-        """Return a unique ID to use for this entity."""
-        return f"{self.config_entry.entry_id}_{self.sensor_key}"
 
     @property
     def device_info(self) -> dict[str, object]:

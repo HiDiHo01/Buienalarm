@@ -934,3 +934,25 @@ async def test_dynamic_sensor_icons(hass: HomeAssistant) -> None:
     }
 
     assert precip_type_sensor.icon == "mdi:weather-snowy"
+
+
+@pytest.mark.asyncio
+async def test_buienalarm_entity_unique_id_attribute(hass: HomeAssistant) -> None:
+    """Verify BuienalarmEntity sets _attr_unique_id correctly without property override conflicts."""
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.entity import BuienalarmEntity
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Buienalarm Unique ID Test",
+        unique_id="52.3702_4.8952",
+        data={"latitude": 52.3702, "longitude": 4.8952},
+    )
+
+    coordinator = MagicMock()
+    sensor_key = "nowcastmessage"
+    entity = BuienalarmEntity(coordinator, entry, sensor_key)
+
+    expected_uid = f"{entry.entry_id}_{sensor_key}"
+    assert entity._attr_unique_id == expected_uid
+    assert entity.unique_id == expected_uid
