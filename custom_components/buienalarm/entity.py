@@ -32,9 +32,9 @@ _LOGGER.debug("[ENTITY] Start entity.py")
 
 def _safe_get(item: object, key: str, default: object = None) -> object:
     """Safely retrieve a key from a mapping-like item without raising exceptions."""
-    # Bolt optimization: Fast path for standard dicts and Mappings avoids
+    # Bolt optimization: Fast path for exact built-in dicts avoids
     # creating bound method objects via getattr(item, "get") on every lookup (~4x faster).
-    if isinstance(item, dict):
+    if type(item) is dict:
         return item.get(key, default)
     if isinstance(item, Mapping):
         try:
