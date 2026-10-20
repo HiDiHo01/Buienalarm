@@ -935,6 +935,53 @@ async def test_dynamic_sensor_icons(hass: HomeAssistant) -> None:
 
     assert precip_type_sensor.icon == "mdi:weather-snowy"
 
+    # 4. Test precipitationrate_hour, precipitationrate_total, precipitationrate_now_desc, and next_precipitation icons
+    hour_sensor = BuienalarmSensor(
+        coordinator, entry, name="Hourly Precipitation Rate", unit_of_measurement="mm/h", icon="mdi:weather-pouring", device_class=None, state_class=None, key="precipitationrate_hour"
+    )
+    total_sensor = BuienalarmSensor(
+        coordinator, entry, name="Total Precipitation Rate", unit_of_measurement="mm/h", icon="mdi:weather-pouring", device_class=None, state_class=None, key="precipitationrate_total"
+    )
+    desc_sensor = BuienalarmSensor(
+        coordinator, entry, name="Precipitation Description", unit_of_measurement=None, icon="mdi:weather-cloudy-alert", device_class=None, state_class=None, key="precipitationrate_now_desc"
+    )
+    next_sensor = BuienalarmSensor(
+        coordinator, entry, name="Next Precipitation In", unit_of_measurement="min", icon="mdi:clock-start", device_class=None, state_class=None, key="next_precipitation"
+    )
+
+    # Dry weather
+    coordinator.data = {
+        "data": [
+            {"timestamp": now_ts, "precipitationrate": 0.0, "precipitationtype": "none"},
+            {"timestamp": now_ts + 300, "precipitationrate": 0.0, "precipitationtype": "none"},
+        ]
+    }
+    assert hour_sensor.icon == "mdi:weather-sunny"
+    assert total_sensor.icon == "mdi:weather-sunny"
+    assert desc_sensor.icon == "mdi:weather-sunny"
+    assert next_sensor.icon == "mdi:clock-check-outline"
+
+    # Wet weather / Rain
+    coordinator.data = {
+        "data": [
+            {"timestamp": now_ts, "precipitationrate": 2.5, "precipitationtype": "rain"},
+            {"timestamp": now_ts + 300, "precipitationrate": 1.5, "precipitationtype": "rain"},
+        ]
+    }
+    assert hour_sensor.icon == "mdi:weather-pouring"
+    assert total_sensor.icon == "mdi:weather-pouring"
+    assert desc_sensor.icon == "mdi:weather-pouring"
+    assert next_sensor.icon == "mdi:clock-alert-outline"
+
+    # Future rain in 10 minutes
+    coordinator.data = {
+        "data": [
+            {"timestamp": now_ts, "precipitationrate": 0.0, "precipitationtype": "none"},
+            {"timestamp": now_ts + 600, "precipitationrate": 2.0, "precipitationtype": "rain"},
+        ]
+    }
+    assert next_sensor.icon == "mdi:clock-start"
+
 
 @pytest.mark.asyncio
 async def test_buienalarm_entity_unique_id_attribute(hass: HomeAssistant) -> None:
