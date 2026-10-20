@@ -13,6 +13,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .coordinator import BuienalarmConfigEntry, BuienalarmDataUpdateCoordinator
+from .entity import _as_float
 from .sensor_types import BINARY_SENSOR_DESCRIPTIONS
 
 _RAIN_TYPES: Final[frozenset[str]] = frozenset(
@@ -172,23 +173,6 @@ def _is_current_precipitation_period(
         timestamp <= current_ts < timestamp + 300
         and _is_precipitation_period(period)
     )
-
-
-def _as_float(value: object) -> float | None:
-    """Convert an API value to float without raising an exception."""
-    if isinstance(value, bool):
-        return None
-
-    if isinstance(value, int | float):
-        return float(value)
-
-    if isinstance(value, str):
-        try:
-            return float(value.replace(",", "."))
-        except ValueError:
-            return None
-
-    return None
 
 
 async def async_setup_entry(
