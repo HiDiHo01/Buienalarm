@@ -1,5 +1,6 @@
 """Binary sensors for Buienalarm rain detection."""
 
+import math
 from collections.abc import Mapping
 from datetime import datetime, timedelta, timezone
 from typing import Final, override
@@ -175,18 +176,22 @@ def _is_current_precipitation_period(
 
 
 def _as_float(value: object) -> float | None:
-    """Convert an API value to float without raising an exception."""
+    """Convert an API value to float without raising an exception or accepting non-finite numbers."""
     if isinstance(value, bool):
         return None
 
-    if isinstance(value, int | float):
-        return float(value)
+    res: float | None = None
 
-    if isinstance(value, str):
+    if isinstance(value, int | float):
+        res = float(value)
+    elif isinstance(value, str):
         try:
-            return float(value.replace(",", "."))
-        except ValueError:
+            res = float(value.replace(",", "."))
+        except (ValueError, OverflowError):
             return None
+
+    if res is not None and math.isfinite(res):
+        return res
 
     return None
 
