@@ -885,7 +885,7 @@ class BuienalarmEntity(CoordinatorEntity):
             # Skip if timestamp is missing or malformed or in the past or out-of-bounds
             # Bolt optimization: numeric epoch range check 0 <= ts <= _MAX_TIMESTAMP
             # bypasses datetime.fromtimestamp object allocations in loop iterations (~2.7x faster).
-            if ts is None or ts != ts or ts < now_ts or ts > _MAX_TIMESTAMP:
+            if ts is None or ts < now_ts or ts > _MAX_TIMESTAMP:
                 continue
 
             rate = _as_float(_safe_get(data_point, "precipitationrate")) or 0.0
