@@ -163,7 +163,11 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
     @property
     def icon(self) -> str | None:
         """Return the icon to use in the frontend, if any."""
-        if self._key == "precipitationrate_now":
+        if self._key in (
+            "precipitationrate_now",
+            "precipitationrate_hour",
+            "precipitationrate_total",
+        ):
             val = self.native_value
             if isinstance(val, (int, float)):
                 return "mdi:weather-pouring" if val > 0 else "mdi:weather-sunny"
