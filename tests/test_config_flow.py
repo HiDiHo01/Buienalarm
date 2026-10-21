@@ -308,3 +308,51 @@ async def test_options_flow_invalid_numeric_values(hass: HomeAssistant) -> None:
     )
     assert res_refresh["type"] == FlowResultType.FORM
     assert res_refresh["errors"] == {"base": "invalid_refresh_interval"}
+
+
+@pytest.mark.parametrize(
+    "user_input,expected_error",
+    [
+        (
+            {CONF_LATITUDE: 52.0, CONF_LONGITUDE: 5.0, "notification_limit": "2.5"},
+            "invalid_notification_limit",
+        ),
+        (
+            {CONF_LATITUDE: 52.0, CONF_LONGITUDE: 5.0, "notification_limit": "abc"},
+            "invalid_notification_limit",
+        ),
+        (
+            {CONF_LATITUDE: 52.0, CONF_LONGITUDE: 5.0, "notification_limit": True},
+            "invalid_notification_limit",
+        ),
+        (
+            {CONF_LATITUDE: 52.0, CONF_LONGITUDE: 5.0, "notification_limit": -1},
+            "invalid_notification_limit",
+        ),
+        (
+            {CONF_LATITUDE: 52.0, CONF_LONGITUDE: 5.0, "refresh_interval": "300.5"},
+            "invalid_refresh_interval",
+        ),
+        (
+            {CONF_LATITUDE: 52.0, CONF_LONGITUDE: 5.0, "refresh_interval": "abc"},
+            "invalid_refresh_interval",
+        ),
+        (
+            {CONF_LATITUDE: 52.0, CONF_LONGITUDE: 5.0, "refresh_interval": True},
+            "invalid_refresh_interval",
+        ),
+        (
+            {CONF_LATITUDE: 52.0, CONF_LONGITUDE: 5.0, "refresh_interval": 30},
+            "invalid_refresh_interval",
+        ),
+    ],
+)
+def test_validate_flow_input_invalid_types_and_values(
+    user_input: dict,
+    expected_error: str,
+) -> None:
+    """Test that _validate_flow_input safely handles unparseable, fractional, boolean, and out-of-bounds options."""
+    from custom_components.buienalarm.config_flow import _validate_flow_input
+
+    errors, _, _, _, _ = _validate_flow_input(user_input)
+    assert errors == {"base": expected_error}

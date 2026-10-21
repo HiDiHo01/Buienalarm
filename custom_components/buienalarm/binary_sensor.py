@@ -175,8 +175,6 @@ def _is_current_precipitation_period(
     )
 
 
-
-
 async def async_setup_entry(
     hass: HomeAssistant,
     config_entry: BuienalarmConfigEntry,
