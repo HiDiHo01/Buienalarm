@@ -195,8 +195,8 @@ async def test_buienalarm_entity_untrusted_data_handling(hass: HomeAssistant) ->
 
         assert entity.get_mycastmessage() == "Geen data"
         assert entity.get_precipitation_duration() == 0
-        assert entity.get_total_precipitation_rate() == 0.0
-        assert entity.get_total_precipitation_rate_for_next_hour() == 0.0
+        assert entity.get_total_precipitation_rate() is None
+        assert entity.get_total_precipitation_rate_for_next_hour() is None
         assert entity.get_current_precipitation() == 0.0
         assert entity.get_current_precipitation_rate_desc() == "Geen neerslag"
         assert entity.get_current_precipitation_type() == "Geen neerslag"

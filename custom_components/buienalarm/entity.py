@@ -629,11 +629,11 @@ class BuienalarmEntity(CoordinatorEntity):
             for point in raw_data
         )
 
-    def get_forecast_rate_and_types(self, hours: float) -> tuple[float, set[str]]:
+    def get_forecast_rate_and_types(self, hours: float) -> tuple[float | None, set[str]]:
         """Return unrounded average rate and set of precipitation types for the next `hours`."""
         raw_data = self.data.get("data")
         if not isinstance(raw_data, list) or not raw_data:
-            return 0.0, set()
+            return None, set()
 
         current_time = datetime.now(timezone.utc)
         end_time = current_time + timedelta(hours=hours)
@@ -659,7 +659,10 @@ class BuienalarmEntity(CoordinatorEntity):
         start_time: datetime,
         end_time: datetime,
         round_result: bool = True,
-    ) -> float:
+    ) -> float | None:
+        if not isinstance(data, list) or not data:
+            return None
+
         filtered_data = self._filter_data_by_time(data, start_time, end_time)
 
         if not filtered_data:
@@ -693,21 +696,21 @@ class BuienalarmEntity(CoordinatorEntity):
             return round(average_precipitation_rate, 1)
         return average_precipitation_rate
 
-    def get_total_precipitation_rate(self) -> float:
+    def get_total_precipitation_rate(self) -> float | None:
         """ Get total precipitation rate rounded to one decimal place for the next 2 hours """
         data: object = self.data.get('data', [])
-        if not isinstance(data, list):
-            return 0.0
+        if not isinstance(data, list) or not data:
+            return None
         current_time: datetime = datetime.now(timezone.utc)
         end_time: datetime = current_time + timedelta(hours=2)
         return self.calculate_total_precipitation_rate(data, current_time, end_time)
 
-    def get_total_precipitation_rate_for_next_hour(self) -> float:
+    def get_total_precipitation_rate_for_next_hour(self) -> float | None:
         """Calculate the total precipitation rate in mm/h for the upcoming hour."""
         # Fetch the precipitation data; expecting a list of dictionaries
         data: object = self.data.get('data', [])
-        if not isinstance(data, list):
-            return 0.0
+        if not isinstance(data, list) or not data:
+            return None
         current_time: datetime = datetime.now(timezone.utc)  # Use UTC time
         end_time: datetime = current_time + timedelta(hours=1)
 
