@@ -842,7 +842,8 @@ class BuienalarmEntity(CoordinatorEntity):
             int | None:
                 - Returns 0 if precipitation is occurring now.
                 - Returns the number of minutes until the next precipitation bin.
-                - Returns None if no data is available or no precipitation is expected.
+                - Returns None if no data is available, no precipitation is expected,
+                  or all positive precipitation bins occur beyond the 24-hour forecast horizon.
         """
         current_precipitation_rate = self.get_current_precipitation()
         if current_precipitation_rate > 0:

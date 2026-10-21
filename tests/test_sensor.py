@@ -700,6 +700,50 @@ async def test_buienalarm_entity_malformed_non_mapping_list_items(hass: HomeAssi
 
 
 @pytest.mark.asyncio
+async def test_next_precipitation_24h_horizon_boundary(hass: HomeAssistant) -> None:
+    """Verify get_next_precipitation accepts bins within 24h (now_ts + 86400) and ignores bins beyond 24h."""
+    from datetime import datetime, timezone
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.entity import BuienalarmEntity
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Buienalarm Horizon Test",
+        unique_id="test_horizon_boundary",
+        data={"latitude": 52.3702, "longitude": 4.8952},
+    )
+
+    coordinator = MagicMock()
+    entity = BuienalarmEntity(coordinator, entry, "next_precipitation")
+
+    now_ts = int(datetime.now(timezone.utc).timestamp())
+
+    # Bin at now_ts + 86400 (exactly 24h ahead) is accepted
+    coordinator.data = {
+        "data": [
+            {
+                "timestamp": now_ts + 86400,
+                "precipitationrate": 1.5,
+                "precipitationtype": "rain",
+            }
+        ]
+    }
+    assert entity.get_next_precipitation() == 1440
+
+    # Bin at now_ts + 86401 (beyond 24h) is ignored
+    coordinator.data = {
+        "data": [
+            {
+                "timestamp": now_ts + 86401,
+                "precipitationrate": 1.5,
+                "precipitationtype": "rain",
+            }
+        ]
+    }
+    assert entity.get_next_precipitation() is None
+
+
+@pytest.mark.asyncio
 async def test_data_points_as_list_skips_entries_without_valid_time_sources(
     hass: HomeAssistant,
 ) -> None:
@@ -956,3 +1000,59 @@ async def test_buienalarm_entity_unique_id_attribute(hass: HomeAssistant) -> Non
     expected_uid = f"{entry.entry_id}_{sensor_key}"
     assert entity._attr_unique_id == expected_uid
     assert entity.unique_id == expected_uid
+
+
+@pytest.mark.asyncio
+async def test_overlapping_bins_precipitation_rate_desc(hass: HomeAssistant) -> None:
+    """Verify that a dry overlapping bin followed by a wet overlapping bin still evaluates the later bin, and dry-only returns NO_PRECIPITATION."""
+    from datetime import datetime, timezone
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.entity import BuienalarmEntity
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Buienalarm Overlapping Bins Test",
+        unique_id="test_overlapping_bins",
+        data={"latitude": 52.3702, "longitude": 4.8952},
+    )
+
+    coordinator = MagicMock()
+    entity = BuienalarmEntity(coordinator, entry, "precipitationrate_now_desc")
+
+    now_ts = int(datetime.now(timezone.utc).timestamp())
+
+    # 1. Dry overlapping bin precedes a wet overlapping bin
+    coordinator.data = {
+        "data": [
+            {
+                "timestamp": now_ts - 60,
+                "precipitationrate": 0.0,
+                "precipitationtype": "none",
+            },
+            {
+                "timestamp": now_ts,
+                "precipitationrate": 2.5,
+                "precipitationtype": "rain",
+            },
+        ]
+    }
+
+    assert entity.get_current_precipitation_rate_desc() == "Matige regen"
+
+    # 2. Dry-only overlapping bins
+    coordinator.data = {
+        "data": [
+            {
+                "timestamp": now_ts - 120,
+                "precipitationrate": 0.0,
+                "precipitationtype": "none",
+            },
+            {
+                "timestamp": now_ts - 60,
+                "precipitationrate": 0.0,
+                "precipitationtype": "none",
+            },
+        ]
+    }
+
+    assert entity.get_current_precipitation_rate_desc() == "Geen neerslag"
