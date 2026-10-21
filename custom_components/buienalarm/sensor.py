@@ -163,10 +163,23 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
     @property
     def icon(self) -> str | None:
         """Return the icon to use in the frontend, if any."""
-        if self._key in ("precipitationrate_now", "precipitationrate_hour", "precipitationrate_total"):
+        if not self.available or not self.has_valid_forecast_data():
+            return self._icon
+
+        if self._key == "precipitationrate_now":
             val = self.native_value
             if isinstance(val, (int, float)):
                 return "mdi:weather-pouring" if val > 0 else "mdi:weather-sunny"
+
+        elif self._key in ("precipitationrate_hour", "precipitationrate_total"):
+            hours = 1.0 if self._key == "precipitationrate_hour" else 2.0
+            unrounded_rate, ptypes = self.get_forecast_rate_and_types(hours)
+            if unrounded_rate > 0:
+                if any("snow" in t or "sneeuw" in t for t in ptypes):
+                    return "mdi:weather-snowy"
+                return "mdi:weather-pouring"
+            return "mdi:weather-sunny"
+
         elif self._key == "precipitationtype_now":
             val = self.native_value
             if isinstance(val, str):
@@ -177,22 +190,27 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
                     return "mdi:weather-pouring"
                 if any(k in val_lower for k in ("geen", "none", "droog")):
                     return "mdi:weather-sunny"
+
         elif self._key == "precipitationrate_now_desc":
             val = self.native_value
             if isinstance(val, str):
                 val_lower = val.lower()
+                if any(k in val_lower for k in ("regen en sneeuw", "mix", "natte sneeuw")):
+                    return "mdi:weather-pouring"
                 if any(k in val_lower for k in ("sneeuw", "snow")):
                     return "mdi:weather-snowy"
                 if any(k in val_lower for k in ("regen", "rain", "motregen", "ijzel")):
                     return "mdi:weather-pouring"
                 if any(k in val_lower for k in ("geen", "none", "droog")):
                     return "mdi:weather-sunny"
+
         elif self._key == "next_precipitation":
             val = self.native_value
             if val is None:
                 return "mdi:clock-check-outline"
             if isinstance(val, (int, float)):
                 return "mdi:clock-alert-outline" if val == 0 else "mdi:clock-start"
+
         return self._icon
 
     @property
