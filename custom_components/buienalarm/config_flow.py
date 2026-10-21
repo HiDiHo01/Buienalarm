@@ -15,6 +15,7 @@ The flow follows Home Assistant best-practices:
 
 from __future__ import annotations
 
+from decimal import Decimal, InvalidOperation
 import logging
 import math
 from typing import Any, Final
@@ -97,6 +98,14 @@ def _parse_int_option(value: Any, min_value: int) -> int | None:
         return None
     if isinstance(value, int):
         return value if value >= min_value else None
+    if isinstance(value, str):
+        try:
+            dec = Decimal(value)
+        except (InvalidOperation, TypeError, ValueError):
+            return None
+        if not dec.is_finite() or dec < min_value or dec % 1 != 0:
+            return None
+        return int(dec)
     try:
         val_float = float(value)
     except (TypeError, ValueError, OverflowError):
