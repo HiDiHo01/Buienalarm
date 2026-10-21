@@ -853,11 +853,6 @@ class BuienalarmEntity(CoordinatorEntity):
                     _as_float(_safe_get(data_point, "precipitationrate")) or 0.0
                 )
 
-                # Bolt optimization: Skip category checks for dry bins (rate <= 0)
-                # while allowing subsequent overlapping forecast bins to be evaluated.
-                if current_precipitation_rate <= 0:
-                    continue
-
                 raw_type = _safe_get(data_point, "precipitationtype")
                 current_precipitation_type: str = (
                     raw_type if isinstance(raw_type, str) else self.NO_PRECIPITATION
@@ -937,8 +932,7 @@ class BuienalarmEntity(CoordinatorEntity):
             int | None:
                 - Returns 0 if precipitation is occurring now.
                 - Returns the number of minutes until the next precipitation bin.
-                - Returns None if no data is available, no precipitation is expected,
-                  or all positive precipitation bins occur beyond the 24-hour forecast horizon.
+                - Returns None if no data is available or no precipitation is expected.
         """
         current_precipitation_rate = self.get_current_precipitation()
         if current_precipitation_rate > 0:
@@ -977,10 +971,13 @@ class BuienalarmEntity(CoordinatorEntity):
             # Forecast points are 5‑minute bins.
             ts = _as_float(_safe_get(data_point, "timestamp"))
 
-            # Skip if timestamp is missing, in the past, or beyond reasonable forecast horizon (24h)
-            # Bolt optimization: numeric epoch comparison now_ts <= ts <= now_ts + 86400
-            # bypasses datetime.fromtimestamp object allocations in loop iterations (~2.7x faster).
-            if ts is None or ts < now_ts or ts > now_ts + 86400:
+            # Skip if timestamp is missing or malformed or in the past
+            if ts is None or ts < now_ts:
+                continue
+
+            try:
+                datetime.fromtimestamp(ts, tz=timezone.utc)
+            except (ValueError, OverflowError, OSError):
                 continue
 
             rate = _as_float(_safe_get(data_point, "precipitationrate")) or 0.0
