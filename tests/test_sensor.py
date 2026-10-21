@@ -854,7 +854,7 @@ async def test_boolean_timestamps_and_rates_rejected(hass: HomeAssistant) -> Non
 
 @pytest.mark.asyncio
 async def test_dynamic_sensor_icons(hass: HomeAssistant) -> None:
-    """Test dynamic icon computation for precipitationrate_now and precipitationtype_now sensors."""
+    """Test dynamic icon computation for precipitation rate and precipitation type sensors."""
     from datetime import datetime, timezone
     from unittest.mock import MagicMock
     from custom_components.buienalarm.sensor import BuienalarmSensor
@@ -883,6 +883,28 @@ async def test_dynamic_sensor_icons(hass: HomeAssistant) -> None:
         key="precipitationrate_now",
     )
 
+    precip_rate_hour_sensor = BuienalarmSensor(
+        coordinator,
+        entry,
+        name="Hourly Precipitation Rate",
+        unit_of_measurement="mm/h",
+        icon="mdi:weather-pouring",
+        device_class=None,
+        state_class=None,
+        key="precipitationrate_hour",
+    )
+
+    precip_rate_total_sensor = BuienalarmSensor(
+        coordinator,
+        entry,
+        name="Total Precipitation Rate",
+        unit_of_measurement="mm/h",
+        icon="mdi:weather-pouring",
+        device_class=None,
+        state_class=None,
+        key="precipitationrate_total",
+    )
+
     precip_type_sensor = BuienalarmSensor(
         coordinator,
         entry,
@@ -906,6 +928,8 @@ async def test_dynamic_sensor_icons(hass: HomeAssistant) -> None:
     }
 
     assert precip_rate_sensor.icon == "mdi:weather-sunny"
+    assert precip_rate_hour_sensor.icon == "mdi:weather-sunny"
+    assert precip_rate_total_sensor.icon == "mdi:weather-sunny"
     assert precip_type_sensor.icon == "mdi:weather-sunny"
 
     # 2. Test when raining (rate = 2.5, type = "rain")
@@ -920,6 +944,8 @@ async def test_dynamic_sensor_icons(hass: HomeAssistant) -> None:
     }
 
     assert precip_rate_sensor.icon == "mdi:weather-pouring"
+    assert precip_rate_hour_sensor.icon == "mdi:weather-pouring"
+    assert precip_rate_total_sensor.icon == "mdi:weather-pouring"
     assert precip_type_sensor.icon == "mdi:weather-pouring"
 
     # 3. Test when snowing (type = "snow")
