@@ -174,6 +174,8 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
         elif self._key in ("precipitationrate_hour", "precipitationrate_total"):
             hours = 1.0 if self._key == "precipitationrate_hour" else 2.0
             unrounded_rate, ptypes = self.get_forecast_rate_and_types(hours)
+            if unrounded_rate is None:
+                return self._icon
             if unrounded_rate > 0:
                 if any("snow" in t or "sneeuw" in t for t in ptypes):
                     return "mdi:weather-snowy"
@@ -207,7 +209,7 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
         elif self._key == "next_precipitation":
             val = self.native_value
             if val is None:
-                return "mdi:clock-check-outline"
+                return "mdi:clock-check-outline" if self.available else self._icon
             if isinstance(val, (int, float)):
                 return "mdi:clock-alert-outline" if val == 0 else "mdi:clock-start"
 
