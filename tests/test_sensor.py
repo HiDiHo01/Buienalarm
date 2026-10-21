@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock, patch
 
+from freezegun.api import FrozenDateTimeFactory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -829,7 +830,7 @@ async def test_boolean_timestamps_and_rates_rejected(hass: HomeAssistant) -> Non
 
     assert entity._get_precipitation_periods() == []
     assert entity.get_precipitation_duration() == 0
-    assert entity.get_total_precipitation_rate_for_next_hour() == 0.0
+    assert entity.get_total_precipitation_rate_for_next_hour() is None
 
     # Verify current precipitation, rate desc, precip type, and next precip reject booleans
     coordinator.data = {
@@ -904,6 +905,156 @@ async def test_boolean_timestamps_and_rates_rejected(hass: HomeAssistant) -> Non
     assert entity.get_current_precipitation_rate_desc() == "Geen neerslag"
     assert entity.get_current_precipitation_type() == "Geen neerslag"
     assert entity.get_next_precipitation() is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("key", ["precipitationrate_hour", "precipitationrate_total"])
+@pytest.mark.parametrize(
+    "records, expected_rate",
+    [
+        pytest.param(None, None, id="null-data"),
+        pytest.param("bad", None, id="malformed-data"),
+        pytest.param([], None, id="empty-data"),
+        pytest.param([None, "bad"], None, id="non-mapping-records"),
+        pytest.param([{}], None, id="missing-fields"),
+        pytest.param(
+            [{"timestamp": "bad", "precipitationrate": 0}], None, id="bad-timestamp"
+        ),
+        pytest.param(
+            [{"timestamp": 1699999700, "precipitationrate": 0}], None, id="expired-bin"
+        ),
+        pytest.param(
+            [{"timestamp": 1700010800, "precipitationrate": 0}],
+            None,
+            id="outside-window",
+        ),
+        pytest.param([{"timestamp": 1700000300}], None, id="missing-rate"),
+        *[
+            pytest.param(
+                [{"timestamp": 1700000300, "precipitationrate": rate}],
+                None,
+                id=f"invalid-rate-{label}",
+            )
+            for label, rate in (
+                ("null", None),
+                ("text", "bad"),
+                ("bool", True),
+                ("nan", float("nan")),
+                ("infinity", float("inf")),
+                ("negative", -1),
+            )
+        ],
+        pytest.param(
+            [{"timestamp": 1700000300, "precipitationrate": 1e308}] * 2,
+            None,
+            id="overflowing-sum",
+        ),
+        pytest.param(
+            [{"timestamp": 1700000300, "precipitationrate": 0.0}], 0.0, id="dry"
+        ),
+        pytest.param(
+            [{"timestamp": 1700000300, "precipitationrate": 2.0}], 2.0, id="rain"
+        ),
+    ],
+)
+async def test_forecast_rate_preserves_unknown_data(
+    hass: HomeAssistant,
+    freezer: FrozenDateTimeFactory,
+    key: str,
+    records: object,
+    expected_rate: float | None,
+) -> None:
+    """Unknown forecasts retain the default icon; valid dry readings stay zero."""
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.sensor import BuienalarmSensor
+
+    freezer.move_to("2023-11-14T22:13:20+00:00")
+    coordinator = MagicMock()
+    coordinator.last_update_success = True
+    coordinator.data = {"timeseries": {"data": records}}
+    entry = MockConfigEntry(domain=DOMAIN, data={})
+    sensor = BuienalarmSensor(
+        coordinator,
+        entry,
+        name=key,
+        unit_of_measurement="mm/h",
+        icon="mdi:weather-rainy",
+        device_class=None,
+        state_class=None,
+        key=key,
+    )
+
+    if expected_rate is None:
+        assert sensor.native_value is None
+        assert sensor.icon == "mdi:weather-rainy"
+    else:
+        hours = 1 if key == "precipitationrate_hour" else 2
+        assert sensor.native_value == expected_rate / hours
+        expected_icon = (
+            "mdi:weather-sunny" if expected_rate == 0 else "mdi:weather-pouring"
+        )
+        assert sensor.icon == expected_icon
+
+
+@pytest.mark.asyncio
+async def test_next_precipitation_icon_availability(
+    hass: HomeAssistant,
+    freezer: FrozenDateTimeFactory,
+) -> None:
+    """A failed refresh must not display the confirmed no-rain icon."""
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.sensor import BuienalarmSensor
+
+    freezer.move_to("2023-11-14T22:13:20+00:00")
+    coordinator = MagicMock()
+    coordinator.last_update_success = True
+    coordinator.data = {
+        "timeseries": {
+            "data": [
+                {"timestamp": 1700000000, "precipitationrate": 0.0},
+            ]
+        }
+    }
+    entry = MockConfigEntry(domain=DOMAIN, data={})
+    sensor = BuienalarmSensor(
+        coordinator,
+        entry,
+        name="Next Precipitation",
+        unit_of_measurement="min",
+        icon="mdi:clock-outline",
+        device_class=None,
+        state_class=None,
+        key="next_precipitation",
+    )
+
+    assert sensor.available
+    assert sensor.native_value is None
+    assert sensor.icon == "mdi:clock-check-outline"
+
+    coordinator.last_update_success = False
+    assert not sensor.available
+    assert sensor.native_value is None
+    assert sensor.icon == "mdi:clock-outline"
+
+    coordinator.data = None
+    coordinator.last_update_success = True
+    assert not sensor.available
+    assert sensor.icon == "mdi:clock-outline"
+
+    coordinator.data = {
+        "timeseries": {
+            "data": [
+                {"timestamp": 1700000000, "precipitationrate": 2.0},
+            ]
+        }
+    }
+    assert sensor.available
+    assert sensor.native_value == 0
+    assert sensor.icon == "mdi:clock-alert-outline"
+
+    coordinator.data["timeseries"]["data"][0]["timestamp"] += 600
+    assert sensor.native_value == 10
+    assert sensor.icon == "mdi:clock-start"
 
 
 @pytest.mark.asyncio
