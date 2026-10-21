@@ -619,12 +619,50 @@ class BuienalarmEntity(CoordinatorEntity):
 
         return filtered
 
+    def has_valid_forecast_data(self) -> bool:
+        """Return True if unwrapped payload contains a non-empty list of forecast points in 'data'."""
+        raw_data = self.data.get("data")
+        if not isinstance(raw_data, list) or not raw_data:
+            return False
+        return any(
+            isinstance(point, Mapping) or callable(getattr(point, "get", None))
+            for point in raw_data
+        )
+
+    def get_forecast_rate_and_types(self, hours: float) -> tuple[float | None, set[str]]:
+        """Return unrounded average rate and set of precipitation types for the next `hours`."""
+        raw_data = self.data.get("data")
+        if not isinstance(raw_data, list) or not raw_data:
+            return None, set()
+
+        current_time = datetime.now(timezone.utc)
+        end_time = current_time + timedelta(hours=hours)
+
+        unrounded_rate = self.calculate_total_precipitation_rate(
+            raw_data, current_time, end_time, round_result=False
+        )
+
+        filtered = self._filter_data_by_time(raw_data, current_time, end_time)
+        types: set[str] = set()
+        for point in filtered:
+            rate = _as_float(_safe_get(point, "precipitationrate"))
+            if rate is not None and rate > 0:
+                ptype = _safe_get(point, "precipitationtype")
+                if isinstance(ptype, str) and ptype.strip():
+                    types.add(ptype.strip().lower())
+
+        return unrounded_rate, types
+
     def calculate_total_precipitation_rate(
         self,
         data: list[dict[str, object]],
         start_time: datetime,
-        end_time: datetime
-    ) -> float:
+        end_time: datetime,
+        round_result: bool = True,
+    ) -> float | None:
+        if not isinstance(data, list) or not data:
+            return None
+
         filtered_data = self._filter_data_by_time(data, start_time, end_time)
 
         if not filtered_data:
@@ -637,11 +675,10 @@ class BuienalarmEntity(CoordinatorEntity):
             raw_rate = _safe_get(data_point, "precipitationrate")
             if raw_rate is None or isinstance(raw_rate, bool):
                 continue
-            try:
-                total_rate += float(raw_rate)
+            val = _as_float(raw_rate)
+            if val is not None and math.isfinite(val):
+                total_rate += val
                 has_rate = True
-            except (ValueError, TypeError):
-                _LOGGER.debug("Skipping invalid precipitationrate: %r", raw_rate)
 
         if not has_rate:
             return 0.0
@@ -652,23 +689,28 @@ class BuienalarmEntity(CoordinatorEntity):
 
         # Gemiddelde per uur
         average_precipitation_rate = total_rate / (total_time_seconds / 3600)
-        return round(average_precipitation_rate, 1)
+        if not math.isfinite(average_precipitation_rate):
+            return 0.0
 
-    def get_total_precipitation_rate(self) -> float:
+        if round_result:
+            return round(average_precipitation_rate, 1)
+        return average_precipitation_rate
+
+    def get_total_precipitation_rate(self) -> float | None:
         """ Get total precipitation rate rounded to one decimal place for the next 2 hours """
         data: object = self.data.get('data', [])
-        if not isinstance(data, list):
-            return 0.0
+        if not isinstance(data, list) or not data:
+            return None
         current_time: datetime = datetime.now(timezone.utc)
         end_time: datetime = current_time + timedelta(hours=2)
         return self.calculate_total_precipitation_rate(data, current_time, end_time)
 
-    def get_total_precipitation_rate_for_next_hour(self) -> float:
+    def get_total_precipitation_rate_for_next_hour(self) -> float | None:
         """Calculate the total precipitation rate in mm/h for the upcoming hour."""
         # Fetch the precipitation data; expecting a list of dictionaries
         data: object = self.data.get('data', [])
-        if not isinstance(data, list):
-            return 0.0
+        if not isinstance(data, list) or not data:
+            return None
         current_time: datetime = datetime.now(timezone.utc)  # Use UTC time
         end_time: datetime = current_time + timedelta(hours=1)
 
