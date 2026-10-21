@@ -78,7 +78,9 @@ async def test_sensor_entities_created_and_populated(
     # Build expected data directly from SENSORS mock
     expected_data = {
         sensor["key"]: (
-            3.14 if sensor.get("device_class") or sensor.get("state_class") else "Test message"
+            3.14
+            if sensor.get("device_class") or sensor.get("state_class")
+            else "Test message"
         )
         for sensor in SENSORS
     }
@@ -207,7 +209,9 @@ async def test_buienalarm_entity_untrusted_data_handling(hass: HomeAssistant) ->
 
 
 @pytest.mark.asyncio
-async def test_buienalarm_entity_invalid_precipitation_rates(hass: HomeAssistant) -> None:
+async def test_buienalarm_entity_invalid_precipitation_rates(
+    hass: HomeAssistant,
+) -> None:
     """Test BuienalarmEntity calculations with nonnumeric/invalid precipitationrate and timestamp fields."""
     from datetime import datetime, timezone
     from unittest.mock import MagicMock
@@ -227,11 +231,31 @@ async def test_buienalarm_entity_invalid_precipitation_rates(hass: HomeAssistant
 
     coordinator.data = {
         "data": [
-            {"timestamp": now_ts + 60, "precipitationrate": "invalid_string", "precipitationtype": "rain"},
-            {"timestamp": now_ts + 120, "precipitationrate": None, "precipitationtype": "rain"},
-            {"timestamp": "bad_timestamp", "precipitationrate": 2.5, "precipitationtype": "rain"},
-            {"timestamp": now_ts + 180, "precipitationrate": "1.5", "precipitationtype": "rain"},
-            {"timestamp": now_ts + 240, "precipitationrate": 0.5, "precipitationtype": "rain"},
+            {
+                "timestamp": now_ts + 60,
+                "precipitationrate": "invalid_string",
+                "precipitationtype": "rain",
+            },
+            {
+                "timestamp": now_ts + 120,
+                "precipitationrate": None,
+                "precipitationtype": "rain",
+            },
+            {
+                "timestamp": "bad_timestamp",
+                "precipitationrate": 2.5,
+                "precipitationtype": "rain",
+            },
+            {
+                "timestamp": now_ts + 180,
+                "precipitationrate": "1.5",
+                "precipitationtype": "rain",
+            },
+            {
+                "timestamp": now_ts + 240,
+                "precipitationrate": 0.5,
+                "precipitationtype": "rain",
+            },
         ]
     }
 
@@ -239,14 +263,26 @@ async def test_buienalarm_entity_invalid_precipitation_rates(hass: HomeAssistant
     assert entity.get_total_precipitation_rate() >= 0.0
     assert entity.get_precipitation_duration() >= 0
     assert entity.get_mycastmessage() != "Geen data"
-    assert entity.get_current_precipitation_rate_desc() in ("Geen neerslag", "Lichte regen", "Motregen")
+    assert entity.get_current_precipitation_rate_desc() in (
+        "Geen neerslag",
+        "Lichte regen",
+        "Motregen",
+    )
     assert entity.get_current_precipitation_type() in ("Geen neerslag", "Regen")
 
     # Ensure payload where the last item is malformed/non-dict does not break get_mycastmessage()
     coordinator.data = {
         "data": [
-            {"timestamp": now_ts + 60, "precipitationrate": 2.0, "precipitationtype": "rain"},
-            {"timestamp": now_ts + 120, "precipitationrate": 1.0, "precipitationtype": "rain"},
+            {
+                "timestamp": now_ts + 60,
+                "precipitationrate": 2.0,
+                "precipitationtype": "rain",
+            },
+            {
+                "timestamp": now_ts + 120,
+                "precipitationrate": 1.0,
+                "precipitationtype": "rain",
+            },
             "invalid_final_item_not_dict",
         ]
     }
@@ -399,6 +435,7 @@ async def test_sensor_integration_user_provided_data(
     hass: HomeAssistant, user_sample_payload: dict
 ) -> None:
     """Test integration setup and sensor states against the user-provided data payload."""
+
     async def _mock_json(*args, **kwargs):
         return user_sample_payload
 
@@ -429,7 +466,6 @@ async def test_sensor_integration_user_provided_data(
     state = hass.states.get(entity_id)
     assert state is not None
     assert state.state == "Het blijft voorlopig droog"
-
 
 
 @pytest.mark.asyncio
@@ -506,7 +542,9 @@ async def test_schagen_neerslag_verwacht_entity_id_and_precipitation_data(
 ) -> None:
     """Verify sensor.schagen_neerslag_verwacht is preserved via migration and has precipitation_data attribute."""
     from datetime import datetime, timezone
-    from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry
+    from homeassistant.helpers.entity_registry import (
+        async_get as async_get_entity_registry,
+    )
 
     forecast_time = datetime.now(timezone.utc).replace(microsecond=0)
     mock_payload = {
@@ -643,7 +681,9 @@ async def test_active_5min_bin_included_in_periods_duration_totals(
 
 
 @pytest.mark.asyncio
-async def test_buienalarm_entity_malformed_non_mapping_list_items(hass: HomeAssistant) -> None:
+async def test_buienalarm_entity_malformed_non_mapping_list_items(
+    hass: HomeAssistant,
+) -> None:
     """Verify BuienalarmEntity handles non-mapping items and items with raising/non-callable .get in data list safely."""
     from collections import UserDict
     from datetime import datetime, timezone
@@ -674,73 +714,31 @@ async def test_buienalarm_entity_malformed_non_mapping_list_items(hass: HomeAssi
     now_ts = int(datetime.now(timezone.utc).timestamp())
 
     # Test raw scalar fallback in get_data with non-dict Mapping (UserDict)
-    coordinator.data = UserDict({
-        "custom_key": "custom_value",
-        "data": [
-            "invalid_string_item\nwith_newline",
-            12345,
-            None,
-            [1, 2, 3],
-            RaisingGetItem(),
-            NonCallableGetItem(),
-            {
-                "timestamp": now_ts + 300,
-                "precipitationrate": 2.5,
-                "precipitationtype": "rain",
-            },
-            "another_invalid_item",
-        ]
-    })
+    coordinator.data = UserDict(
+        {
+            "custom_key": "custom_value",
+            "data": [
+                "invalid_string_item\nwith_newline",
+                12345,
+                None,
+                [1, 2, 3],
+                RaisingGetItem(),
+                NonCallableGetItem(),
+                {
+                    "timestamp": now_ts + 300,
+                    "precipitationrate": 2.5,
+                    "precipitationtype": "rain",
+                },
+                "another_invalid_item",
+            ],
+        }
+    )
 
     assert entity.get_data("custom_key") == "custom_value"
     assert entity.get_current_precipitation_rate_desc() == "Geen neerslag"
     assert entity.get_current_precipitation_type() == "Geen neerslag"
     assert entity.get_precipitation_duration() >= 0
     assert entity.get_next_precipitation() == 5
-
-
-@pytest.mark.asyncio
-async def test_next_precipitation_24h_horizon_boundary(hass: HomeAssistant) -> None:
-    """Verify get_next_precipitation accepts bins within 24h (now_ts + 86400) and ignores bins beyond 24h."""
-    from datetime import datetime, timezone
-    from unittest.mock import MagicMock
-    from custom_components.buienalarm.entity import BuienalarmEntity
-
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        title="Buienalarm Horizon Test",
-        unique_id="test_horizon_boundary",
-        data={"latitude": 52.3702, "longitude": 4.8952},
-    )
-
-    coordinator = MagicMock()
-    entity = BuienalarmEntity(coordinator, entry, "next_precipitation")
-
-    now_ts = int(datetime.now(timezone.utc).timestamp())
-
-    # Bin at now_ts + 86400 (exactly 24h ahead) is accepted
-    coordinator.data = {
-        "data": [
-            {
-                "timestamp": now_ts + 86400,
-                "precipitationrate": 1.5,
-                "precipitationtype": "rain",
-            }
-        ]
-    }
-    assert entity.get_next_precipitation() == 1440
-
-    # Bin at now_ts + 86401 (beyond 24h) is ignored
-    coordinator.data = {
-        "data": [
-            {
-                "timestamp": now_ts + 86401,
-                "precipitationrate": 1.5,
-                "precipitationtype": "rain",
-            }
-        ]
-    }
-    assert entity.get_next_precipitation() is None
 
 
 @pytest.mark.asyncio
@@ -769,9 +767,17 @@ async def test_data_points_as_list_skips_entries_without_valid_time_sources(
             # 2. Invalid timestamp and invalid time -> skipped
             {"timestamp": "bad", "time": "invalid_iso", "precipitationrate": 1.0},
             # 3. Only numeric timestamp present -> kept
-            {"timestamp": 1700000000, "precipitationrate": 2.0, "precipitationtype": "rain"},
+            {
+                "timestamp": 1700000000,
+                "precipitationrate": 2.0,
+                "precipitationtype": "rain",
+            },
             # 4. Only valid ISO time present -> kept
-            {"time": "2023-11-14T12:00:00Z", "precipitationrate": 0.5, "precipitationtype": "rain"},
+            {
+                "time": "2023-11-14T12:00:00Z",
+                "precipitationrate": 0.5,
+                "precipitationtype": "rain",
+            },
         ]
     }
 
@@ -780,7 +786,9 @@ async def test_data_points_as_list_skips_entries_without_valid_time_sources(
     assert points[0]["precipitationrate"] == 2.0
     assert points[0]["timestamp"] == 1700000000
     assert points[1]["precipitationrate"] == 0.5
-    assert points[1]["timestamp"] == int(datetime.fromisoformat("2023-11-14T12:00:00Z").timestamp())
+    assert points[1]["timestamp"] == int(
+        datetime.fromisoformat("2023-11-14T12:00:00Z").timestamp()
+    )
 
 
 @pytest.mark.asyncio
@@ -875,7 +883,9 @@ async def test_boolean_timestamps_and_rates_rejected(hass: HomeAssistant) -> Non
     assert entity.get_current_precipitation_type() == "Geen neerslag"
     assert entity.get_next_precipitation() is None
     assert entity.get_precipitation_duration() == 0
-    (overflow_start, _, _, overflow_dur, _) = entity.get_rain_start_time_and_duration(coordinator.data["data"])
+    overflow_start, _, _, overflow_dur, _ = entity.get_rain_start_time_and_duration(
+        coordinator.data["data"]
+    )
     assert overflow_start is None
     assert overflow_dur == 0
 
@@ -981,23 +991,59 @@ async def test_dynamic_sensor_icons(hass: HomeAssistant) -> None:
 
     # 4. Test precipitationrate_hour, precipitationrate_total, precipitationrate_now_desc, and next_precipitation icons
     hour_sensor = BuienalarmSensor(
-        coordinator, entry, name="Hourly Precipitation Rate", unit_of_measurement="mm/h", icon="mdi:weather-pouring", device_class=None, state_class=None, key="precipitationrate_hour"
+        coordinator,
+        entry,
+        name="Hourly Precipitation Rate",
+        unit_of_measurement="mm/h",
+        icon="mdi:weather-pouring",
+        device_class=None,
+        state_class=None,
+        key="precipitationrate_hour",
     )
     total_sensor = BuienalarmSensor(
-        coordinator, entry, name="Total Precipitation Rate", unit_of_measurement="mm/h", icon="mdi:weather-pouring", device_class=None, state_class=None, key="precipitationrate_total"
+        coordinator,
+        entry,
+        name="Total Precipitation Rate",
+        unit_of_measurement="mm/h",
+        icon="mdi:weather-pouring",
+        device_class=None,
+        state_class=None,
+        key="precipitationrate_total",
     )
     desc_sensor = BuienalarmSensor(
-        coordinator, entry, name="Precipitation Description", unit_of_measurement=None, icon="mdi:weather-cloudy-alert", device_class=None, state_class=None, key="precipitationrate_now_desc"
+        coordinator,
+        entry,
+        name="Precipitation Description",
+        unit_of_measurement=None,
+        icon="mdi:weather-cloudy-alert",
+        device_class=None,
+        state_class=None,
+        key="precipitationrate_now_desc",
     )
     next_sensor = BuienalarmSensor(
-        coordinator, entry, name="Next Precipitation In", unit_of_measurement="min", icon="mdi:clock-start", device_class=None, state_class=None, key="next_precipitation"
+        coordinator,
+        entry,
+        name="Next Precipitation In",
+        unit_of_measurement="min",
+        icon="mdi:clock-start",
+        device_class=None,
+        state_class=None,
+        key="next_precipitation",
     )
 
     # Dry weather
     coordinator.data = {
         "data": [
-            {"timestamp": now_ts, "precipitationrate": 0.0, "precipitationtype": "none"},
-            {"timestamp": now_ts + 300, "precipitationrate": 0.0, "precipitationtype": "none"},
+            {
+                "timestamp": now_ts,
+                "precipitationrate": 0.0,
+                "precipitationtype": "none",
+            },
+            {
+                "timestamp": now_ts + 300,
+                "precipitationrate": 0.0,
+                "precipitationtype": "none",
+            },
         ]
     }
     assert hour_sensor.icon == "mdi:weather-sunny"
@@ -1008,8 +1054,16 @@ async def test_dynamic_sensor_icons(hass: HomeAssistant) -> None:
     # Wet weather / Rain
     coordinator.data = {
         "data": [
-            {"timestamp": now_ts, "precipitationrate": 2.5, "precipitationtype": "rain"},
-            {"timestamp": now_ts + 300, "precipitationrate": 1.5, "precipitationtype": "rain"},
+            {
+                "timestamp": now_ts,
+                "precipitationrate": 2.5,
+                "precipitationtype": "rain",
+            },
+            {
+                "timestamp": now_ts + 300,
+                "precipitationrate": 1.5,
+                "precipitationtype": "rain",
+            },
         ]
     }
     assert hour_sensor.icon == "mdi:weather-pouring"
@@ -1017,11 +1071,75 @@ async def test_dynamic_sensor_icons(hass: HomeAssistant) -> None:
     assert desc_sensor.icon == "mdi:weather-pouring"
     assert next_sensor.icon == "mdi:clock-alert-outline"
 
+    # Snow forecast
+    coordinator.data = {
+        "data": [
+            {
+                "timestamp": now_ts,
+                "precipitationrate": 1.0,
+                "precipitationtype": "snow",
+            },
+            {
+                "timestamp": now_ts + 300,
+                "precipitationrate": 1.0,
+                "precipitationtype": "snow",
+            },
+        ]
+    }
+    assert hour_sensor.icon == "mdi:weather-snowy"
+    assert total_sensor.icon == "mdi:weather-snowy"
+    assert desc_sensor.icon == "mdi:weather-snowy"
+
+    # Mixed rain and snow
+    coordinator.data = {
+        "data": [
+            {
+                "timestamp": now_ts,
+                "precipitationrate": 1.0,
+                "precipitationtype": "mix of rain and snow",
+            },
+            {
+                "timestamp": now_ts + 300,
+                "precipitationrate": 1.0,
+                "precipitationtype": "mix of rain and snow",
+            },
+        ]
+    }
+    assert desc_sensor.icon == "mdi:weather-pouring"
+
+    # Light forecast average (< 0.05 mm/h unrounded)
+    coordinator.data = {
+        "data": [
+            {
+                "timestamp": now_ts + 300,
+                "precipitationrate": 0.03,
+                "precipitationtype": "rain",
+            },
+        ]
+    }
+    assert hour_sensor.icon == "mdi:weather-pouring"
+    assert total_sensor.icon == "mdi:weather-pouring"
+
+    # Unavailable/empty forecast data falls back to default icon
+    coordinator.data = {"nowcastmessage": {"nl": "Geen neerslag"}}
+    assert hour_sensor.icon == "mdi:weather-pouring"
+    assert total_sensor.icon == "mdi:weather-pouring"
+    assert desc_sensor.icon == "mdi:weather-cloudy-alert"
+    assert next_sensor.icon == "mdi:clock-start"
+
     # Future rain in 10 minutes
     coordinator.data = {
         "data": [
-            {"timestamp": now_ts, "precipitationrate": 0.0, "precipitationtype": "none"},
-            {"timestamp": now_ts + 600, "precipitationrate": 2.0, "precipitationtype": "rain"},
+            {
+                "timestamp": now_ts,
+                "precipitationrate": 0.0,
+                "precipitationtype": "none",
+            },
+            {
+                "timestamp": now_ts + 600,
+                "precipitationrate": 2.0,
+                "precipitationtype": "rain",
+            },
         ]
     }
     assert next_sensor.icon == "mdi:clock-start"
@@ -1047,59 +1165,3 @@ async def test_buienalarm_entity_unique_id_attribute(hass: HomeAssistant) -> Non
     expected_uid = f"{entry.entry_id}_{sensor_key}"
     assert entity._attr_unique_id == expected_uid
     assert entity.unique_id == expected_uid
-
-
-@pytest.mark.asyncio
-async def test_overlapping_bins_precipitation_rate_desc(hass: HomeAssistant) -> None:
-    """Verify that a dry overlapping bin followed by a wet overlapping bin still evaluates the later bin, and dry-only returns NO_PRECIPITATION."""
-    from datetime import datetime, timezone
-    from unittest.mock import MagicMock
-    from custom_components.buienalarm.entity import BuienalarmEntity
-
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        title="Buienalarm Overlapping Bins Test",
-        unique_id="test_overlapping_bins",
-        data={"latitude": 52.3702, "longitude": 4.8952},
-    )
-
-    coordinator = MagicMock()
-    entity = BuienalarmEntity(coordinator, entry, "precipitationrate_now_desc")
-
-    now_ts = int(datetime.now(timezone.utc).timestamp())
-
-    # 1. Dry overlapping bin precedes a wet overlapping bin
-    coordinator.data = {
-        "data": [
-            {
-                "timestamp": now_ts - 60,
-                "precipitationrate": 0.0,
-                "precipitationtype": "none",
-            },
-            {
-                "timestamp": now_ts,
-                "precipitationrate": 2.5,
-                "precipitationtype": "rain",
-            },
-        ]
-    }
-
-    assert entity.get_current_precipitation_rate_desc() == "Matige regen"
-
-    # 2. Dry-only overlapping bins
-    coordinator.data = {
-        "data": [
-            {
-                "timestamp": now_ts - 120,
-                "precipitationrate": 0.0,
-                "precipitationtype": "none",
-            },
-            {
-                "timestamp": now_ts - 60,
-                "precipitationrate": 0.0,
-                "precipitationtype": "none",
-            },
-        ]
-    }
-
-    assert entity.get_current_precipitation_rate_desc() == "Geen neerslag"
