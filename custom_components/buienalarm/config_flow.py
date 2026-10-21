@@ -15,7 +15,9 @@ The flow follows Home Assistant best-practices:
 
 from __future__ import annotations
 
+from decimal import Decimal, InvalidOperation
 import logging
+import math
 from typing import Any, Final
 
 import voluptuous as vol
@@ -90,6 +92,31 @@ def _get_default_coordinates(hass: Any) -> tuple[float, float]:
     return DEFAULT_LATITUDE, DEFAULT_LONGITUDE
 
 
+def _parse_int_option(value: Any, min_value: int) -> int | None:
+    """Safely parse a non-boolean integer option >= min_value, returning None if invalid."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value if value >= min_value else None
+    if isinstance(value, str):
+        try:
+            dec = Decimal(value)
+        except (InvalidOperation, TypeError, ValueError):
+            return None
+        if not dec.is_finite() or dec < min_value or dec % 1 != 0:
+            return None
+        return int(dec)
+    try:
+        val_float = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+    if not math.isfinite(val_float) or val_float < min_value or not val_float.is_integer():
+        return None
+
+    return int(val_float)
+
+
 def _validate_flow_input(
     user_input: dict[str, Any],
 ) -> tuple[dict[str, str], float, float, int, int]:
@@ -100,31 +127,33 @@ def _validate_flow_input(
     notif_limit = user_input.get("notification_limit")
     refresh_int = user_input.get("refresh_interval")
 
+    parsed_notif = DEFAULT_NOTIFICATION_LIMIT
+    parsed_refresh = DEFAULT_REFRESH_INTERVAL
+
     if not _is_valid_coordinates(latitude_raw, longitude_raw):
         errors["base"] = "invalid_coordinates"
-    elif notif_limit is not None and (
-        (isinstance(notif_limit, float) and not notif_limit.is_integer())
-        or float(notif_limit) < 0
-    ):
-        errors["base"] = "invalid_notification_limit"
-    elif refresh_int is not None and (
-        (isinstance(refresh_int, float) and not refresh_int.is_integer())
-        or float(refresh_int) < 60
-    ):
-        errors["base"] = "invalid_refresh_interval"
 
-    lat_float = float(latitude_raw) if not errors else 0.0
-    lon_float = float(longitude_raw) if not errors else 0.0
-    parsed_notif = (
-        int(notif_limit)
-        if notif_limit is not None and not errors
-        else DEFAULT_NOTIFICATION_LIMIT
-    )
-    parsed_refresh = (
-        int(refresh_int)
-        if refresh_int is not None and not errors
-        else DEFAULT_REFRESH_INTERVAL
-    )
+    if notif_limit is not None:
+        parsed = _parse_int_option(notif_limit, 0)
+        if parsed is None:
+            errors.setdefault("base", "invalid_notification_limit")
+        else:
+            parsed_notif = parsed
+
+    if refresh_int is not None:
+        parsed = _parse_int_option(refresh_int, 60)
+        if parsed is None:
+            errors.setdefault("base", "invalid_refresh_interval")
+        else:
+            parsed_refresh = parsed
+
+    try:
+        lat_float = float(latitude_raw) if not errors else 0.0
+        lon_float = float(longitude_raw) if not errors else 0.0
+    except (TypeError, ValueError):
+        errors["base"] = "invalid_coordinates"
+        lat_float = 0.0
+        lon_float = 0.0
 
     return errors, lat_float, lon_float, parsed_notif, parsed_refresh
 

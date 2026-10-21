@@ -635,13 +635,10 @@ class BuienalarmEntity(CoordinatorEntity):
 
         for data_point in filtered_data:
             raw_rate = _safe_get(data_point, "precipitationrate")
-            if raw_rate is None or isinstance(raw_rate, bool):
-                continue
-            try:
-                total_rate += float(raw_rate)
+            rate = _as_float(raw_rate)
+            if rate is not None:
+                total_rate += rate
                 has_rate = True
-            except (ValueError, TypeError):
-                _LOGGER.debug("Skipping invalid precipitationrate: %r", raw_rate)
 
         if not has_rate:
             return 0.0
@@ -652,6 +649,9 @@ class BuienalarmEntity(CoordinatorEntity):
 
         # Gemiddelde per uur
         average_precipitation_rate = total_rate / (total_time_seconds / 3600)
+        if not math.isfinite(average_precipitation_rate):
+            return 0.0
+
         return round(average_precipitation_rate, 1)
 
     def get_total_precipitation_rate(self) -> float:

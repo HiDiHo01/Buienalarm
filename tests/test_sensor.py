@@ -232,6 +232,9 @@ async def test_buienalarm_entity_invalid_precipitation_rates(hass: HomeAssistant
             {"timestamp": "bad_timestamp", "precipitationrate": 2.5, "precipitationtype": "rain"},
             {"timestamp": now_ts + 180, "precipitationrate": "1.5", "precipitationtype": "rain"},
             {"timestamp": now_ts + 240, "precipitationrate": 0.5, "precipitationtype": "rain"},
+            {"timestamp": now_ts + 300, "precipitationrate": "2,5", "precipitationtype": "rain"},
+            {"timestamp": now_ts + 360, "precipitationrate": "inf", "precipitationtype": "rain"},
+            {"timestamp": now_ts + 420, "precipitationrate": float("nan"), "precipitationtype": "rain"},
         ]
     }
 

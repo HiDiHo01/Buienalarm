@@ -308,3 +308,93 @@ async def test_options_flow_invalid_numeric_values(hass: HomeAssistant) -> None:
     )
     assert res_refresh["type"] == FlowResultType.FORM
     assert res_refresh["errors"] == {"base": "invalid_refresh_interval"}
+
+
+@pytest.mark.parametrize(
+    "user_input,expected_error",
+    [
+        (
+            {CONF_LATITUDE: 52.0, CONF_LONGITUDE: 5.0, "notification_limit": "2.5"},
+            "invalid_notification_limit",
+        ),
+        (
+            {CONF_LATITUDE: 52.0, CONF_LONGITUDE: 5.0, "notification_limit": "abc"},
+            "invalid_notification_limit",
+        ),
+        (
+            {CONF_LATITUDE: 52.0, CONF_LONGITUDE: 5.0, "notification_limit": True},
+            "invalid_notification_limit",
+        ),
+        (
+            {CONF_LATITUDE: 52.0, CONF_LONGITUDE: 5.0, "notification_limit": -1},
+            "invalid_notification_limit",
+        ),
+        (
+            {CONF_LATITUDE: 52.0, CONF_LONGITUDE: 5.0, "refresh_interval": "300.5"},
+            "invalid_refresh_interval",
+        ),
+        (
+            {CONF_LATITUDE: 52.0, CONF_LONGITUDE: 5.0, "refresh_interval": "abc"},
+            "invalid_refresh_interval",
+        ),
+        (
+            {CONF_LATITUDE: 52.0, CONF_LONGITUDE: 5.0, "refresh_interval": True},
+            "invalid_refresh_interval",
+        ),
+        (
+            {CONF_LATITUDE: 52.0, CONF_LONGITUDE: 5.0, "refresh_interval": 30},
+            "invalid_refresh_interval",
+        ),
+    ],
+)
+def test_validate_flow_input_invalid_types_and_values(
+    user_input: dict,
+    expected_error: str,
+) -> None:
+    """Test that _validate_flow_input safely handles unparseable, fractional, boolean, and out-of-bounds options."""
+    from custom_components.buienalarm.config_flow import _validate_flow_input
+
+    errors, _, _, _, _ = _validate_flow_input(user_input)
+    assert errors == {"base": expected_error}
+
+
+def test_validate_flow_input_boundary_and_valid_numeric_strings() -> None:
+    """Test _validate_flow_input with boundary values, integer string formats, and independent option parsing."""
+    from custom_components.buienalarm.config_flow import _validate_flow_input
+
+    # Boundary values: notification_limit=0 and refresh_interval=60
+    user_input_bounds = {
+        CONF_LATITUDE: 52.0,
+        CONF_LONGITUDE: 5.0,
+        "notification_limit": 0,
+        "refresh_interval": 60,
+    }
+    errors, lat, lon, notif, refresh = _validate_flow_input(user_input_bounds)
+    assert errors == {}
+    assert lat == 52.0
+    assert lon == 5.0
+    assert notif == 0
+    assert refresh == 60
+
+    # Whole-number strings such as "5" and "300.0"
+    user_input_strings = {
+        CONF_LATITUDE: 52.0,
+        CONF_LONGITUDE: 5.0,
+        "notification_limit": "5",
+        "refresh_interval": "300.0",
+    }
+    errors2, _, _, notif2, refresh2 = _validate_flow_input(user_input_strings)
+    assert errors2 == {}
+    assert notif2 == 5
+    assert refresh2 == 300
+
+    # Verify that an invalid notification_limit still leaves refresh_interval parsed independently
+    user_input_mixed = {
+        CONF_LATITUDE: 52.0,
+        CONF_LONGITUDE: 5.0,
+        "notification_limit": "invalid_value",
+        "refresh_interval": 450,
+    }
+    errors3, _, _, notif3, refresh3 = _validate_flow_input(user_input_mixed)
+    assert errors3 == {"base": "invalid_notification_limit"}
+    assert refresh3 == 450
