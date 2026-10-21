@@ -144,29 +144,54 @@ class BuienalarmApiClient:
         _LOGGER.debug("[API%s] Using User-Agent: %s", self._sfx, user_agent)
 
         try:
-            async with self._session.get(
-                self._url, timeout=self._timeout, headers=headers
-            ) as resp:
-                _LOGGER.debug(
-                    "[API%s] Initial data response status: %s", self._sfx, resp.status
-                )
-                resp.raise_for_status()
-                data = await resp.json()
-                _LOGGER.debug(
-                    "[API%s] Retrieved metadata keys: %s",
-                    self._sfx,
-                    (
-                        list(data.keys())
-                        if isinstance(data, dict)
-                        else type(data).__name__
-                    ),
-                )
-                return data
-        except aiohttp.ClientResponseError as err:
+            async with asyncio.timeout(self._timeout.total):
+                async with self._session.get(
+                    self._url, timeout=self._timeout, headers=headers
+                ) as resp:
+                    _LOGGER.debug(
+                        "[API%s] Initial data response status: %s", self._sfx, resp.status
+                    )
+                    if resp.status != 200:
+                        _LOGGER.error(
+                            "[API%s]   HTTP error fetching initial data: %s %s",
+                            self._sfx,
+                            resp.status,
+                            resp.reason,
+                        )
+                        raise ApiError(f"HTTP error {resp.status}: {resp.reason}")
+
+                    try:
+                        data = await resp.json(content_type=None)
+                    except TypeError:
+                        data = await resp.json()
+
+                    _LOGGER.debug(
+                        "[API%s] Retrieved metadata keys: %s",
+                        self._sfx,
+                        (
+                            list(data.keys())
+                            if isinstance(data, dict)
+                            else type(data).__name__
+                        ),
+                    )
+                    return data
+        except asyncio.TimeoutError as err:
+            _LOGGER.error(
+                "[API%s] TIMEOUT fetching initial data after %ss",
+                self._sfx,
+                self._timeout.total,
+            )
+            raise ApiError("Timeout while requesting Buienalarm initial data") from err
+        except (aiohttp.ClientError, socket.gaierror) as err:
             _LOGGER.error(
                 "[API%s] HTTP error fetching initial data: %s", self._sfx, err
             )
-            raise
+            raise ApiError(str(err)) from err
+        except ValueError as err:
+            _LOGGER.error(
+                "[API%s] JSON decode error fetching initial data: %s", self._sfx, err
+            )
+            raise ApiError("Invalid JSON") from err
 
     async def async_get_nowcast(
         self,
