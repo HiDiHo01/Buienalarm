@@ -186,9 +186,11 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
             val = self.native_value
             if isinstance(val, str):
                 val_lower = val.lower()
+                if any(k in val_lower for k in ("mix", "regen en sneeuw", "sneeuw en regen")):
+                    return "mdi:weather-pouring"
                 if "snow" in val_lower or "sneeuw" in val_lower:
                     return "mdi:weather-snowy"
-                if any(k in val_lower for k in ("rain", "regen", "mix", "motregen")):
+                if any(k in val_lower for k in ("rain", "regen", "motregen", "ijzel")):
                     return "mdi:weather-pouring"
                 if any(k in val_lower for k in ("geen", "none", "droog")):
                     return "mdi:weather-sunny"

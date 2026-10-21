@@ -989,6 +989,19 @@ async def test_dynamic_sensor_icons(hass: HomeAssistant) -> None:
 
     assert precip_type_sensor.icon == "mdi:weather-snowy"
 
+    # Test when mixed precipitation (type = "mix of rain and snow")
+    coordinator.data = {
+        "data": [
+            {
+                "timestamp": now_ts,
+                "precipitationrate": 1.0,
+                "precipitationtype": "mix of rain and snow",
+            }
+        ]
+    }
+
+    assert precip_type_sensor.icon == "mdi:weather-pouring"
+
     # 4. Test precipitationrate_hour, precipitationrate_total, precipitationrate_now_desc, and next_precipitation icons
     hour_sensor = BuienalarmSensor(
         coordinator,
