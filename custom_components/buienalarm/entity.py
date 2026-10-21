@@ -22,9 +22,6 @@ from .coordinator import BuienalarmDataUpdateCoordinator
 
 MAX_DURATION_MINUTES = 120
 
-# Bolt: Maximum timestamp cutoff (Year 3000 UTC) for validating numeric forecast epoch timestamps
-_MAX_TIMESTAMP: Final[float] = 32535215999.0
-
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
 # Bolt: Pre-compiled regex pattern for nowcast message timestamp placeholders to avoid re-compilation per call
@@ -768,10 +765,10 @@ class BuienalarmEntity(CoordinatorEntity):
             if ts is not None and ts <= current_ts < ts + 300:
                 current_precipitation_rate = _as_float(_safe_get(data_point, "precipitationrate")) or 0.0
 
-                # Bolt optimization: Return NO_PRECIPITATION immediately when rate <= 0,
-                # skipping precipitationtype resolution and category list iteration (~1.26x faster).
+                # Bolt optimization: Skip category checks for dry bins (rate <= 0)
+                # while allowing subsequent overlapping forecast bins to be evaluated.
                 if current_precipitation_rate <= 0:
-                    return self.NO_PRECIPITATION
+                    continue
 
                 raw_type = _safe_get(data_point, "precipitationtype")
                 current_precipitation_type: str = (
@@ -882,10 +879,10 @@ class BuienalarmEntity(CoordinatorEntity):
             # Forecast points are 5‑minute bins.
             ts = _as_float(_safe_get(data_point, "timestamp"))
 
-            # Skip if timestamp is missing or malformed or in the past or out-of-bounds
-            # Bolt optimization: numeric epoch range check 0 <= ts <= _MAX_TIMESTAMP
+            # Skip if timestamp is missing, in the past, or beyond reasonable forecast horizon (24h)
+            # Bolt optimization: numeric epoch comparison now_ts <= ts <= now_ts + 86400
             # bypasses datetime.fromtimestamp object allocations in loop iterations (~2.7x faster).
-            if ts is None or ts < now_ts or ts > _MAX_TIMESTAMP:
+            if ts is None or ts < now_ts or ts > now_ts + 86400:
                 continue
 
             rate = _as_float(_safe_get(data_point, "precipitationrate")) or 0.0
