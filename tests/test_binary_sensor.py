@@ -349,6 +349,12 @@ async def test_binary_sensor_precipitation_expected_unclassified_type(
                 }
             ]
         },
+        {"data": [{"precipitationrate": 2.5, "precipitationtype": "rain", "timestamp": float("nan")}]},
+        {"data": [{"precipitationrate": 2.5, "precipitationtype": "rain", "timestamp": float("inf")}]},
+        {"data": [{"precipitationrate": 2.5, "precipitationtype": "rain", "timestamp": -float("inf")}]},
+        {"data": [{"precipitationrate": 2.5, "precipitationtype": "rain", "timestamp": "nan"}]},
+        {"data": [{"precipitationrate": 2.5, "precipitationtype": "rain", "timestamp": "inf"}]},
+        {"data": [{"precipitationrate": 2.5, "precipitationtype": "rain", "timestamp": "1e10000"}]},
     ],
 )
 async def test_binary_sensors_missing_or_invalid_data(
