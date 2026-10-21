@@ -1,5 +1,6 @@
 """Tests for the Buienalarm config and options flow."""
 
+from fractions import Fraction
 from unittest.mock import patch
 
 import pytest
@@ -11,6 +12,48 @@ from homeassistant.data_entry_flow import FlowResultType
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.buienalarm.const import DOMAIN
+
+
+@pytest.mark.parametrize(
+    "value,min_value",
+    [(0, 0), (60, 60), (2**53 + 1, 60), (10**400, 0)],
+)
+def test_parse_int_option_preserves_integers(value: int, min_value: int) -> None:
+    """Valid integers retain their identity without float rounding or overflow."""
+    from custom_components.buienalarm.config_flow import _parse_int_option
+
+    assert _parse_int_option(value, min_value) is value
+
+
+@pytest.mark.parametrize(
+    "value,min_value,expected",
+    [
+        (-1, 0, None),
+        (59, 60, None),
+        (-(10**400), 0, None),
+        (True, 0, None),
+        (False, 0, None),
+        (300.0, 60, 300),
+        ("300", 60, 300),
+        ("300.0", 60, 300),
+        (59.0, 60, None),
+        (300.5, 60, None),
+        ("300.5", 60, None),
+        (float("nan"), 0, None),
+        (float("inf"), 0, None),
+        (float("-inf"), 0, None),
+        ("abc", 0, None),
+        (None, 0, None),
+        (Fraction(10**400), 0, None),
+    ],
+)
+def test_parse_int_option_validation(
+    value: object, min_value: int, expected: int | None
+) -> None:
+    """Reject invalid options and preserve validation of non-integer inputs."""
+    from custom_components.buienalarm.config_flow import _parse_int_option
+
+    assert _parse_int_option(value, min_value) == expected
 
 
 @pytest.fixture(autouse=True)

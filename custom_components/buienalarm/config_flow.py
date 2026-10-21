@@ -95,9 +95,11 @@ def _parse_int_option(value: Any, min_value: int) -> int | None:
     """Safely parse a non-boolean integer option >= min_value, returning None if invalid."""
     if isinstance(value, bool):
         return None
+    if isinstance(value, int):
+        return value if value >= min_value else None
     try:
         val_float = float(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return None
 
     if not math.isfinite(val_float) or val_float < min_value or not val_float.is_integer():
