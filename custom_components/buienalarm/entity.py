@@ -660,14 +660,13 @@ class BuienalarmEntity(CoordinatorEntity):
         end_time: datetime,
         round_result: bool = True,
     ) -> float | None:
-        """Calculate a forecast rate, or None when the window has no usable rates."""
         if not isinstance(data, list) or not data:
             return None
 
         filtered_data = self._filter_data_by_time(data, start_time, end_time)
 
         if not filtered_data:
-            return None
+            return 0.0
 
         total_rate = 0.0
         has_rate = False
@@ -677,21 +676,21 @@ class BuienalarmEntity(CoordinatorEntity):
             if raw_rate is None or isinstance(raw_rate, bool):
                 continue
             val = _as_float(raw_rate)
-            if val is not None and val >= 0:
+            if val is not None and math.isfinite(val):
                 total_rate += val
                 has_rate = True
 
         if not has_rate:
-            return None
+            return 0.0
 
         total_time_seconds = (end_time - start_time).total_seconds()
         if total_time_seconds <= 0:
-            return None
+            return 0.0
 
         # Gemiddelde per uur
         average_precipitation_rate = total_rate / (total_time_seconds / 3600)
         if not math.isfinite(average_precipitation_rate):
-            return None
+            return 0.0
 
         if round_result:
             return round(average_precipitation_rate, 1)

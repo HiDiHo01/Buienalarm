@@ -210,8 +210,8 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
 
         elif self._key == "next_precipitation":
             val = self.native_value
-            if val is None and self.available:
-                return "mdi:clock-check-outline"
+            if val is None:
+                return "mdi:clock-check-outline" if self.available else self._icon
             if isinstance(val, (int, float)):
                 return "mdi:clock-alert-outline" if val == 0 else "mdi:clock-start"
 
