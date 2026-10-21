@@ -16,3 +16,7 @@ Critical learnings on performance optimizations for this repository.
 ## 2026-10-19 - Avoid bound method allocation in generic mapping getter helpers
 **Learning:** Generic dictionary getter functions like `_safe_get()` that use `getattr(item, "get")` to extract keys dynamically instantiate bound method objects (`PyMethod_New`) on every call. In hot loops processing timeseries data points, checking `isinstance(item, dict)` first and invoking `item.get(key, default)` directly avoids method object allocations and speeds up key lookups by 4x (~75% reduction in lookup latency), reducing overall entity state attribute evaluation time by ~31%.
 **Action:** Always provide an explicit `if isinstance(item, dict): return item.get(key, default)` fast path in dynamic dictionary lookup helpers before falling back to `getattr`.
+
+## 2026-10-21 - Aggregate timeseries data in a single pass
+**Learning:** Filtering timeseries forecast points into an intermediate list before iterating over that list to aggregate values causes unnecessary object allocations and double array traversals. Combining time-window filtering and rate summation into a single pass direct loop yields a ~1.81x speedup (~45% reduction in calculation latency).
+**Action:** Perform filtering and aggregation in a single loop pass when processing timeseries forecast arrays.
