@@ -1038,6 +1038,69 @@ async def test_buienalarm_entity_unique_id_attribute(hass: HomeAssistant) -> Non
     assert entity._attr_unique_id == expected_uid
     assert entity.unique_id == expected_uid
 
+
+@pytest.mark.asyncio
+async def test_precipitation_periods_handles_custom_mapping_data_points(
+    hass: HomeAssistant,
+) -> None:
+    """Verify _get_precipitation_periods processes forecast entries provided as UserDict/Mapping objects."""
+    from collections import UserDict
+    from datetime import datetime, timezone
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.entity import BuienalarmEntity
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Buienalarm UserDict Periods Test",
+        unique_id="test_userdict_periods",
+        data={"latitude": 52.3702, "longitude": 4.8952},
+    )
+
+    coordinator = MagicMock()
+    entity = BuienalarmEntity(coordinator, entry, "precipitation_periods")
+
+    now_ts = int(datetime.now(timezone.utc).timestamp())
+
+    coordinator.data = {
+        "data": [
+            UserDict(
+                {
+                    "timestamp": now_ts + 60,
+                    "precipitationrate": 2.5,
+                    "precipitationtype": "rain",
+                }
+            ),
+            UserDict(
+                {
+                    "timestamp": now_ts + 360,
+                    "precipitationrate": 1.5,
+                    "precipitationtype": "rain",
+                }
+            ),
+            UserDict(
+                {
+                    "timestamp": now_ts + 660,
+                    "precipitationrate": 0.0,
+                    "precipitationtype": "rain",
+                }
+            ),
+        ]
+    }
+
+    periods = entity._get_precipitation_periods()
+    assert len(periods) == 1
+    assert periods[0]["duration_minutes"] == 10
+    assert periods[0]["precipitationrate"] == 2.0
+
+    dict_periods = entity.get_precipitation_periods_as_dict()
+    assert len(dict_periods) == 1
+    assert dict_periods[0]["duration"] == 10
+    assert dict_periods[0]["precipitationrate"] == 2.0
+    assert "start" in dict_periods[0]
+    assert "stop" in dict_periods[0]
+
+    assert entity.get_data("precipitation_periods") == 1
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("key", "value", "expected"),
