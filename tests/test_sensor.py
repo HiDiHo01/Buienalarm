@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock, patch
 
+from freezegun import freeze_time
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -194,7 +195,7 @@ async def test_buienalarm_entity_untrusted_data_handling(hass: HomeAssistant) ->
         coordinator.data = sample
 
         assert entity.get_mycastmessage() == "Geen data"
-        assert entity.get_precipitation_duration() == 0
+        assert entity.get_precipitation_duration() is None
         assert entity.get_total_precipitation_rate() == 0.0
         assert entity.get_total_precipitation_rate_for_next_hour() == 0.0
         assert entity.get_current_precipitation() == 0.0
@@ -1063,6 +1064,85 @@ async def test_dynamic_sensor_icons(hass: HomeAssistant) -> None:
     }
 
     assert precip_type_sensor.icon == "mdi:weather-snowy"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("rate", "expected_icon"),
+    [
+        (2.5, "mdi:weather-pouring"),
+        ("2,5", "mdi:weather-pouring"),
+        (0.0, "mdi:weather-sunny"),
+        (True, "mdi:clock-outline"),
+        (None, "mdi:clock-outline"),
+        ("invalid", "mdi:clock-outline"),
+        (float("nan"), "mdi:clock-outline"),
+        (float("inf"), "mdi:clock-outline"),
+    ],
+)
+async def test_duration_icon_with_single_forecast_bin(
+    hass: HomeAssistant, rate: object, expected_icon: str
+) -> None:
+    """Use the current bin's validated rate even when its duration is zero."""
+    from datetime import datetime, timezone
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.sensor import BuienalarmSensor
+
+    entry = MockConfigEntry(domain=DOMAIN, data={})
+    coordinator = MagicMock(last_update_success=True)
+    sensor = BuienalarmSensor(
+        coordinator,
+        entry,
+        name="Precipitation duration",
+        unit_of_measurement="min",
+        icon="mdi:clock-outline",
+        device_class=None,
+        state_class=None,
+        key="precipitation_duration",
+    )
+
+    with freeze_time("2026-10-22T12:02:00+00:00"):
+        coordinator.data = {
+            "data": [
+                {
+                    "timestamp": datetime(
+                        2026, 10, 22, 12, tzinfo=timezone.utc
+                    ).timestamp(),
+                    "precipitationrate": rate,
+                }
+            ]
+        }
+        assert sensor.native_value == 0
+        assert sensor.icon == expected_icon
+
+        coordinator.last_update_success = False
+        assert sensor.icon == "mdi:clock-outline"
+
+    with freeze_time("2026-10-22T12:05:00+00:00"):
+        coordinator.last_update_success = True
+        assert sensor.icon == "mdi:clock-outline"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("wrapped", [False, True])
+async def test_sensor_icons_with_empty_forecast(
+    hass: HomeAssistant, wrapped: bool
+) -> None:
+    """Keep missing forecasts distinct from confirmed dry weather."""
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.sensor import BuienalarmSensor
+
+    entry = MockConfigEntry(domain=DOMAIN, data={})
+    coordinator = MagicMock(last_update_success=True)
+    payload = {"data": []}
+    coordinator.data = {"timeseries": payload} if wrapped else payload
+
+    for description in SENSORS:
+        sensor = BuienalarmSensor(coordinator, entry, **description)
+        assert sensor.icon == description["icon"]
+        if description["key"] == "precipitation_duration":
+            assert sensor.native_value is None
+            assert sensor.get_precipitation_duration() is None
 
 
 @pytest.mark.asyncio

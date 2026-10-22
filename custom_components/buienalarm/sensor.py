@@ -162,15 +162,26 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
     @property
     def icon(self) -> str | None:
         """Return the icon to use in the frontend, if any."""
+        forecast = self.data.get("data")
+        if (
+            not self.coordinator.last_update_success
+            or not isinstance(forecast, list)
+            or not forecast
+        ):
+            return self._icon
+
         if self._key in (
             "precipitationrate_now",
             "precipitationrate_hour",
             "precipitationrate_total",
-            "precipitation_duration",
         ):
             val = self.native_value
             if isinstance(val, (int, float)):
                 return "mdi:weather-pouring" if val > 0 else "mdi:weather-sunny"
+        elif self._key == "precipitation_duration":
+            rate = self._get_current_precipitation_rate()
+            if rate is not None:
+                return "mdi:weather-pouring" if rate > 0 else "mdi:weather-sunny"
         elif self._key == "next_precipitation":
             val = self.native_value
             if val == 0:

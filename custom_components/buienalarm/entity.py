@@ -503,17 +503,17 @@ class BuienalarmEntity(CoordinatorEntity):
         # If we reach here, there is no ongoing precipitation
         return 0
 
-    def get_precipitation_duration(self) -> int:
-        """Return the duration of the current precipitation event in minutes."""
+    def get_precipitation_duration(self) -> int | None:
+        """Return the event duration in minutes, or None if forecast data is missing."""
         try:
             precip_data: list[dict[str, float]] = self._ensure_precip_data()
         except ValueError:
             _LOGGER.debug("No precipitation data available")
-            return 0
+            return None
 
         if not precip_data:
             _LOGGER.debug("No precipitation data available")
-            return 0
+            return None
 
         current_time: datetime = datetime.now(timezone.utc)
         current_ts: float = current_time.timestamp()
@@ -762,6 +762,10 @@ class BuienalarmEntity(CoordinatorEntity):
 
     def get_current_precipitation(self) -> float:
         """Get the current precipitation rate."""
+        return self._get_current_precipitation_rate() or 0.0
+
+    def _get_current_precipitation_rate(self) -> float | None:
+        """Return a validated rate from the current bin, or None if unavailable."""
         data: object = self.data.get("data", [])
         # Bolt performance optimization: use epoch timestamps for rapid interval check
         current_ts: float = datetime.now(timezone.utc).timestamp()
@@ -795,7 +799,7 @@ class BuienalarmEntity(CoordinatorEntity):
                     # Check if current time is within the 5-minute forecast bin [timestamp, timestamp + 300)
                     if timestamp <= current_ts < timestamp + 300:
                         return precipitation_rate
-        return 0.0
+        return None
 
     NO_PRECIPITATION = "Geen neerslag"
 
