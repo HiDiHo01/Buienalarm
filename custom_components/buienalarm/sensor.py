@@ -26,10 +26,9 @@ async def async_setup_entry(
         "[SENSOR SETUP] Setting up Buienalarm sensors for %s", config_entry.unique_id
     )
 
-    coordinator: BuienalarmDataUpdateCoordinator | None = (
-        getattr(config_entry, "runtime_data", None)
-        or hass.data.get(DOMAIN, {}).get(config_entry.entry_id)
-    )
+    coordinator: BuienalarmDataUpdateCoordinator | None = getattr(
+        config_entry, "runtime_data", None
+    ) or hass.data.get(DOMAIN, {}).get(config_entry.entry_id)
     if not coordinator:
         raise RuntimeError(
             "Buienalarm coordinator is not available for config entry "
