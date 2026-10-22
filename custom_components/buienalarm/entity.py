@@ -859,9 +859,9 @@ class BuienalarmEntity(CoordinatorEntity):
                 )
 
                 categories = self.PRECIPITATION_RAIN_CATEGORIES
-                if current_precipitation_type == "snow":
+                if current_precipitation_type in ("snow", "wet snow"):
                     categories = self.PRECIPITATION_SNOW_CATEGORIES
-                elif current_precipitation_type == "mix of rain and snow":
+                elif current_precipitation_type in ("mix", "mix of rain and snow"):
                     categories = self.PRECIPITATION_RAIN_SNOW_CATEGORIES
 
                 # Log the found precipitation type and rate for debugging
@@ -914,7 +914,7 @@ class BuienalarmEntity(CoordinatorEntity):
                         return "Regen"
                     elif current_type == "freezing rain":
                         return "Ijzel"
-                    elif current_type == "snow":
+                    elif current_type in ("snow", "wet snow"):
                         return "Sneeuw"
                     elif (
                         current_type == "mix" or current_type == "mix of rain and snow"

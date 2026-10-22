@@ -173,9 +173,8 @@ def _is_current_precipitation_period(
 
     # Bolt optimization: compare float epoch timestamps directly [timestamp, timestamp + 300)
     # to avoid instantiating datetime and timedelta objects in loop iterations (~25x faster).
-    return (
-        timestamp <= current_ts < timestamp + 300
-        and _is_precipitation_period(period)
+    return timestamp <= current_ts < timestamp + 300 and _is_precipitation_period(
+        period
     )
 
 

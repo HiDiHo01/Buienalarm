@@ -333,8 +333,7 @@ def async_migrate_entity_unique_ids(hass: HomeAssistant, entry: ConfigEntry) -> 
     entity_registry = er.async_get(hass)
 
     key_by_name = {
-        sensor["name"].lower().replace(" ", "_"): sensor["key"]
-        for sensor in SENSORS
+        sensor["name"].lower().replace(" ", "_"): sensor["key"] for sensor in SENSORS
     }
     key_by_key = {sensor["key"]: sensor["key"] for sensor in SENSORS}
 
@@ -353,7 +352,7 @@ def async_migrate_entity_unique_ids(hass: HomeAssistant, entry: ConfigEntry) -> 
         target_key = None
 
         if old_uid.startswith(f"{entry.entry_id}-"):
-            suffix = old_uid[len(f"{entry.entry_id}-"):]
+            suffix = old_uid[len(f"{entry.entry_id}-") :]
             if suffix in key_by_key:
                 target_key = key_by_key[suffix]
             elif suffix in key_by_name:
@@ -364,7 +363,7 @@ def async_migrate_entity_unique_ids(hass: HomeAssistant, entry: ConfigEntry) -> 
                         target_key = key
                         break
         elif old_uid.startswith(f"{entry.entry_id}_"):
-            suffix = old_uid[len(f"{entry.entry_id}_"):]
+            suffix = old_uid[len(f"{entry.entry_id}_") :]
             if suffix in key_by_key:
                 target_key = key_by_key[suffix]
 
@@ -384,7 +383,10 @@ def async_migrate_entity_unique_ids(hass: HomeAssistant, entry: ConfigEntry) -> 
             and entity_entry.domain == "sensor"
         ):
             existing_entity = entity_registry.async_get(legacy_precipitation_entity_id)
-            if existing_entity is None or existing_entity.entity_id == entity_entry.entity_id:
+            if (
+                existing_entity is None
+                or existing_entity.entity_id == entity_entry.entity_id
+            ):
                 target_entity_id = legacy_precipitation_entity_id
 
         update_options: dict[str, str] = {}
@@ -401,4 +403,6 @@ def async_migrate_entity_unique_ids(hass: HomeAssistant, entry: ConfigEntry) -> 
                 entity_entry.entity_id,
                 update_options,
             )
-            entity_registry.async_update_entity(entity_entry.entity_id, **update_options)
+            entity_registry.async_update_entity(
+                entity_entry.entity_id, **update_options
+            )
