@@ -1,7 +1,6 @@
 name: Home Assistant Buienalarm Custom Integration CI
 permissions:
   contents: read
-  packages: write
 
 on:
   push:
@@ -21,23 +20,21 @@ jobs:
 
     steps:
       - name: 📥 Checkout code
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: 🐍 Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: 🧰 Install Poetry
-        run: |
-          curl -sSL https://install.python-poetry.org | python3 -
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+      - name: Install pinned Poetry CLI
+        run: python -m pip install --only-binary=:all: "poetry==2.3.2"
 
       - name: ⚙️ Configure Poetry environment
         run: |
-          poetry lock
+          poetry check --lock
           poetry env use "${{ matrix.python-version }}"
-          poetry install --no-interaction --no-ansi
+          poetry install --no-interaction --no-ansi --no-root
 
       - name: 🧠 Set PYTHONPATH
         run: echo "PYTHONPATH=$GITHUB_WORKSPACE/Buienalarm" >> $GITHUB_ENV
@@ -87,7 +84,7 @@ jobs:
         run: poetry build
 
       - name: ⬆️ Upload Package / built wheel
-        uses: actions/upload-artifact@v7  # Update van v3 naar v4
+        uses: actions/upload-artifact@v7
         with:
           name: buienalarm-package
           path: dist/*.whl
