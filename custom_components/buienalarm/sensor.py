@@ -163,9 +163,8 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
     @property
     def icon(self) -> str | None:
         """Return the icon to use in the frontend, if any."""
-        has_forecast = (
-            isinstance(self.data.get("data"), list) and bool(self.data.get("data"))
-        )
+        data_list = self.data.get("data")
+        has_forecast = isinstance(data_list, list) and bool(data_list)
 
         if self._key in (
             "precipitationrate_now",
@@ -175,11 +174,10 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
         ):
             val = self.native_value
             if isinstance(val, (int, float)):
-                return (
-                    "mdi:weather-pouring"
-                    if val > 0
-                    else ("mdi:weather-sunny" if has_forecast else self._icon)
-                )
+                if val > 0:
+                    return "mdi:weather-pouring"
+                if has_forecast:
+                    return "mdi:weather-sunny"
         elif self._key == "next_precipitation":
             val = self.native_value
             if val == 0:
@@ -196,8 +194,8 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
                     return "mdi:weather-snowy"
                 if any(k in val_lower for k in ("rain", "regen", "mix", "motregen")):
                     return "mdi:weather-pouring"
-                if any(k in val_lower for k in ("geen", "none", "droog")):
-                    return "mdi:weather-sunny" if has_forecast else self._icon
+                if any(k in val_lower for k in ("geen", "none", "droog")) and has_forecast:
+                    return "mdi:weather-sunny"
         return self._icon
 
     @property
