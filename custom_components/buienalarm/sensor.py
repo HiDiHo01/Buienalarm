@@ -1,6 +1,8 @@
 # sensor.py
 from collections.abc import Mapping
+from datetime import datetime, timezone
 import logging
+import math
 from typing import Final
 
 from homeassistant.components.sensor import SensorEntity
@@ -170,6 +172,45 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
             val = self.native_value
             if isinstance(val, (int, float)):
                 return "mdi:weather-pouring" if val > 0 else "mdi:weather-sunny"
+        elif self._key in ("next_precipitation", "precipitation_duration"):
+            # Only interpret a zero/None state as dry with a valid forecast.
+            forecast = self.data.get("data")
+            if not isinstance(forecast, list) or not forecast:
+                return self._icon
+            now_ts = datetime.now(timezone.utc).timestamp()
+            timestamps: list[float] = []
+            if not all(
+                isinstance(point, Mapping)
+                and isinstance(point.get("timestamp"), (int, float))
+                and not isinstance(point.get("timestamp"), bool)
+                and math.isfinite(point["timestamp"])
+                and isinstance(point.get("precipitationrate"), (int, float))
+                and not isinstance(point.get("precipitationrate"), bool)
+                and math.isfinite(point["precipitationrate"])
+                and point["precipitationrate"] >= 0
+                for point in forecast
+            ):
+                return self._icon
+
+            for point in forecast:
+                try:
+                    timestamps.append(datetime.fromtimestamp(point["timestamp"], tz=timezone.utc).timestamp())
+                except (ValueError, OverflowError, OSError):
+                    return self._icon
+            # Forecast bins begin at five-minute boundaries and cover five minutes.
+            if min(timestamps) > now_ts or max(timestamps) + 300 <= now_ts:
+                return self._icon
+
+            val = self.native_value
+            if isinstance(val, bool) or not isinstance(val, (int, float)):
+                if self._key == "next_precipitation" and val is None:
+                    return "mdi:weather-sunny"
+                return self._icon
+            if not math.isfinite(val) or val < 0:
+                return self._icon
+            if self._key == "next_precipitation":
+                return "mdi:weather-pouring" if val == 0 else "mdi:clock-start"
+            return "mdi:weather-pouring" if val > 0 else "mdi:weather-sunny"
         elif self._key == "precipitationtype_now":
             val = self.native_value
             if isinstance(val, str):

@@ -1,4 +1,5 @@
 import pytest
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
 
 from homeassistant.core import HomeAssistant
@@ -1036,6 +1037,150 @@ async def test_buienalarm_entity_unique_id_attribute(hass: HomeAssistant) -> Non
     expected_uid = f"{entry.entry_id}_{sensor_key}"
     assert entity._attr_unique_id == expected_uid
     assert entity.unique_id == expected_uid
+
+
+@pytest.mark.asyncio
+async def test_precipitation_periods_handles_custom_mapping_data_points(
+    hass: HomeAssistant,
+) -> None:
+    """Verify _get_precipitation_periods processes forecast entries provided as UserDict/Mapping objects."""
+    from collections import UserDict
+    from datetime import datetime, timezone
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.entity import BuienalarmEntity
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Buienalarm UserDict Periods Test",
+        unique_id="test_userdict_periods",
+        data={"latitude": 52.3702, "longitude": 4.8952},
+    )
+
+    coordinator = MagicMock()
+    entity = BuienalarmEntity(coordinator, entry, "precipitation_periods")
+
+    now_ts = int(datetime.now(timezone.utc).timestamp())
+
+    coordinator.data = {
+        "data": [
+            UserDict(
+                {
+                    "timestamp": now_ts + 60,
+                    "precipitationrate": 2.5,
+                    "precipitationtype": "rain",
+                }
+            ),
+            UserDict(
+                {
+                    "timestamp": now_ts + 360,
+                    "precipitationrate": 1.5,
+                    "precipitationtype": "rain",
+                }
+            ),
+            UserDict(
+                {
+                    "timestamp": now_ts + 660,
+                    "precipitationrate": 0.0,
+                    "precipitationtype": "rain",
+                }
+            ),
+        ]
+    }
+
+    periods = entity._get_precipitation_periods()
+    assert len(periods) == 1
+    assert periods[0]["duration_minutes"] == 10
+    assert periods[0]["precipitationrate"] == 2.0
+
+    dict_periods = entity.get_precipitation_periods_as_dict()
+    assert len(dict_periods) == 1
+    assert dict_periods[0]["duration"] == 10
+    assert dict_periods[0]["precipitationrate"] == 2.0
+    assert "start" in dict_periods[0]
+    assert "stop" in dict_periods[0]
+
+    assert entity.get_data("precipitation_periods") == 1
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("key", "value", "expected"),
+    [
+        ("next_precipitation", 0, "mdi:weather-pouring"),
+        ("next_precipitation", 15, "mdi:clock-start"),
+        ("next_precipitation", None, "mdi:weather-sunny"),
+        ("precipitation_duration", 10, "mdi:weather-pouring"),
+        ("precipitation_duration", 0, "mdi:weather-sunny"),
+    ],
+)
+async def test_timing_sensor_dynamic_icons(hass, key, value, expected):
+    """Timing sensor icons follow validated forecast state."""
+    from unittest.mock import MagicMock, patch
+    from custom_components.buienalarm.sensor import BuienalarmSensor
+
+    entry = MockConfigEntry(
+        domain=DOMAIN, title="Timing icons", unique_id="timing_icons",
+        data={"latitude": 52.37, "longitude": 4.89},
+    )
+    coordinator = MagicMock()
+    coordinator.last_update_success = True
+    coordinator.data = {"data": [{"timestamp": int(datetime.now(timezone.utc).timestamp()) - 60, "precipitationrate": 0.0}]}
+    entity = BuienalarmSensor(
+        coordinator, entry, name=key, unit_of_measurement="min",
+        icon="mdi:clock-outline", device_class=None, state_class=None, key=key,
+    )
+    with patch.object(BuienalarmSensor, "native_value", new_callable=lambda: property(lambda self: value)):
+        assert entity.icon == expected
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "forecast",
+    [[], None, [{"timestamp": "invalid", "precipitationrate": 2.0}],
+     [{"timestamp": int(datetime.now(timezone.utc).timestamp()) - 60, "precipitationrate": float("nan")}]],
+)
+async def test_timing_sensor_icon_fallback_for_invalid_forecast(hass, forecast):
+    """Do not report clear skies from missing or malformed forecast data."""
+    from unittest.mock import MagicMock, patch
+    from custom_components.buienalarm.sensor import BuienalarmSensor
+
+    entry = MockConfigEntry(
+        domain=DOMAIN, title="Timing icons", unique_id="timing_icons_fallback",
+        data={"latitude": 52.37, "longitude": 4.89},
+    )
+    coordinator = MagicMock()
+    coordinator.last_update_success = True
+    coordinator.data = {"data": forecast}
+    entity = BuienalarmSensor(
+        coordinator, entry, name="Next precipitation", unit_of_measurement="min",
+        icon="mdi:clock-outline", device_class=None, state_class=None,
+        key="next_precipitation",
+    )
+    with patch.object(BuienalarmSensor, "native_value", new_callable=lambda: property(lambda self: None)):
+        assert entity.icon == "mdi:clock-outline"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("key", ["next_precipitation", "precipitation_duration"])
+@pytest.mark.parametrize("offset", [-3600, 3600, None])
+async def test_timing_icons_reject_expired_future_and_out_of_range_bins(hass, key, offset):
+    """Only temporally applicable, representable forecast bins set status icons."""
+    from unittest.mock import MagicMock, patch
+    from custom_components.buienalarm.sensor import BuienalarmSensor
+
+    entry = MockConfigEntry(
+        domain=DOMAIN, title="Temporal timing icons", unique_id="temporal_icons",
+        data={"latitude": 52.37, "longitude": 4.89},
+    )
+    coordinator = MagicMock()
+    coordinator.last_update_success = True
+    stamp = 1e300 if offset is None else datetime.now(timezone.utc).timestamp() + offset
+    coordinator.data = {"data": [{"timestamp": stamp, "precipitationrate": 0.0}]}
+    entity = BuienalarmSensor(
+        coordinator, entry, name=key, unit_of_measurement="min",
+        icon="mdi:clock-outline", device_class=None, state_class=None, key=key,
+    )
+    with patch.object(BuienalarmSensor, "native_value", property(lambda self: None if key == "next_precipitation" else 0)):
+        assert entity.icon == "mdi:clock-outline"
 
 
 @pytest.mark.asyncio
