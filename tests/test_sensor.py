@@ -1181,3 +1181,53 @@ async def test_timing_icons_reject_expired_future_and_out_of_range_bins(hass, ke
     )
     with patch.object(BuienalarmSensor, "native_value", property(lambda self: None if key == "next_precipitation" else 0)):
         assert entity.icon == "mdi:clock-outline"
+
+
+@pytest.mark.asyncio
+async def test_buienalarm_entity_wet_snow_and_mix_precipitation_type_handling(
+    hass: HomeAssistant,
+) -> None:
+    """Verify get_current_precipitation_type and get_current_precipitation_rate_desc handle wet snow and mix correctly."""
+    from datetime import datetime, timezone
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.entity import BuienalarmEntity
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Buienalarm Wet Snow Mix Test",
+        unique_id="test_wet_snow_mix",
+        data={"latitude": 52.3702, "longitude": 4.8952},
+    )
+
+    coordinator = MagicMock()
+    entity = BuienalarmEntity(coordinator, entry, "precipitationtype_now")
+
+    now_ts = int(datetime.now(timezone.utc).timestamp())
+
+    # 1. Test "wet snow"
+    coordinator.data = {
+        "data": [
+            {
+                "timestamp": now_ts,
+                "precipitationrate": 1.5,
+                "precipitationtype": "wet snow",
+            }
+        ]
+    }
+
+    assert entity.get_current_precipitation_type() == "Sneeuw"
+    assert entity.get_current_precipitation_rate_desc() == "Lichte sneeuw"
+
+    # 2. Test "mix"
+    coordinator.data = {
+        "data": [
+            {
+                "timestamp": now_ts,
+                "precipitationrate": 1.5,
+                "precipitationtype": "mix",
+            }
+        ]
+    }
+
+    assert entity.get_current_precipitation_type() == "Mix van regen en sneeuw"
+    assert entity.get_current_precipitation_rate_desc() == "Lichte regen en sneeuw"
