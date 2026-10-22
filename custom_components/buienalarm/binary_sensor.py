@@ -127,7 +127,11 @@ def _get_precipitation_periods(
     if len(periods) != len(raw_periods):
         return None
 
-    if any(_as_float(period.get("timestamp")) is None for period in periods):
+    if any(
+        _as_float(period.get("timestamp")) is None
+        or _as_float(period.get("precipitationrate")) is None
+        for period in periods
+    ):
         return None
 
     return periods
