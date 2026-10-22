@@ -71,7 +71,10 @@ def _as_float(value: object) -> float | None:
     if val_type is float:
         return value if math.isfinite(value) else None
     if val_type is int:
-        return float(value)
+        try:
+            return float(value)
+        except OverflowError:
+            return None
     if val_type is bool or value is None:
         return None
     if val_type is str:

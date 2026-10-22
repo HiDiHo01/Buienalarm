@@ -1,6 +1,7 @@
 """Tests for Buienalarm binary sensors."""
 
 from datetime import datetime, timezone
+import json
 import pytest
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -402,6 +403,24 @@ async def test_binary_sensor_precipitation_expected_unclassified_type(
                     "precipitationrate": 2.5,
                     "precipitationtype": "rain",
                     "timestamp": "1e10000",
+                }
+            ]
+        },
+        {
+            "data": [
+                {
+                    "precipitationrate": 2.5,
+                    "precipitationtype": "rain",
+                    "timestamp": json.loads("1" + "0" * 400),
+                }
+            ]
+        },
+        {
+            "data": [
+                {
+                    "precipitationrate": json.loads("1" + "0" * 400),
+                    "precipitationtype": "rain",
+                    "timestamp": 1700000000,
                 }
             ]
         },
