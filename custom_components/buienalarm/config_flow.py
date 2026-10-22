@@ -111,7 +111,11 @@ def _parse_int_option(value: Any, min_value: int) -> int | None:
     except (TypeError, ValueError, OverflowError):
         return None
 
-    if not math.isfinite(val_float) or val_float < min_value or not val_float.is_integer():
+    if (
+        not math.isfinite(val_float)
+        or val_float < min_value
+        or not val_float.is_integer()
+    ):
         return None
 
     return int(val_float)
@@ -272,9 +276,7 @@ class BuienalarmOptionsFlow(config_entries.OptionsFlow):
                 _validate_flow_input(user_input)
             )
             if not errors:
-                _LOGGER.debug(
-                    "Updating options for entry %s", self._entry.entry_id
-                )
+                _LOGGER.debug("Updating options for entry %s", self._entry.entry_id)
                 user_input[CONF_LATITUDE] = lat_float
                 user_input[CONF_LONGITUDE] = lon_float
                 user_input["notification_limit"] = notif_limit

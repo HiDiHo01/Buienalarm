@@ -278,7 +278,9 @@ async def test_binary_sensors_empty_data_list(hass: HomeAssistant) -> None:
 
         for key in ("precipitation_expected", "currently_raining", "currently_snowing"):
             unique_id = f"{entry.entry_id}_{key}"
-            entity_id = entity_registry.async_get_entity_id("binary_sensor", DOMAIN, unique_id)
+            entity_id = entity_registry.async_get_entity_id(
+                "binary_sensor", DOMAIN, unique_id
+            )
             assert entity_id is not None
             state = hass.states.get(entity_id)
             assert state is not None
@@ -349,15 +351,79 @@ async def test_binary_sensor_precipitation_expected_unclassified_type(
                 }
             ]
         },
-        {"data": [{"precipitationrate": 2.5, "precipitationtype": "rain", "timestamp": float("nan")}]},
-        {"data": [{"precipitationrate": 2.5, "precipitationtype": "rain", "timestamp": float("inf")}]},
-        {"data": [{"precipitationrate": 2.5, "precipitationtype": "rain", "timestamp": -float("inf")}]},
-        {"data": [{"precipitationrate": 2.5, "precipitationtype": "rain", "timestamp": "nan"}]},
-        {"data": [{"precipitationrate": 2.5, "precipitationtype": "rain", "timestamp": "inf"}]},
-        {"data": [{"precipitationrate": 2.5, "precipitationtype": "rain", "timestamp": "1e10000"}]},
+        {
+            "data": [
+                {
+                    "precipitationrate": 2.5,
+                    "precipitationtype": "rain",
+                    "timestamp": float("nan"),
+                }
+            ]
+        },
+        {
+            "data": [
+                {
+                    "precipitationrate": 2.5,
+                    "precipitationtype": "rain",
+                    "timestamp": float("inf"),
+                }
+            ]
+        },
+        {
+            "data": [
+                {
+                    "precipitationrate": 2.5,
+                    "precipitationtype": "rain",
+                    "timestamp": -float("inf"),
+                }
+            ]
+        },
+        {
+            "data": [
+                {
+                    "precipitationrate": 2.5,
+                    "precipitationtype": "rain",
+                    "timestamp": "nan",
+                }
+            ]
+        },
+        {
+            "data": [
+                {
+                    "precipitationrate": 2.5,
+                    "precipitationtype": "rain",
+                    "timestamp": "inf",
+                }
+            ]
+        },
+        {
+            "data": [
+                {
+                    "precipitationrate": 2.5,
+                    "precipitationtype": "rain",
+                    "timestamp": "1e10000",
+                }
+            ]
+        },
         {"data": [{"precipitationtype": "rain", "timestamp": 1700000000}]},
-        {"data": [{"precipitationrate": None, "precipitationtype": "rain", "timestamp": 1700000000}]},
-        {"data": [{"precipitationrate": "invalid_rate", "precipitationtype": "rain", "timestamp": 1700000000}]},
+        {
+            "data": [
+                {
+                    "precipitationrate": None,
+                    "precipitationtype": "rain",
+                    "timestamp": 1700000000,
+                }
+            ]
+        },
+        {
+            "data": [
+                {
+                    "precipitationrate": "invalid_rate",
+                    "precipitationtype": "rain",
+                    "timestamp": 1700000000,
+                }
+            ]
+        },
     ],
 )
 async def test_binary_sensors_missing_or_invalid_data(
@@ -384,7 +450,9 @@ async def test_binary_sensors_missing_or_invalid_data(
 
         for key in ("precipitation_expected", "currently_raining", "currently_snowing"):
             unique_id = f"{entry.entry_id}_{key}"
-            entity_id = entity_registry.async_get_entity_id("binary_sensor", DOMAIN, unique_id)
+            entity_id = entity_registry.async_get_entity_id(
+                "binary_sensor", DOMAIN, unique_id
+            )
             assert entity_id is not None
             state = hass.states.get(entity_id)
             assert state is not None
