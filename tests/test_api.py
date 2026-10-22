@@ -68,6 +68,7 @@ async def test_async_get_initial_data_success(hass: HomeAssistant) -> None:
     mock_session = MagicMock()
     mock_response = AsyncMock()
     mock_response.status = 200
+    mock_response.headers = {}
     mock_response.json = AsyncMock(return_value={"success": True, "grid": "52.37_4.89"})
     mock_session.get.return_value.__aenter__.return_value = mock_response
 
@@ -75,6 +76,26 @@ async def test_async_get_initial_data_success(hass: HomeAssistant) -> None:
     data = await client.async_get_initial_data()
 
     assert data == {"success": True, "grid": "52.37_4.89"}
+    mock_response.json.assert_awaited_once_with(content_type=None)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("invalid_payload", [[], None, "invalid", 123])
+async def test_async_get_initial_data_non_dict_response(
+    hass: HomeAssistant, invalid_payload: object
+) -> None:
+    """Test that async_get_initial_data raises ApiError when JSON payload is not a dictionary."""
+    mock_session = MagicMock()
+    mock_response = AsyncMock()
+    mock_response.status = 200
+    mock_response.headers = {}
+    mock_response.json = AsyncMock(return_value=invalid_payload)
+    mock_session.get.return_value.__aenter__.return_value = mock_response
+
+    client = BuienalarmApiClient(52.3702, 4.8951, mock_session, hass)
+
+    with pytest.raises(ApiError, match="Invalid initial data format: expected dictionary"):
+        await client.async_get_initial_data()
 
 
 @pytest.mark.asyncio

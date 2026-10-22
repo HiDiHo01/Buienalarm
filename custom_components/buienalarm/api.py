@@ -160,19 +160,31 @@ class BuienalarmApiClient:
                         )
                         raise ApiError(f"HTTP error {resp.status}: {resp.reason}")
 
+                    resp_headers = (
+                        resp.headers if isinstance(resp.headers, Mapping) else {}
+                    )
+                    content_type = resp_headers.get("Content-Type") if resp_headers else None
+
                     try:
-                        data = await resp.json(content_type=None)
+                        if not content_type:
+                            data = await resp.json(content_type=None)
+                        else:
+                            data = await resp.json()
                     except TypeError:
                         data = await resp.json()
+
+                    if not isinstance(data, dict):
+                        _LOGGER.error(
+                            "[API%s] Invalid initial data format: expected dict, got %s",
+                            self._sfx,
+                            type(data).__name__,
+                        )
+                        raise ApiError("Invalid initial data format: expected dictionary")
 
                     _LOGGER.debug(
                         "[API%s] Retrieved metadata keys: %s",
                         self._sfx,
-                        (
-                            list(data.keys())
-                            if isinstance(data, dict)
-                            else type(data).__name__
-                        ),
+                        list(data.keys()),
                     )
                     return data
         except asyncio.TimeoutError as err:
