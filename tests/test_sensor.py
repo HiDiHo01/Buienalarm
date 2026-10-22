@@ -78,7 +78,9 @@ async def test_sensor_entities_created_and_populated(
     # Build expected data directly from SENSORS mock
     expected_data = {
         sensor["key"]: (
-            3.14 if sensor.get("device_class") or sensor.get("state_class") else "Test message"
+            3.14
+            if sensor.get("device_class") or sensor.get("state_class")
+            else "Test message"
         )
         for sensor in SENSORS
     }
@@ -207,7 +209,9 @@ async def test_buienalarm_entity_untrusted_data_handling(hass: HomeAssistant) ->
 
 
 @pytest.mark.asyncio
-async def test_buienalarm_entity_invalid_precipitation_rates(hass: HomeAssistant) -> None:
+async def test_buienalarm_entity_invalid_precipitation_rates(
+    hass: HomeAssistant,
+) -> None:
     """Test BuienalarmEntity calculations with nonnumeric/invalid precipitationrate and timestamp fields."""
     from datetime import datetime, timezone
     from unittest.mock import MagicMock
@@ -227,11 +231,31 @@ async def test_buienalarm_entity_invalid_precipitation_rates(hass: HomeAssistant
 
     coordinator.data = {
         "data": [
-            {"timestamp": now_ts + 60, "precipitationrate": "invalid_string", "precipitationtype": "rain"},
-            {"timestamp": now_ts + 120, "precipitationrate": None, "precipitationtype": "rain"},
-            {"timestamp": "bad_timestamp", "precipitationrate": 2.5, "precipitationtype": "rain"},
-            {"timestamp": now_ts + 180, "precipitationrate": "1.5", "precipitationtype": "rain"},
-            {"timestamp": now_ts + 240, "precipitationrate": 0.5, "precipitationtype": "rain"},
+            {
+                "timestamp": now_ts + 60,
+                "precipitationrate": "invalid_string",
+                "precipitationtype": "rain",
+            },
+            {
+                "timestamp": now_ts + 120,
+                "precipitationrate": None,
+                "precipitationtype": "rain",
+            },
+            {
+                "timestamp": "bad_timestamp",
+                "precipitationrate": 2.5,
+                "precipitationtype": "rain",
+            },
+            {
+                "timestamp": now_ts + 180,
+                "precipitationrate": "1.5",
+                "precipitationtype": "rain",
+            },
+            {
+                "timestamp": now_ts + 240,
+                "precipitationrate": 0.5,
+                "precipitationtype": "rain",
+            },
         ]
     }
 
@@ -239,14 +263,26 @@ async def test_buienalarm_entity_invalid_precipitation_rates(hass: HomeAssistant
     assert entity.get_total_precipitation_rate() >= 0.0
     assert entity.get_precipitation_duration() >= 0
     assert entity.get_mycastmessage() != "Geen data"
-    assert entity.get_current_precipitation_rate_desc() in ("Geen neerslag", "Lichte regen", "Motregen")
+    assert entity.get_current_precipitation_rate_desc() in (
+        "Geen neerslag",
+        "Lichte regen",
+        "Motregen",
+    )
     assert entity.get_current_precipitation_type() in ("Geen neerslag", "Regen")
 
     # Ensure payload where the last item is malformed/non-dict does not break get_mycastmessage()
     coordinator.data = {
         "data": [
-            {"timestamp": now_ts + 60, "precipitationrate": 2.0, "precipitationtype": "rain"},
-            {"timestamp": now_ts + 120, "precipitationrate": 1.0, "precipitationtype": "rain"},
+            {
+                "timestamp": now_ts + 60,
+                "precipitationrate": 2.0,
+                "precipitationtype": "rain",
+            },
+            {
+                "timestamp": now_ts + 120,
+                "precipitationrate": 1.0,
+                "precipitationtype": "rain",
+            },
             "invalid_final_item_not_dict",
         ]
     }
@@ -399,6 +435,7 @@ async def test_sensor_integration_user_provided_data(
     hass: HomeAssistant, user_sample_payload: dict
 ) -> None:
     """Test integration setup and sensor states against the user-provided data payload."""
+
     async def _mock_json(*args, **kwargs):
         return user_sample_payload
 
@@ -429,7 +466,6 @@ async def test_sensor_integration_user_provided_data(
     state = hass.states.get(entity_id)
     assert state is not None
     assert state.state == "Het blijft voorlopig droog"
-
 
 
 @pytest.mark.asyncio
@@ -506,7 +542,9 @@ async def test_schagen_neerslag_verwacht_entity_id_and_precipitation_data(
 ) -> None:
     """Verify sensor.schagen_neerslag_verwacht is preserved via migration and has precipitation_data attribute."""
     from datetime import datetime, timezone
-    from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry
+    from homeassistant.helpers.entity_registry import (
+        async_get as async_get_entity_registry,
+    )
 
     forecast_time = datetime.now(timezone.utc).replace(microsecond=0)
     mock_payload = {
@@ -643,7 +681,9 @@ async def test_active_5min_bin_included_in_periods_duration_totals(
 
 
 @pytest.mark.asyncio
-async def test_buienalarm_entity_malformed_non_mapping_list_items(hass: HomeAssistant) -> None:
+async def test_buienalarm_entity_malformed_non_mapping_list_items(
+    hass: HomeAssistant,
+) -> None:
     """Verify BuienalarmEntity handles non-mapping items and items with raising/non-callable .get in data list safely."""
     from collections import UserDict
     from datetime import datetime, timezone
@@ -674,23 +714,25 @@ async def test_buienalarm_entity_malformed_non_mapping_list_items(hass: HomeAssi
     now_ts = int(datetime.now(timezone.utc).timestamp())
 
     # Test raw scalar fallback in get_data with non-dict Mapping (UserDict)
-    coordinator.data = UserDict({
-        "custom_key": "custom_value",
-        "data": [
-            "invalid_string_item\nwith_newline",
-            12345,
-            None,
-            [1, 2, 3],
-            RaisingGetItem(),
-            NonCallableGetItem(),
-            {
-                "timestamp": now_ts + 300,
-                "precipitationrate": 2.5,
-                "precipitationtype": "rain",
-            },
-            "another_invalid_item",
-        ]
-    })
+    coordinator.data = UserDict(
+        {
+            "custom_key": "custom_value",
+            "data": [
+                "invalid_string_item\nwith_newline",
+                12345,
+                None,
+                [1, 2, 3],
+                RaisingGetItem(),
+                NonCallableGetItem(),
+                {
+                    "timestamp": now_ts + 300,
+                    "precipitationrate": 2.5,
+                    "precipitationtype": "rain",
+                },
+                "another_invalid_item",
+            ],
+        }
+    )
 
     assert entity.get_data("custom_key") == "custom_value"
     assert entity.get_current_precipitation_rate_desc() == "Geen neerslag"
@@ -725,9 +767,17 @@ async def test_data_points_as_list_skips_entries_without_valid_time_sources(
             # 2. Invalid timestamp and invalid time -> skipped
             {"timestamp": "bad", "time": "invalid_iso", "precipitationrate": 1.0},
             # 3. Only numeric timestamp present -> kept
-            {"timestamp": 1700000000, "precipitationrate": 2.0, "precipitationtype": "rain"},
+            {
+                "timestamp": 1700000000,
+                "precipitationrate": 2.0,
+                "precipitationtype": "rain",
+            },
             # 4. Only valid ISO time present -> kept
-            {"time": "2023-11-14T12:00:00Z", "precipitationrate": 0.5, "precipitationtype": "rain"},
+            {
+                "time": "2023-11-14T12:00:00Z",
+                "precipitationrate": 0.5,
+                "precipitationtype": "rain",
+            },
         ]
     }
 
@@ -736,7 +786,9 @@ async def test_data_points_as_list_skips_entries_without_valid_time_sources(
     assert points[0]["precipitationrate"] == 2.0
     assert points[0]["timestamp"] == 1700000000
     assert points[1]["precipitationrate"] == 0.5
-    assert points[1]["timestamp"] == int(datetime.fromisoformat("2023-11-14T12:00:00Z").timestamp())
+    assert points[1]["timestamp"] == int(
+        datetime.fromisoformat("2023-11-14T12:00:00Z").timestamp()
+    )
 
 
 @pytest.mark.asyncio
@@ -831,7 +883,9 @@ async def test_boolean_timestamps_and_rates_rejected(hass: HomeAssistant) -> Non
     assert entity.get_current_precipitation_type() == "Geen neerslag"
     assert entity.get_next_precipitation() is None
     assert entity.get_precipitation_duration() == 0
-    (overflow_start, _, _, overflow_dur, _) = entity.get_rain_start_time_and_duration(coordinator.data["data"])
+    overflow_start, _, _, overflow_dur, _ = entity.get_rain_start_time_and_duration(
+        coordinator.data["data"]
+    )
     assert overflow_start is None
     assert overflow_dur == 0
 
@@ -982,3 +1036,66 @@ async def test_buienalarm_entity_unique_id_attribute(hass: HomeAssistant) -> Non
     expected_uid = f"{entry.entry_id}_{sensor_key}"
     assert entity._attr_unique_id == expected_uid
     assert entity.unique_id == expected_uid
+
+
+@pytest.mark.asyncio
+async def test_precipitation_periods_handles_custom_mapping_data_points(
+    hass: HomeAssistant,
+) -> None:
+    """Verify _get_precipitation_periods processes forecast entries provided as UserDict/Mapping objects."""
+    from collections import UserDict
+    from datetime import datetime, timezone
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.entity import BuienalarmEntity
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Buienalarm UserDict Periods Test",
+        unique_id="test_userdict_periods",
+        data={"latitude": 52.3702, "longitude": 4.8952},
+    )
+
+    coordinator = MagicMock()
+    entity = BuienalarmEntity(coordinator, entry, "precipitation_periods")
+
+    now_ts = int(datetime.now(timezone.utc).timestamp())
+
+    coordinator.data = {
+        "data": [
+            UserDict(
+                {
+                    "timestamp": now_ts + 60,
+                    "precipitationrate": 2.5,
+                    "precipitationtype": "rain",
+                }
+            ),
+            UserDict(
+                {
+                    "timestamp": now_ts + 360,
+                    "precipitationrate": 1.5,
+                    "precipitationtype": "rain",
+                }
+            ),
+            UserDict(
+                {
+                    "timestamp": now_ts + 660,
+                    "precipitationrate": 0.0,
+                    "precipitationtype": "rain",
+                }
+            ),
+        ]
+    }
+
+    periods = entity._get_precipitation_periods()
+    assert len(periods) == 1
+    assert periods[0]["duration_minutes"] == 10
+    assert periods[0]["precipitationrate"] == 2.0
+
+    dict_periods = entity.get_precipitation_periods_as_dict()
+    assert len(dict_periods) == 1
+    assert dict_periods[0]["duration"] == 10
+    assert dict_periods[0]["precipitationrate"] == 2.0
+    assert "start" in dict_periods[0]
+    assert "stop" in dict_periods[0]
+
+    assert entity.get_data("precipitation_periods") == 1
