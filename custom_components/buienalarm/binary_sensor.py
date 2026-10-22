@@ -86,10 +86,9 @@ class BuienalarmBinarySensor(
 
         match self.entity_description.key:
             case "precipitation_expected":
-                # Bolt optimization: short-circuit timestamp check before rate evaluation to skip historical points
                 self._attr_is_on = any(
-                    (_as_float(period.get("timestamp")) or 0.0) + 300 > current_ts
-                    and _is_precipitation_period(period)
+                    _is_precipitation_period(period)
+                    and (_as_float(period.get("timestamp")) or 0.0) + 300 > current_ts
                     for period in periods
                 )
             case "currently_raining":
@@ -124,18 +123,16 @@ def _get_precipitation_periods(
     if not raw_periods:
         return []
 
-    # Bolt performance optimization: Validate mappings, timestamps, and rates in a single-pass loop
-    # to avoid multiple iterations and intermediate list allocations.
-    periods: list[Mapping[str, object]] = []
-    for period in raw_periods:
-        if not isinstance(period, Mapping):
-            return None
-        if (
-            _as_float(period.get("timestamp")) is None
-            or _as_float(period.get("precipitationrate")) is None
-        ):
-            return None
-        periods.append(period)
+    periods = [period for period in raw_periods if isinstance(period, Mapping)]
+    if len(periods) != len(raw_periods):
+        return None
+
+    if any(
+        _as_float(period.get("timestamp")) is None
+        or _as_float(period.get("precipitationrate")) is None
+        for period in periods
+    ):
+        return None
 
     return periods
 
@@ -143,7 +140,10 @@ def _get_precipitation_periods(
 def _is_precipitation_period(period: Mapping[str, object]) -> bool:
     """Return whether a precipitation period indicates precipitation."""
     precipitation_rate = _as_float(period.get("precipitationrate"))
-    return precipitation_rate is not None and precipitation_rate > 0
+    if precipitation_rate is None or precipitation_rate <= 0:
+        return False
+
+    return True
 
 
 def _is_rain_period(period: Mapping[str, object]) -> bool:
@@ -151,11 +151,7 @@ def _is_rain_period(period: Mapping[str, object]) -> bool:
     precipitation_type = period.get("precipitationtype")
     if not isinstance(precipitation_type, str):
         return False
-    # Bolt optimization: fast path exact string match before fallback to .strip().lower() to avoid string allocations
-    return (
-        precipitation_type in _RAIN_TYPES
-        or precipitation_type.strip().lower() in _RAIN_TYPES
-    )
+    return precipitation_type.strip().lower() in _RAIN_TYPES
 
 
 def _is_snow_period(period: Mapping[str, object]) -> bool:
@@ -163,11 +159,7 @@ def _is_snow_period(period: Mapping[str, object]) -> bool:
     precipitation_type = period.get("precipitationtype")
     if not isinstance(precipitation_type, str):
         return False
-    # Bolt optimization: fast path exact string match before fallback to .strip().lower() to avoid string allocations
-    return (
-        precipitation_type in _SNOW_TYPES
-        or precipitation_type.strip().lower() in _SNOW_TYPES
-    )
+    return precipitation_type.strip().lower() in _SNOW_TYPES
 
 
 def _is_current_precipitation_period(
@@ -181,8 +173,9 @@ def _is_current_precipitation_period(
 
     # Bolt optimization: compare float epoch timestamps directly [timestamp, timestamp + 300)
     # to avoid instantiating datetime and timedelta objects in loop iterations (~25x faster).
-    return timestamp <= current_ts < timestamp + 300 and _is_precipitation_period(
-        period
+    return (
+        timestamp <= current_ts < timestamp + 300
+        and _is_precipitation_period(period)
     )
 
 

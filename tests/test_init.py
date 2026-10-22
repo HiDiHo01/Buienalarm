@@ -301,9 +301,7 @@ async def test_setup_entry_prevents_duplicate_coordinates(
 @pytest.mark.asyncio
 async def test_entity_registry_migration(hass: HomeAssistant) -> None:
     """Test migrating entity unique_id from old format to new format upon setup."""
-    from homeassistant.helpers.entity_registry import (
-        async_get as async_get_entity_registry,
-    )
+    from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry
 
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -353,14 +351,13 @@ async def test_entity_registry_migration(hass: HomeAssistant) -> None:
     )
 
 
+
 @pytest.mark.asyncio
 async def test_entity_registry_migration_preserves_ambiguous_precipitation_id(
     hass: HomeAssistant,
 ) -> None:
     """Migrate a precipitation entity to legacy_precipitation_entity_id if configured."""
-    from homeassistant.helpers.entity_registry import (
-        async_get as async_get_entity_registry,
-    )
+    from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry
 
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -386,8 +383,6 @@ async def test_entity_registry_migration_preserves_ambiguous_precipitation_id(
 
     async_migrate_entity_unique_ids(hass, entry)
 
-    migrated_entity = entity_registry.async_get(
-        "sensor.migration_test_location_neerslag_verwacht"
-    )
+    migrated_entity = entity_registry.async_get("sensor.migration_test_location_neerslag_verwacht")
     assert migrated_entity is not None
     assert migrated_entity.unique_id == f"{entry.entry_id}_precipitationrate_total"

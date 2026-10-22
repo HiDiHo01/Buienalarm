@@ -44,9 +44,7 @@ def mock_buienalarm_data() -> dict:
 
 
 _FIXTURE: Final[Path] = Path(__file__).parent / "mock_data" / "api_response.json"
-_USER_SAMPLE_FIXTURE: Final[Path] = (
-    Path(__file__).parent / "mock_data" / "user_sample_payload.json"
-)
+_USER_SAMPLE_FIXTURE: Final[Path] = Path(__file__).parent / "mock_data" / "user_sample_payload.json"
 
 
 @pytest.fixture(scope="session")

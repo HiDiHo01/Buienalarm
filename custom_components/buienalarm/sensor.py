@@ -26,9 +26,10 @@ async def async_setup_entry(
         "[SENSOR SETUP] Setting up Buienalarm sensors for %s", config_entry.unique_id
     )
 
-    coordinator: BuienalarmDataUpdateCoordinator | None = getattr(
-        config_entry, "runtime_data", None
-    ) or hass.data.get(DOMAIN, {}).get(config_entry.entry_id)
+    coordinator: BuienalarmDataUpdateCoordinator | None = (
+        getattr(config_entry, "runtime_data", None)
+        or hass.data.get(DOMAIN, {}).get(config_entry.entry_id)
+    )
     if not coordinator:
         raise RuntimeError(
             "Buienalarm coordinator is not available for config entry "
@@ -162,14 +163,6 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
     @property
     def icon(self) -> str | None:
         """Return the icon to use in the frontend, if any."""
-        forecast = self.data.get("data")
-        if (
-            not self.coordinator.last_update_success
-            or not isinstance(forecast, list)
-            or not forecast
-        ):
-            return self._icon
-
         if self._key in (
             "precipitationrate_now",
             "precipitationrate_hour",
@@ -179,17 +172,20 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
             if isinstance(val, (int, float)):
                 return "mdi:weather-pouring" if val > 0 else "mdi:weather-sunny"
         elif self._key == "precipitation_duration":
-            rate = self._get_current_precipitation_rate()
-            if rate is not None:
-                return "mdi:weather-pouring" if rate > 0 else "mdi:weather-sunny"
+            val = self.native_value
+            current_rate = self.get_current_precipitation()
+            if (isinstance(val, (int, float)) and val > 0) or current_rate > 0:
+                return "mdi:weather-pouring"
+            if isinstance(val, (int, float)) and self.data.get("data"):
+                return "mdi:weather-sunny"
         elif self._key == "next_precipitation":
             val = self.native_value
             if val == 0:
                 return "mdi:weather-pouring"
-            if val is None:
-                return "mdi:weather-sunny"
             if isinstance(val, (int, float)) and val > 0:
                 return "mdi:clock-start"
+            if val is None and self.data.get("data"):
+                return "mdi:weather-sunny"
         elif self._key == "precipitationtype_now":
             val = self.native_value
             if isinstance(val, str):

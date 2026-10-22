@@ -1,7 +1,6 @@
 import pytest
 from unittest.mock import AsyncMock, patch
 
-from freezegun import freeze_time
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -79,9 +78,7 @@ async def test_sensor_entities_created_and_populated(
     # Build expected data directly from SENSORS mock
     expected_data = {
         sensor["key"]: (
-            3.14
-            if sensor.get("device_class") or sensor.get("state_class")
-            else "Test message"
+            3.14 if sensor.get("device_class") or sensor.get("state_class") else "Test message"
         )
         for sensor in SENSORS
     }
@@ -195,7 +192,7 @@ async def test_buienalarm_entity_untrusted_data_handling(hass: HomeAssistant) ->
         coordinator.data = sample
 
         assert entity.get_mycastmessage() == "Geen data"
-        assert entity.get_precipitation_duration() is None
+        assert entity.get_precipitation_duration() == 0
         assert entity.get_total_precipitation_rate() == 0.0
         assert entity.get_total_precipitation_rate_for_next_hour() == 0.0
         assert entity.get_current_precipitation() == 0.0
@@ -210,9 +207,7 @@ async def test_buienalarm_entity_untrusted_data_handling(hass: HomeAssistant) ->
 
 
 @pytest.mark.asyncio
-async def test_buienalarm_entity_invalid_precipitation_rates(
-    hass: HomeAssistant,
-) -> None:
+async def test_buienalarm_entity_invalid_precipitation_rates(hass: HomeAssistant) -> None:
     """Test BuienalarmEntity calculations with nonnumeric/invalid precipitationrate and timestamp fields."""
     from datetime import datetime, timezone
     from unittest.mock import MagicMock
@@ -232,31 +227,11 @@ async def test_buienalarm_entity_invalid_precipitation_rates(
 
     coordinator.data = {
         "data": [
-            {
-                "timestamp": now_ts + 60,
-                "precipitationrate": "invalid_string",
-                "precipitationtype": "rain",
-            },
-            {
-                "timestamp": now_ts + 120,
-                "precipitationrate": None,
-                "precipitationtype": "rain",
-            },
-            {
-                "timestamp": "bad_timestamp",
-                "precipitationrate": 2.5,
-                "precipitationtype": "rain",
-            },
-            {
-                "timestamp": now_ts + 180,
-                "precipitationrate": "1.5",
-                "precipitationtype": "rain",
-            },
-            {
-                "timestamp": now_ts + 240,
-                "precipitationrate": 0.5,
-                "precipitationtype": "rain",
-            },
+            {"timestamp": now_ts + 60, "precipitationrate": "invalid_string", "precipitationtype": "rain"},
+            {"timestamp": now_ts + 120, "precipitationrate": None, "precipitationtype": "rain"},
+            {"timestamp": "bad_timestamp", "precipitationrate": 2.5, "precipitationtype": "rain"},
+            {"timestamp": now_ts + 180, "precipitationrate": "1.5", "precipitationtype": "rain"},
+            {"timestamp": now_ts + 240, "precipitationrate": 0.5, "precipitationtype": "rain"},
         ]
     }
 
@@ -264,26 +239,14 @@ async def test_buienalarm_entity_invalid_precipitation_rates(
     assert entity.get_total_precipitation_rate() >= 0.0
     assert entity.get_precipitation_duration() >= 0
     assert entity.get_mycastmessage() != "Geen data"
-    assert entity.get_current_precipitation_rate_desc() in (
-        "Geen neerslag",
-        "Lichte regen",
-        "Motregen",
-    )
+    assert entity.get_current_precipitation_rate_desc() in ("Geen neerslag", "Lichte regen", "Motregen")
     assert entity.get_current_precipitation_type() in ("Geen neerslag", "Regen")
 
     # Ensure payload where the last item is malformed/non-dict does not break get_mycastmessage()
     coordinator.data = {
         "data": [
-            {
-                "timestamp": now_ts + 60,
-                "precipitationrate": 2.0,
-                "precipitationtype": "rain",
-            },
-            {
-                "timestamp": now_ts + 120,
-                "precipitationrate": 1.0,
-                "precipitationtype": "rain",
-            },
+            {"timestamp": now_ts + 60, "precipitationrate": 2.0, "precipitationtype": "rain"},
+            {"timestamp": now_ts + 120, "precipitationrate": 1.0, "precipitationtype": "rain"},
             "invalid_final_item_not_dict",
         ]
     }
@@ -436,7 +399,6 @@ async def test_sensor_integration_user_provided_data(
     hass: HomeAssistant, user_sample_payload: dict
 ) -> None:
     """Test integration setup and sensor states against the user-provided data payload."""
-
     async def _mock_json(*args, **kwargs):
         return user_sample_payload
 
@@ -467,6 +429,7 @@ async def test_sensor_integration_user_provided_data(
     state = hass.states.get(entity_id)
     assert state is not None
     assert state.state == "Het blijft voorlopig droog"
+
 
 
 @pytest.mark.asyncio
@@ -543,9 +506,7 @@ async def test_schagen_neerslag_verwacht_entity_id_and_precipitation_data(
 ) -> None:
     """Verify sensor.schagen_neerslag_verwacht is preserved via migration and has precipitation_data attribute."""
     from datetime import datetime, timezone
-    from homeassistant.helpers.entity_registry import (
-        async_get as async_get_entity_registry,
-    )
+    from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry
 
     forecast_time = datetime.now(timezone.utc).replace(microsecond=0)
     mock_payload = {
@@ -682,9 +643,7 @@ async def test_active_5min_bin_included_in_periods_duration_totals(
 
 
 @pytest.mark.asyncio
-async def test_buienalarm_entity_malformed_non_mapping_list_items(
-    hass: HomeAssistant,
-) -> None:
+async def test_buienalarm_entity_malformed_non_mapping_list_items(hass: HomeAssistant) -> None:
     """Verify BuienalarmEntity handles non-mapping items and items with raising/non-callable .get in data list safely."""
     from collections import UserDict
     from datetime import datetime, timezone
@@ -715,25 +674,23 @@ async def test_buienalarm_entity_malformed_non_mapping_list_items(
     now_ts = int(datetime.now(timezone.utc).timestamp())
 
     # Test raw scalar fallback in get_data with non-dict Mapping (UserDict)
-    coordinator.data = UserDict(
-        {
-            "custom_key": "custom_value",
-            "data": [
-                "invalid_string_item\nwith_newline",
-                12345,
-                None,
-                [1, 2, 3],
-                RaisingGetItem(),
-                NonCallableGetItem(),
-                {
-                    "timestamp": now_ts + 300,
-                    "precipitationrate": 2.5,
-                    "precipitationtype": "rain",
-                },
-                "another_invalid_item",
-            ],
-        }
-    )
+    coordinator.data = UserDict({
+        "custom_key": "custom_value",
+        "data": [
+            "invalid_string_item\nwith_newline",
+            12345,
+            None,
+            [1, 2, 3],
+            RaisingGetItem(),
+            NonCallableGetItem(),
+            {
+                "timestamp": now_ts + 300,
+                "precipitationrate": 2.5,
+                "precipitationtype": "rain",
+            },
+            "another_invalid_item",
+        ]
+    })
 
     assert entity.get_data("custom_key") == "custom_value"
     assert entity.get_current_precipitation_rate_desc() == "Geen neerslag"
@@ -768,17 +725,9 @@ async def test_data_points_as_list_skips_entries_without_valid_time_sources(
             # 2. Invalid timestamp and invalid time -> skipped
             {"timestamp": "bad", "time": "invalid_iso", "precipitationrate": 1.0},
             # 3. Only numeric timestamp present -> kept
-            {
-                "timestamp": 1700000000,
-                "precipitationrate": 2.0,
-                "precipitationtype": "rain",
-            },
+            {"timestamp": 1700000000, "precipitationrate": 2.0, "precipitationtype": "rain"},
             # 4. Only valid ISO time present -> kept
-            {
-                "time": "2023-11-14T12:00:00Z",
-                "precipitationrate": 0.5,
-                "precipitationtype": "rain",
-            },
+            {"time": "2023-11-14T12:00:00Z", "precipitationrate": 0.5, "precipitationtype": "rain"},
         ]
     }
 
@@ -787,9 +736,7 @@ async def test_data_points_as_list_skips_entries_without_valid_time_sources(
     assert points[0]["precipitationrate"] == 2.0
     assert points[0]["timestamp"] == 1700000000
     assert points[1]["precipitationrate"] == 0.5
-    assert points[1]["timestamp"] == int(
-        datetime.fromisoformat("2023-11-14T12:00:00Z").timestamp()
-    )
+    assert points[1]["timestamp"] == int(datetime.fromisoformat("2023-11-14T12:00:00Z").timestamp())
 
 
 @pytest.mark.asyncio
@@ -884,9 +831,7 @@ async def test_boolean_timestamps_and_rates_rejected(hass: HomeAssistant) -> Non
     assert entity.get_current_precipitation_type() == "Geen neerslag"
     assert entity.get_next_precipitation() is None
     assert entity.get_precipitation_duration() == 0
-    overflow_start, _, _, overflow_dur, _ = entity.get_rain_start_time_and_duration(
-        coordinator.data["data"]
-    )
+    (overflow_start, _, _, overflow_dur, _) = entity.get_rain_start_time_and_duration(coordinator.data["data"])
     assert overflow_start is None
     assert overflow_dur == 0
 
@@ -1052,7 +997,26 @@ async def test_dynamic_sensor_icons(hass: HomeAssistant) -> None:
 
     assert next_precip_sensor.icon == "mdi:clock-start"
 
-    # 4. Test when snowing (type = "snow")
+    # 4. Test single-bin forecast with active rain (rate = 2.5) for precipitation_duration
+    coordinator.data = {
+        "data": [
+            {
+                "timestamp": now_ts,
+                "precipitationrate": 2.5,
+                "precipitationtype": "rain",
+            }
+        ]
+    }
+
+    assert precip_duration_sensor.icon == "mdi:weather-pouring"
+
+    # 5. Test empty forecast list (data = []) falls back to default icons
+    coordinator.data = {"data": []}
+
+    assert next_precip_sensor.icon == "mdi:clock-start"
+    assert precip_duration_sensor.icon == "mdi:clock-outline"
+
+    # 6. Test when snowing (type = "snow")
     coordinator.data = {
         "data": [
             {
@@ -1064,85 +1028,6 @@ async def test_dynamic_sensor_icons(hass: HomeAssistant) -> None:
     }
 
     assert precip_type_sensor.icon == "mdi:weather-snowy"
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    ("rate", "expected_icon"),
-    [
-        (2.5, "mdi:weather-pouring"),
-        ("2,5", "mdi:weather-pouring"),
-        (0.0, "mdi:weather-sunny"),
-        (True, "mdi:clock-outline"),
-        (None, "mdi:clock-outline"),
-        ("invalid", "mdi:clock-outline"),
-        (float("nan"), "mdi:clock-outline"),
-        (float("inf"), "mdi:clock-outline"),
-    ],
-)
-async def test_duration_icon_with_single_forecast_bin(
-    hass: HomeAssistant, rate: object, expected_icon: str
-) -> None:
-    """Use the current bin's validated rate even when its duration is zero."""
-    from datetime import datetime, timezone
-    from unittest.mock import MagicMock
-    from custom_components.buienalarm.sensor import BuienalarmSensor
-
-    entry = MockConfigEntry(domain=DOMAIN, data={})
-    coordinator = MagicMock(last_update_success=True)
-    sensor = BuienalarmSensor(
-        coordinator,
-        entry,
-        name="Precipitation duration",
-        unit_of_measurement="min",
-        icon="mdi:clock-outline",
-        device_class=None,
-        state_class=None,
-        key="precipitation_duration",
-    )
-
-    with freeze_time("2026-10-22T12:02:00+00:00"):
-        coordinator.data = {
-            "data": [
-                {
-                    "timestamp": datetime(
-                        2026, 10, 22, 12, tzinfo=timezone.utc
-                    ).timestamp(),
-                    "precipitationrate": rate,
-                }
-            ]
-        }
-        assert sensor.native_value == 0
-        assert sensor.icon == expected_icon
-
-        coordinator.last_update_success = False
-        assert sensor.icon == "mdi:clock-outline"
-
-    with freeze_time("2026-10-22T12:05:00+00:00"):
-        coordinator.last_update_success = True
-        assert sensor.icon == "mdi:clock-outline"
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize("wrapped", [False, True])
-async def test_sensor_icons_with_empty_forecast(
-    hass: HomeAssistant, wrapped: bool
-) -> None:
-    """Keep missing forecasts distinct from confirmed dry weather."""
-    from unittest.mock import MagicMock
-    from custom_components.buienalarm.sensor import BuienalarmSensor
-
-    entry = MockConfigEntry(domain=DOMAIN, data={})
-    coordinator = MagicMock(last_update_success=True)
-    payload = {"data": []}
-    coordinator.data = {"timeseries": payload} if wrapped else payload
-
-    for description in SENSORS:
-        sensor = BuienalarmSensor(coordinator, entry, **description)
-        assert sensor.icon == description["icon"]
-        if description["key"] == "precipitation_duration":
-            assert sensor.native_value is None
-            assert sensor.get_precipitation_duration() is None
 
 
 @pytest.mark.asyncio

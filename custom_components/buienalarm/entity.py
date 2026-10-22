@@ -65,24 +65,22 @@ def _safe_get(item: object, key: str, default: object = None) -> object:
 
 def _as_float(value: object) -> float | None:
     """Convert an API value to float without accepting booleans or raising exceptions."""
-    # Bolt performance optimization: Fast type check exact float/int first to bypass
-    # isinstance inheritance checks (e.g. bool subclassing int) and speed up numeric parsing (~1.48x faster).
-    val_type = type(value)
-    if val_type is float:
-        return value if math.isfinite(value) else None
-    if val_type is int:
-        try:
-            return float(value)
-        except OverflowError:
-            return None
-    if val_type is bool or value is None:
+    if isinstance(value, bool):
         return None
-    if val_type is str:
+
+    res: float | None = None
+
+    if isinstance(value, (int, float)):
+        res = float(value)
+    elif isinstance(value, str):
         try:
             res = float(value.replace(",", "."))
-            return res if math.isfinite(res) else None
         except (ValueError, OverflowError):
             return None
+
+    if res is not None and math.isfinite(res):
+        return res
+
     return None
 
 
@@ -503,17 +501,17 @@ class BuienalarmEntity(CoordinatorEntity):
         # If we reach here, there is no ongoing precipitation
         return 0
 
-    def get_precipitation_duration(self) -> int | None:
-        """Return the event duration in minutes, or None if forecast data is missing."""
+    def get_precipitation_duration(self) -> int:
+        """Return the duration of the current precipitation event in minutes."""
         try:
             precip_data: list[dict[str, float]] = self._ensure_precip_data()
         except ValueError:
             _LOGGER.debug("No precipitation data available")
-            return None
+            return 0
 
         if not precip_data:
             _LOGGER.debug("No precipitation data available")
-            return None
+            return 0
 
         current_time: datetime = datetime.now(timezone.utc)
         current_ts: float = current_time.timestamp()
@@ -762,10 +760,6 @@ class BuienalarmEntity(CoordinatorEntity):
 
     def get_current_precipitation(self) -> float:
         """Get the current precipitation rate."""
-        return self._get_current_precipitation_rate() or 0.0
-
-    def _get_current_precipitation_rate(self) -> float | None:
-        """Return a validated rate from the current bin, or None if unavailable."""
         data: object = self.data.get("data", [])
         # Bolt performance optimization: use epoch timestamps for rapid interval check
         current_ts: float = datetime.now(timezone.utc).timestamp()
@@ -799,7 +793,7 @@ class BuienalarmEntity(CoordinatorEntity):
                     # Check if current time is within the 5-minute forecast bin [timestamp, timestamp + 300)
                     if timestamp <= current_ts < timestamp + 300:
                         return precipitation_rate
-        return None
+        return 0.0
 
     NO_PRECIPITATION = "Geen neerslag"
 
