@@ -1,6 +1,8 @@
 # sensor.py
 from collections.abc import Mapping
+from datetime import datetime, timezone
 import logging
+import math
 from typing import Final
 
 from homeassistant.components.sensor import SensorEntity
@@ -175,20 +177,28 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
             forecast = self.data.get("data")
             if not isinstance(forecast, list) or not forecast:
                 return self._icon
-            from collections.abc import Mapping as _Mapping
-            from math import isfinite
-
+            now_ts = datetime.now(timezone.utc).timestamp()
+            timestamps: list[float] = []
             if not all(
-                isinstance(point, _Mapping)
+                isinstance(point, Mapping)
                 and isinstance(point.get("timestamp"), (int, float))
                 and not isinstance(point.get("timestamp"), bool)
-                and isfinite(point["timestamp"])
+                and math.isfinite(point["timestamp"])
                 and isinstance(point.get("precipitationrate"), (int, float))
                 and not isinstance(point.get("precipitationrate"), bool)
-                and isfinite(point["precipitationrate"])
+                and math.isfinite(point["precipitationrate"])
                 and point["precipitationrate"] >= 0
                 for point in forecast
             ):
+                return self._icon
+
+            for point in forecast:
+                try:
+                    timestamps.append(datetime.fromtimestamp(point["timestamp"], tz=timezone.utc).timestamp())
+                except (ValueError, OverflowError, OSError):
+                    return self._icon
+            # Forecast bins begin at five-minute boundaries and cover five minutes.
+            if min(timestamps) > now_ts or max(timestamps) + 300 <= now_ts:
                 return self._icon
 
             val = self.native_value
@@ -196,7 +206,7 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
                 if self._key == "next_precipitation" and val is None:
                     return "mdi:weather-sunny"
                 return self._icon
-            if not isfinite(val) or val < 0:
+            if not math.isfinite(val) or val < 0:
                 return self._icon
             if self._key == "next_precipitation":
                 return "mdi:weather-pouring" if val == 0 else "mdi:clock-start"
