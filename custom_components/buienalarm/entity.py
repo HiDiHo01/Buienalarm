@@ -579,7 +579,7 @@ class BuienalarmEntity(CoordinatorEntity):
 
         # Precipitation continued through all forecast points
         if start_time is not None and last_time is not None:
-            duration = (last_time - start_time).total_seconds() / 60
+            duration = (last_time - start_time).total_seconds() / 60 + 5
             return min(MAX_DURATION_MINUTES, int(round(duration)))
 
         return 0

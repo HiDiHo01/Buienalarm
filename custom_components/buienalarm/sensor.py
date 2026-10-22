@@ -163,28 +163,30 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
     @property
     def icon(self) -> str | None:
         """Return the icon to use in the frontend, if any."""
+        has_forecast = (
+            isinstance(self.data.get("data"), list) and bool(self.data.get("data"))
+        )
+
         if self._key in (
             "precipitationrate_now",
             "precipitationrate_hour",
             "precipitationrate_total",
+            "precipitation_duration",
         ):
             val = self.native_value
             if isinstance(val, (int, float)):
-                return "mdi:weather-pouring" if val > 0 else "mdi:weather-sunny"
-        elif self._key == "precipitation_duration":
-            val = self.native_value
-            current_rate = self.get_current_precipitation()
-            if (isinstance(val, (int, float)) and val > 0) or current_rate > 0:
-                return "mdi:weather-pouring"
-            if isinstance(val, (int, float)) and self.data.get("data"):
-                return "mdi:weather-sunny"
+                return (
+                    "mdi:weather-pouring"
+                    if val > 0
+                    else ("mdi:weather-sunny" if has_forecast else self._icon)
+                )
         elif self._key == "next_precipitation":
             val = self.native_value
             if val == 0:
                 return "mdi:weather-pouring"
             if isinstance(val, (int, float)) and val > 0:
                 return "mdi:clock-start"
-            if val is None and self.data.get("data"):
+            if val is None and has_forecast:
                 return "mdi:weather-sunny"
         elif self._key == "precipitationtype_now":
             val = self.native_value
@@ -195,7 +197,7 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
                 if any(k in val_lower for k in ("rain", "regen", "mix", "motregen")):
                     return "mdi:weather-pouring"
                 if any(k in val_lower for k in ("geen", "none", "droog")):
-                    return "mdi:weather-sunny"
+                    return "mdi:weather-sunny" if has_forecast else self._icon
         return self._icon
 
     @property
