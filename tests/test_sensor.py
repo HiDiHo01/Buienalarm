@@ -1,4 +1,5 @@
 import pytest
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
 
 from homeassistant.core import HomeAssistant
@@ -1059,7 +1060,7 @@ async def test_timing_sensor_dynamic_icons(hass, key, value, expected):
     )
     coordinator = MagicMock()
     coordinator.last_update_success = True
-    coordinator.data = {"data": [{"timestamp": 1800000000, "precipitationrate": 0.0}]}
+    coordinator.data = {"data": [{"timestamp": int(datetime.now(timezone.utc).timestamp()) - 60, "precipitationrate": 0.0}]}
     entity = BuienalarmSensor(
         coordinator, entry, name=key, unit_of_measurement="min",
         icon="mdi:clock-outline", device_class=None, state_class=None, key=key,
@@ -1072,7 +1073,7 @@ async def test_timing_sensor_dynamic_icons(hass, key, value, expected):
 @pytest.mark.parametrize(
     "forecast",
     [[], None, [{"timestamp": "invalid", "precipitationrate": 2.0}],
-     [{"timestamp": 1800000000, "precipitationrate": float("nan")}]],
+     [{"timestamp": int(datetime.now(timezone.utc).timestamp()) - 60, "precipitationrate": float("nan")}]],
 )
 async def test_timing_sensor_icon_fallback_for_invalid_forecast(hass, forecast):
     """Do not report clear skies from missing or malformed forecast data."""
@@ -1092,4 +1093,28 @@ async def test_timing_sensor_icon_fallback_for_invalid_forecast(hass, forecast):
         key="next_precipitation",
     )
     with patch.object(BuienalarmSensor, "native_value", new_callable=lambda: property(lambda self: None)):
+        assert entity.icon == "mdi:clock-outline"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("key", ["next_precipitation", "precipitation_duration"])
+@pytest.mark.parametrize("offset", [-3600, 3600, None])
+async def test_timing_icons_reject_expired_future_and_out_of_range_bins(hass, key, offset):
+    """Only temporally applicable, representable forecast bins set status icons."""
+    from unittest.mock import MagicMock, patch
+    from custom_components.buienalarm.sensor import BuienalarmSensor
+
+    entry = MockConfigEntry(
+        domain=DOMAIN, title="Temporal timing icons", unique_id="temporal_icons",
+        data={"latitude": 52.37, "longitude": 4.89},
+    )
+    coordinator = MagicMock()
+    coordinator.last_update_success = True
+    stamp = 1e300 if offset is None else datetime.now(timezone.utc).timestamp() + offset
+    coordinator.data = {"data": [{"timestamp": stamp, "precipitationrate": 0.0}]}
+    entity = BuienalarmSensor(
+        coordinator, entry, name=key, unit_of_measurement="min",
+        icon="mdi:clock-outline", device_class=None, state_class=None, key=key,
+    )
+    with patch.object(BuienalarmSensor, "native_value", property(lambda self: None if key == "next_precipitation" else 0)):
         assert entity.icon == "mdi:clock-outline"
