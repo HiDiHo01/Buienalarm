@@ -167,10 +167,19 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
             "precipitationrate_now",
             "precipitationrate_hour",
             "precipitationrate_total",
+            "precipitation_duration",
         ):
             val = self.native_value
             if isinstance(val, (int, float)):
                 return "mdi:weather-pouring" if val > 0 else "mdi:weather-sunny"
+        elif self._key == "next_precipitation":
+            val = self.native_value
+            if val == 0:
+                return "mdi:weather-pouring"
+            if val is None:
+                return "mdi:weather-sunny"
+            if isinstance(val, (int, float)) and val > 0:
+                return "mdi:clock-start"
         elif self._key == "precipitationtype_now":
             val = self.native_value
             if isinstance(val, str):

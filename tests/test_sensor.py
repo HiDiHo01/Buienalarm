@@ -916,6 +916,28 @@ async def test_dynamic_sensor_icons(hass: HomeAssistant) -> None:
         key="precipitationtype_now",
     )
 
+    next_precip_sensor = BuienalarmSensor(
+        coordinator,
+        entry,
+        name="Next precipitation in",
+        unit_of_measurement="min",
+        icon="mdi:clock-start",
+        device_class=None,
+        state_class=None,
+        key="next_precipitation",
+    )
+
+    precip_duration_sensor = BuienalarmSensor(
+        coordinator,
+        entry,
+        name="Precipitation duration",
+        unit_of_measurement="min",
+        icon="mdi:clock-outline",
+        device_class=None,
+        state_class=None,
+        key="precipitation_duration",
+    )
+
     # 1. Test when dry (rate = 0.0, type = "Geen neerslag")
     coordinator.data = {
         "data": [
@@ -931,6 +953,8 @@ async def test_dynamic_sensor_icons(hass: HomeAssistant) -> None:
     assert precip_rate_hour_sensor.icon == "mdi:weather-sunny"
     assert precip_rate_total_sensor.icon == "mdi:weather-sunny"
     assert precip_type_sensor.icon == "mdi:weather-sunny"
+    assert next_precip_sensor.icon == "mdi:weather-sunny"
+    assert precip_duration_sensor.icon == "mdi:weather-sunny"
 
     # 2. Test when raining (rate = 2.5, type = "rain")
     coordinator.data = {
@@ -939,7 +963,12 @@ async def test_dynamic_sensor_icons(hass: HomeAssistant) -> None:
                 "timestamp": now_ts,
                 "precipitationrate": 2.5,
                 "precipitationtype": "rain",
-            }
+            },
+            {
+                "timestamp": now_ts + 300,
+                "precipitationrate": 2.5,
+                "precipitationtype": "rain",
+            },
         ]
     }
 
@@ -947,8 +976,28 @@ async def test_dynamic_sensor_icons(hass: HomeAssistant) -> None:
     assert precip_rate_hour_sensor.icon == "mdi:weather-pouring"
     assert precip_rate_total_sensor.icon == "mdi:weather-pouring"
     assert precip_type_sensor.icon == "mdi:weather-pouring"
+    assert next_precip_sensor.icon == "mdi:weather-pouring"
+    assert precip_duration_sensor.icon == "mdi:weather-pouring"
 
-    # 3. Test when snowing (type = "snow")
+    # 3. Test when rain starts in 15 minutes
+    coordinator.data = {
+        "data": [
+            {
+                "timestamp": now_ts,
+                "precipitationrate": 0.0,
+                "precipitationtype": "none",
+            },
+            {
+                "timestamp": now_ts + 900,
+                "precipitationrate": 1.5,
+                "precipitationtype": "rain",
+            },
+        ]
+    }
+
+    assert next_precip_sensor.icon == "mdi:clock-start"
+
+    # 4. Test when snowing (type = "snow")
     coordinator.data = {
         "data": [
             {
