@@ -170,6 +170,37 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
             val = self.native_value
             if isinstance(val, (int, float)):
                 return "mdi:weather-pouring" if val > 0 else "mdi:weather-sunny"
+        elif self._key in ("next_precipitation", "precipitation_duration"):
+            # Only interpret a zero/None state as dry with a valid forecast.
+            forecast = self.data.get("data")
+            if not isinstance(forecast, list) or not forecast:
+                return self._icon
+            from collections.abc import Mapping as _Mapping
+            from math import isfinite
+
+            if not all(
+                isinstance(point, _Mapping)
+                and isinstance(point.get("timestamp"), (int, float))
+                and not isinstance(point.get("timestamp"), bool)
+                and isfinite(point["timestamp"])
+                and isinstance(point.get("precipitationrate"), (int, float))
+                and not isinstance(point.get("precipitationrate"), bool)
+                and isfinite(point["precipitationrate"])
+                and point["precipitationrate"] >= 0
+                for point in forecast
+            ):
+                return self._icon
+
+            val = self.native_value
+            if isinstance(val, bool) or not isinstance(val, (int, float)):
+                if self._key == "next_precipitation" and val is None:
+                    return "mdi:weather-sunny"
+                return self._icon
+            if not isfinite(val) or val < 0:
+                return self._icon
+            if self._key == "next_precipitation":
+                return "mdi:weather-pouring" if val == 0 else "mdi:clock-start"
+            return "mdi:weather-pouring" if val > 0 else "mdi:weather-sunny"
         elif self._key == "precipitationtype_now":
             val = self.native_value
             if isinstance(val, str):
