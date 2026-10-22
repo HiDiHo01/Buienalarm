@@ -1036,3 +1036,60 @@ async def test_buienalarm_entity_unique_id_attribute(hass: HomeAssistant) -> Non
     expected_uid = f"{entry.entry_id}_{sensor_key}"
     assert entity._attr_unique_id == expected_uid
     assert entity.unique_id == expected_uid
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("key", "value", "expected"),
+    [
+        ("next_precipitation", 0, "mdi:weather-pouring"),
+        ("next_precipitation", 15, "mdi:clock-start"),
+        ("next_precipitation", None, "mdi:weather-sunny"),
+        ("precipitation_duration", 10, "mdi:weather-pouring"),
+        ("precipitation_duration", 0, "mdi:weather-sunny"),
+    ],
+)
+async def test_timing_sensor_dynamic_icons(hass, key, value, expected):
+    """Timing sensor icons follow validated forecast state."""
+    from unittest.mock import MagicMock, patch
+    from custom_components.buienalarm.sensor import BuienalarmSensor
+
+    entry = MockConfigEntry(
+        domain=DOMAIN, title="Timing icons", unique_id="timing_icons",
+        data={"latitude": 52.37, "longitude": 4.89},
+    )
+    coordinator = MagicMock()
+    coordinator.last_update_success = True
+    coordinator.data = {"data": [{"timestamp": 1800000000, "precipitationrate": 0.0}]}
+    entity = BuienalarmSensor(
+        coordinator, entry, name=key, unit_of_measurement="min",
+        icon="mdi:clock-outline", device_class=None, state_class=None, key=key,
+    )
+    with patch.object(BuienalarmSensor, "native_value", new_callable=lambda: property(lambda self: value)):
+        assert entity.icon == expected
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "forecast",
+    [[], None, [{"timestamp": "invalid", "precipitationrate": 2.0}],
+     [{"timestamp": 1800000000, "precipitationrate": float("nan")}]],
+)
+async def test_timing_sensor_icon_fallback_for_invalid_forecast(hass, forecast):
+    """Do not report clear skies from missing or malformed forecast data."""
+    from unittest.mock import MagicMock, patch
+    from custom_components.buienalarm.sensor import BuienalarmSensor
+
+    entry = MockConfigEntry(
+        domain=DOMAIN, title="Timing icons", unique_id="timing_icons_fallback",
+        data={"latitude": 52.37, "longitude": 4.89},
+    )
+    coordinator = MagicMock()
+    coordinator.last_update_success = True
+    coordinator.data = {"data": forecast}
+    entity = BuienalarmSensor(
+        coordinator, entry, name="Next precipitation", unit_of_measurement="min",
+        icon="mdi:clock-outline", device_class=None, state_class=None,
+        key="next_precipitation",
+    )
+    with patch.object(BuienalarmSensor, "native_value", new_callable=lambda: property(lambda self: None)):
+        assert entity.icon == "mdi:clock-outline"
