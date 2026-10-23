@@ -114,15 +114,20 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
             )
             return False
 
-        has_data_list = isinstance(self.data.get("data"), list)
-        has_nowcast_msg = isinstance(self.data.get("nowcastmessage"), Mapping)
-
-        if not (has_data_list or has_nowcast_msg):
-            _LOGGER.debug(
-                "[SENSOR ENTITY] Payload missing forecast fields ('data' list or 'nowcastmessage' mapping) for key %s",
-                self._key,
-            )
-            return False
+        if self._key == "nowcastmessage":
+            if not isinstance(self.data.get("nowcastmessage"), Mapping):
+                _LOGGER.debug(
+                    "[SENSOR ENTITY] Payload missing 'nowcastmessage' mapping for key %s",
+                    self._key,
+                )
+                return False
+        else:
+            if not isinstance(self.data.get("data"), list):
+                _LOGGER.debug(
+                    "[SENSOR ENTITY] Payload missing 'data' list for key %s",
+                    self._key,
+                )
+                return False
 
         return True
 
