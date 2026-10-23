@@ -194,11 +194,8 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
                     return self._icon
                 if type(rate) is bool or not isinstance(rate, (int, float)):
                     return self._icon
-                try:
-                    ts_float = float(ts)
-                    rate_float = float(rate)
-                except OverflowError:
-                    return self._icon
+                ts_float = float(ts)
+                rate_float = float(rate)
                 if not (
                     math.isfinite(ts_float)
                     and math.isfinite(rate_float)
