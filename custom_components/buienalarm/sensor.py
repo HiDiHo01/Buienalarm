@@ -115,9 +115,14 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
             return False
 
         if self._key == "nowcastmessage":
-            if not isinstance(self.data.get("nowcastmessage"), Mapping):
+            nowcastmessage = self.data.get("nowcastmessage")
+            if (
+                not isinstance(nowcastmessage, Mapping)
+                or not isinstance(nowcastmessage.get("nl"), str)
+                or not nowcastmessage["nl"]
+            ):
                 _LOGGER.debug(
-                    "[SENSOR ENTITY] Payload missing 'nowcastmessage' mapping for key %s",
+                    "[SENSOR ENTITY] Payload missing usable 'nowcastmessage.nl' for key %s",
                     self._key,
                 )
                 return False
@@ -128,6 +133,42 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
                     self._key,
                 )
                 return False
+
+        if self._key in (
+            "precipitationrate_total",
+            "precipitationrate_hour",
+            "mycastmessage",
+        ):
+            current_ts = datetime.now(timezone.utc).timestamp()
+            horizon = {
+                "precipitationrate_hour": 3600,
+                "precipitationrate_total": 7200,
+            }.get(self._key)
+            for point in self.data["data"]:
+                timestamp = _safe_get(point, "timestamp")
+                rate = _safe_get(point, "precipitationrate")
+                if isinstance(timestamp, bool) or isinstance(rate, bool):
+                    continue
+                # Aggregate calculations require numeric timestamps; the message
+                # calculation also accepts timestamps encoded as numeric strings.
+                if self._key != "mycastmessage" and not isinstance(
+                    timestamp, (int, float)
+                ):
+                    continue
+                try:
+                    timestamp = float(timestamp)
+                    rate = float(rate)
+                except (TypeError, ValueError, OverflowError):
+                    continue
+                if (
+                    0 <= timestamp <= 253402300799
+                    and current_ts < timestamp + 300
+                    and (horizon is None or timestamp <= current_ts + horizon)
+                    and math.isfinite(rate)
+                    and rate >= 0
+                ):
+                    return True
+            return False
 
         if self._key == "precipitationrate_now":
             current_ts = datetime.now(timezone.utc).timestamp()
