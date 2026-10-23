@@ -1608,3 +1608,73 @@ async def test_buienalarm_entity_wet_snow_and_mix_precipitation_type_handling(
 
     assert entity.get_current_precipitation_type() == "Mix van regen en sneeuw"
     assert entity.get_current_precipitation_rate_desc() == "Lichte regen en sneeuw"
+
+
+@pytest.mark.asyncio
+async def test_calculate_total_precipitation_rate_non_finite_values_and_window_boundaries(
+    hass: HomeAssistant, freezer
+) -> None:
+    """Verify non-finite rates (NaN/Inf) are safely skipped and hour window excludes bins starting at end_time."""
+    from datetime import datetime, timedelta, timezone
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.entity import BuienalarmEntity
+
+    freezer.move_to("2026-10-22T12:00:00Z")
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Non-finite Rate Test",
+        unique_id="test_non_finite_rates",
+        data={"latitude": 52.3702, "longitude": 4.8952},
+    )
+
+    coordinator = MagicMock()
+    entity = BuienalarmEntity(coordinator, entry, "precipitationrate_hour")
+
+    now = datetime.now(timezone.utc)
+    start_ts = int(now.timestamp())
+
+    # 1. Non-finite values in forecast data
+    coordinator.data = {
+        "data": [
+            {
+                "timestamp": start_ts,
+                "precipitationrate": float("nan"),
+            },
+            {
+                "timestamp": start_ts + 300,
+                "precipitationrate": float("inf"),
+            },
+            {
+                "timestamp": start_ts + 600,
+                "precipitationrate": 1.2,
+            },
+        ]
+    }
+
+    # Should safely ignore NaN and Inf and return 1.2 / 1.0 = 1.2
+    assert entity.get_total_precipitation_rate_for_next_hour() == 1.2
+
+    # 2. Window boundary check: exactly 12 bins for 1 hour (12:00:00 to 13:00:00)
+    # Bins at 12:00, 12:05, ..., 12:55 (12 bins with rate 1.2 mm/h)
+    # Plus bin at 13:00 (13th bin with rate 10.0 mm/h, which starts at end_time)
+    data = [
+        {
+            "timestamp": start_ts + (i * 300),
+            "precipitationrate": 1.2,
+        }
+        for i in range(12)
+    ]
+    # Add 13th bin at 13:00:00
+    data.append(
+        {
+            "timestamp": start_ts + (12 * 300),
+            "precipitationrate": 10.0,
+        }
+    )
+
+    coordinator.data = {"data": data}
+
+    # Sum of 12 bins = 12 * 1.2 = 14.4. Hourly rate = 14.4 / 1 = 14.4
+    # If the 13th bin (rate 10.0) were incorrectly included, total rate would be 24.4
+    assert entity.get_total_precipitation_rate_for_next_hour() == 14.4
