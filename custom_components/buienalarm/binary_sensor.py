@@ -107,6 +107,15 @@ class BuienalarmBinarySensor(
             case _:
                 self._attr_is_on = False
 
+    @property
+    def icon(self) -> str | None:
+        """Return dynamic icon when precipitation is active for improved UI clarity."""
+        if self.is_on is True:
+            if self.entity_description.key == "currently_snowing":
+                return "mdi:weather-snowy"
+            return "mdi:weather-pouring"
+        return self.entity_description.icon
+
 
 def _get_precipitation_periods(
     data: Mapping[str, object],
