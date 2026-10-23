@@ -5,3 +5,7 @@
 ## 2026-05-05 - Translation File Key Duplication Cleanups
 **Learning:** Duplicate key entries in Home Assistant translation JSON files (`en.json`, `nl.json`) cause silent overrides or parsing inconsistencies. When removing duplicates (e.g. duplicate sensor keys or repeated top-level blocks), verify that valid sub-blocks (like `binary_sensor`) are retained and not overwritten by subsequent keys.
 **Action:** Always test JSON files using custom `object_pairs_hook` parsing scripts to verify zero duplicate keys and complete key retention across all entities before committing changes.
+
+## 2026-05-05 - Weather Binary Sensor Active Icon States
+**Learning:** For Home Assistant binary weather sensors, `is_on == False` indicates lack of precipitation, not sunny weather. Overriding icons with clear weather indicators like `weather-sunny` on dry states can be inaccurate at night or during overcast conditions.
+**Action:** When adding dynamic icons for precipitation binary sensors, customize icons when `is_on` is `True` (e.g. `weather-pouring` / `weather-snowy`) and fall back to `entity_description.icon` when `is_on` is `False` or `None`.
