@@ -1227,11 +1227,13 @@ async def test_timing_sensor_icon_fallback_for_invalid_forecast(hass, forecast):
     ],
 )
 async def test_timing_icons_temporal_and_bounds_validation(
-    hass, key, stamp_type, value, expected_icon
+    hass, key, stamp_type, value, expected_icon, freezer
 ):
     """Verify icon evaluation behavior for out-of-bounds, expired, future, and boundary timestamps."""
     from unittest.mock import MagicMock, patch
     from custom_components.buienalarm.sensor import BuienalarmSensor
+
+    freezer.move_to("2026-10-22T12:00:00Z")
 
     entry = MockConfigEntry(
         domain=DOMAIN,
