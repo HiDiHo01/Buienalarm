@@ -425,6 +425,184 @@ async def test_buienalarm_sensor_availability(hass: HomeAssistant) -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("wrapped", [False, True])
+@pytest.mark.parametrize(
+    ("message", "expected_available"),
+    [
+        (None, False),
+        ([], False),
+        ("Geen neerslag", False),
+        ({}, False),
+        ({"en": "No rain"}, False),
+        ({"nl": None}, False),
+        ({"nl": ""}, False),
+        ({"nl": 1}, False),
+        ({"nl": False}, False),
+        ({"nl": "Geen neerslag"}, True),
+        ({"nl": "Regen om {1700000000}"}, True),
+    ],
+)
+async def test_nowcast_availability_requires_dutch_message(
+    hass: HomeAssistant,
+    wrapped: bool,
+    message: object,
+    expected_available: bool,
+) -> None:
+    """Message availability agrees with the getter even without forecast data."""
+    from collections import UserDict
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.sensor import BuienalarmSensor
+
+    coordinator = MagicMock()
+    coordinator.last_update_success = True
+    payload = UserDict(
+        {"nowcastmessage": UserDict(message) if isinstance(message, dict) else message}
+    )
+    coordinator.data = UserDict({"timeseries": payload}) if wrapped else payload
+    sensor = BuienalarmSensor(
+        coordinator,
+        MockConfigEntry(domain=DOMAIN, data={}),
+        name="Nowcast message",
+        unit_of_measurement=None,
+        icon=None,
+        device_class=None,
+        state_class=None,
+        key="nowcastmessage",
+    )
+
+    assert sensor.available is expected_available
+    assert (sensor.native_value is not None) is expected_available
+    coordinator.last_update_success = False
+    assert sensor.available is False
+    coordinator.last_update_success = True
+    assert sensor.available is expected_available
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("wrapped", [False, True])
+@pytest.mark.parametrize(
+    "key", ["precipitationrate_total", "precipitationrate_hour", "mycastmessage"]
+)
+@pytest.mark.parametrize(
+    ("forecast", "expected_available"),
+    [
+        (None, False),
+        ({}, False),
+        ("invalid", False),
+        ([], False),
+        ([None, "invalid", {}], False),
+        ([{"timestamp": 1700000000}], False),
+        ([{"precipitationrate": 1.0}], False),
+        ([{"timestamp": True, "precipitationrate": 1.0}], False),
+        ([{"timestamp": "invalid", "precipitationrate": 1.0}], False),
+        ([{"timestamp": float("nan"), "precipitationrate": 1.0}], False),
+        ([{"timestamp": float("inf"), "precipitationrate": 1.0}], False),
+        ([{"timestamp": 10**400, "precipitationrate": 1.0}], False),
+        ([{"timestamp": 253402300800, "precipitationrate": 1.0}], False),
+        ([{"timestamp": -1, "precipitationrate": 1.0}], False),
+        ([{"timestamp": 1700000000, "precipitationrate": None}], False),
+        ([{"timestamp": 1700000000, "precipitationrate": True}], False),
+        ([{"timestamp": 1700000000, "precipitationrate": "invalid"}], False),
+        ([{"timestamp": 1700000000, "precipitationrate": "2,5"}], False),
+        ([{"timestamp": 1700000000, "precipitationrate": float("nan")}], False),
+        ([{"timestamp": 1700000000, "precipitationrate": float("inf")}], False),
+        ([{"timestamp": 1700000000, "precipitationrate": 10**400}], False),
+        ([{"timestamp": 1700000000, "precipitationrate": -1.0}], False),
+        ([{"timestamp": 1699999700, "precipitationrate": 1.0}], False),
+        ([{"timestamp": 1699999701, "precipitationrate": 1.0}], True),
+        ([{"timestamp": 1700000000, "precipitationrate": 0.0}], True),
+        ([{"timestamp": 1700000000, "precipitationrate": 2.5}], True),
+        ([{"timestamp": 1700000300, "precipitationrate": "2.5"}], True),
+        ([None, {}, {"timestamp": 1700000300, "precipitationrate": 0.0}], True),
+    ],
+)
+async def test_forecast_sensor_availability_requires_usable_data(
+    hass: HomeAssistant,
+    freezer,
+    wrapped: bool,
+    key: str,
+    forecast: object,
+    expected_available: bool,
+) -> None:
+    """Missing, invalid, or expired forecasts cannot establish a dry state."""
+    from collections import UserDict
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.sensor import BuienalarmSensor
+
+    freezer.move_to(datetime.fromtimestamp(1700000000, timezone.utc))
+    coordinator = MagicMock()
+    coordinator.last_update_success = True
+    payload = UserDict({"data": forecast})
+    coordinator.data = UserDict({"timeseries": payload}) if wrapped else payload
+    sensor = BuienalarmSensor(
+        coordinator,
+        MockConfigEntry(domain=DOMAIN, data={}),
+        name=key,
+        unit_of_measurement=None,
+        icon=None,
+        device_class=None,
+        state_class=None,
+        key=key,
+    )
+
+    assert sensor.available is expected_available
+    if expected_available:
+        assert sensor.native_value is not None
+    coordinator.last_update_success = False
+    assert sensor.available is False
+    coordinator.last_update_success = True
+    assert sensor.available is expected_available
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("timestamp", "hour", "total", "message"),
+    [
+        (1700003600, True, True, True),
+        (1700003601, False, True, True),
+        (1700007200, False, True, True),
+        (1700007201, False, False, True),
+        ("1700000300", False, False, True),
+    ],
+)
+async def test_forecast_availability_matches_calculation_window(
+    hass: HomeAssistant,
+    freezer,
+    timestamp: object,
+    hour: bool,
+    total: bool,
+    message: bool,
+) -> None:
+    """Only readings accepted within each calculation's window establish data."""
+    from collections import UserDict
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.sensor import BuienalarmSensor
+
+    freezer.move_to(datetime.fromtimestamp(1700000000, timezone.utc))
+    coordinator = MagicMock()
+    coordinator.last_update_success = True
+    coordinator.data = {
+        "data": [UserDict({"timestamp": timestamp, "precipitationrate": 2.5})]
+    }
+    for key, expected_available in (
+        ("precipitationrate_hour", hour),
+        ("precipitationrate_total", total),
+        ("mycastmessage", message),
+    ):
+        sensor = BuienalarmSensor(
+            coordinator,
+            MockConfigEntry(domain=DOMAIN, data={}),
+            name=key,
+            unit_of_measurement=None,
+            icon=None,
+            device_class=None,
+            state_class=None,
+            key=key,
+        )
+        assert sensor.available is expected_available
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("timestamp", "rate", "expected_available"),
     [
