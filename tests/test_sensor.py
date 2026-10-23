@@ -294,7 +294,7 @@ async def test_buienalarm_entity_invalid_precipitation_rates(
 
 @pytest.mark.asyncio
 async def test_buienalarm_sensor_availability(hass: HomeAssistant) -> None:
-    """Test BuienalarmSensor available property returns False when coordinator data or unwrapped payload is empty or invalid."""
+    """Test BuienalarmSensor available property returns False when required key-specific payload fields are missing or invalid."""
     from collections import UserDict
     from unittest.mock import MagicMock
     from custom_components.buienalarm.sensor import BuienalarmSensor
@@ -308,7 +308,7 @@ async def test_buienalarm_sensor_availability(hass: HomeAssistant) -> None:
 
     coordinator = MagicMock()
     coordinator.last_update_success = True
-    sensor = BuienalarmSensor(
+    nowcast_sensor = BuienalarmSensor(
         coordinator,
         entry,
         name="Nowcast message",
@@ -318,54 +318,85 @@ async def test_buienalarm_sensor_availability(hass: HomeAssistant) -> None:
         state_class=None,
         key="nowcastmessage",
     )
+    rate_sensor = BuienalarmSensor(
+        coordinator,
+        entry,
+        name="Current Precipitation Rate",
+        unit_of_measurement="mm/h",
+        icon="mdi:weather-rainy",
+        device_class=None,
+        state_class=None,
+        key="precipitationrate_now",
+    )
 
-    # When coordinator data is valid dict with nowcastmessage or data
+    # When payload contains both nowcastmessage and data
+    coordinator.data = {"nowcastmessage": {"nl": "Regen verwacht"}, "data": []}
+    assert nowcast_sensor.available is True
+    assert rate_sensor.available is True
+
+    # When payload contains only nowcastmessage (data missing or invalid)
     coordinator.data = {"nowcastmessage": {"nl": "Regen verwacht"}}
-    assert sensor.available is True
+    assert nowcast_sensor.available is True
+    assert rate_sensor.available is False
 
+    # When payload contains only data (nowcastmessage missing or invalid)
     coordinator.data = {"data": []}
-    assert sensor.available is True
+    assert nowcast_sensor.available is False
+    assert rate_sensor.available is True
 
     # When coordinator data is a custom Mapping (UserDict)
-    coordinator.data = UserDict({"nowcastmessage": {"nl": "Regen verwacht"}})
-    assert sensor.available is True
+    coordinator.data = UserDict(
+        {"nowcastmessage": {"nl": "Regen verwacht"}, "data": []}
+    )
+    assert nowcast_sensor.available is True
+    assert rate_sensor.available is True
 
     # When coordinator data wraps timeseries with valid payload
-    coordinator.data = {"timeseries": {"nowcastmessage": {"nl": "Regen verwacht"}}}
-    assert sensor.available is True
+    coordinator.data = {
+        "timeseries": {"nowcastmessage": {"nl": "Regen verwacht"}, "data": []}
+    }
+    assert nowcast_sensor.available is True
+    assert rate_sensor.available is True
 
-    # When payload is missing forecast fields ('data' list or 'nowcastmessage' mapping)
+    # When payload is missing required forecast fields
     coordinator.data = {"unrelated_field": "some_value"}
-    assert sensor.available is False
+    assert nowcast_sensor.available is False
+    assert rate_sensor.available is False
 
     coordinator.data = {"data": "not_a_list"}
-    assert sensor.available is False
+    assert rate_sensor.available is False
 
     coordinator.data = {"nowcastmessage": "not_a_mapping"}
-    assert sensor.available is False
+    assert nowcast_sensor.available is False
 
     # When coordinator data wraps timeseries but timeseries is empty dict or None
     coordinator.data = {"timeseries": {}}
-    assert sensor.available is False
+    assert nowcast_sensor.available is False
+    assert rate_sensor.available is False
 
     coordinator.data = {"timeseries": None}
-    assert sensor.available is False
+    assert nowcast_sensor.available is False
+    assert rate_sensor.available is False
 
     coordinator.data = {"timeseries": "not_a_dict"}
-    assert sensor.available is False
+    assert nowcast_sensor.available is False
+    assert rate_sensor.available is False
 
     # When coordinator data is empty dict
     coordinator.data = {}
-    assert sensor.available is False
+    assert nowcast_sensor.available is False
+    assert rate_sensor.available is False
 
     # When coordinator data is None or non-mapping
     coordinator.data = None
-    assert sensor.available is False
+    assert nowcast_sensor.available is False
+    assert rate_sensor.available is False
 
     # When last_update_success is False
     coordinator.last_update_success = False
-    coordinator.data = {"nowcastmessage": {"nl": "Regen verwacht"}}
-    assert sensor.available is False
+    coordinator.data = {"nowcastmessage": {"nl": "Regen verwacht"}, "data": []}
+    assert nowcast_sensor.available is False
+    assert rate_sensor.available is False
 
 
 @pytest.mark.asyncio
