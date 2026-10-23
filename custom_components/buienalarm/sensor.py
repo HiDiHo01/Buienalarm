@@ -13,7 +13,7 @@ from homeassistant.helpers.typing import StateType
 
 from .const import ATTR_ATTRIBUTION, DOMAIN, SENSORS
 from .coordinator import BuienalarmConfigEntry, BuienalarmDataUpdateCoordinator
-from .entity import BuienalarmEntity
+from .entity import BuienalarmEntity, _as_float, _safe_get
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -128,6 +128,19 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
                     self._key,
                 )
                 return False
+
+        if self._key == "precipitationrate_now":
+            current_ts = datetime.now(timezone.utc).timestamp()
+            for point in self.data["data"]:
+                timestamp = _as_float(_safe_get(point, "timestamp"))
+                rate = _as_float(_safe_get(point, "precipitationrate"))
+                if (
+                    timestamp is not None
+                    and rate is not None
+                    and timestamp <= current_ts < timestamp + 300
+                ):
+                    return rate >= 0
+            return False
 
         return True
 
