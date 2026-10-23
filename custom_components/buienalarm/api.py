@@ -149,7 +149,9 @@ class BuienalarmApiClient:
                     self._url, timeout=self._timeout, headers=headers
                 ) as resp:
                     _LOGGER.debug(
-                        "[API%s] Initial data response status: %s", self._sfx, resp.status
+                        "[API%s] Initial data response status: %s",
+                        self._sfx,
+                        resp.status,
                     )
                     if resp.status != 200:
                         _LOGGER.error(
@@ -163,7 +165,9 @@ class BuienalarmApiClient:
                     resp_headers = (
                         resp.headers if isinstance(resp.headers, Mapping) else {}
                     )
-                    content_type = resp_headers.get("Content-Type") if resp_headers else None
+                    content_type = (
+                        resp_headers.get("Content-Type") if resp_headers else None
+                    )
 
                     try:
                         if not content_type:
@@ -179,7 +183,9 @@ class BuienalarmApiClient:
                             self._sfx,
                             type(data).__name__,
                         )
-                        raise ApiError("Invalid initial data format: expected dictionary")
+                        raise ApiError(
+                            "Invalid initial data format: expected dictionary"
+                        )
 
                     _LOGGER.debug(
                         "[API%s] Retrieved metadata keys: %s",

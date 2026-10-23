@@ -94,7 +94,9 @@ async def test_async_get_initial_data_non_dict_response(
 
     client = BuienalarmApiClient(52.3702, 4.8951, mock_session, hass)
 
-    with pytest.raises(ApiError, match="Invalid initial data format: expected dictionary"):
+    with pytest.raises(
+        ApiError, match="Invalid initial data format: expected dictionary"
+    ):
         await client.async_get_initial_data()
 
 
@@ -114,7 +116,9 @@ async def test_async_get_initial_data_timeout(hass: HomeAssistant) -> None:
 
     client = BuienalarmApiClient(52.3702, 4.8951, mock_session, hass, timeout=0.01)
 
-    with pytest.raises(ApiError, match="Timeout while requesting Buienalarm initial data"):
+    with pytest.raises(
+        ApiError, match="Timeout while requesting Buienalarm initial data"
+    ):
         await client.async_get_initial_data()
 
 
