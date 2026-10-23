@@ -549,3 +549,50 @@ async def test_binary_sensors_freezing_rain_now(hass: HomeAssistant) -> None:
         assert hass.states.get(exp_id).state == "on"
         assert hass.states.get(rain_id).state == "on"
         assert hass.states.get(snow_id).state == "off"
+
+
+@pytest.mark.asyncio
+async def test_binary_sensor_dynamic_icons(hass: HomeAssistant) -> None:
+    """Test binary sensor entity icons update dynamically based on is_on state."""
+    now_ts = datetime.now(timezone.utc).timestamp()
+    data = {
+        "data": [
+            {
+                "precipitationrate": 1.5,
+                "precipitationtype": "rain",
+                "timestamp": now_ts,
+            }
+        ]
+    }
+
+    with patch(
+        "custom_components.buienalarm.api.BuienalarmApiClient.async_get_data",
+        return_value=data,
+    ):
+        entry = MockConfigEntry(
+            domain=DOMAIN,
+            title="Buienalarm Dynamic Icon Test",
+            unique_id="test_dynamic_icons",
+            data={"latitude": 52.3702, "longitude": 4.8952},
+        )
+        entry.add_to_hass(hass)
+
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        entity_registry = async_get_entity_registry(hass)
+
+        rain_id = entity_registry.async_get_entity_id(
+            "binary_sensor", DOMAIN, f"{entry.entry_id}_currently_raining"
+        )
+        snow_id = entity_registry.async_get_entity_id(
+            "binary_sensor", DOMAIN, f"{entry.entry_id}_currently_snowing"
+        )
+
+        rain_state = hass.states.get(rain_id)
+        assert rain_state.state == "on"
+        assert rain_state.attributes.get("icon") == "mdi:weather-pouring"
+
+        snow_state = hass.states.get(snow_id)
+        assert snow_state.state == "off"
+        assert snow_state.attributes.get("icon") == "mdi:weather-snowy"
