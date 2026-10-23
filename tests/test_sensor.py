@@ -1201,11 +1201,35 @@ async def test_timing_sensor_icon_fallback_for_invalid_forecast(hass, forecast):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("key", ["next_precipitation", "precipitation_duration"])
-@pytest.mark.parametrize("offset", [-3600, 3600, None])
-async def test_timing_icons_reject_expired_future_and_out_of_range_bins(
-    hass, key, offset
+@pytest.mark.parametrize(
+    ("stamp_type", "value", "expected_icon"),
+    [
+        ("offset", -3600.0, "mdi:clock-outline"),  # Expired (-1 hr)
+        ("offset", 3600.0, "mdi:clock-outline"),  # Future (+1 hr)
+        (
+            "offset",
+            -300.0,
+            "mdi:clock-outline",
+        ),  # Exact boundary: max_ts + 300 == now_ts (expired)
+        (
+            "offset",
+            1.0,
+            "mdi:clock-outline",
+        ),  # Exact boundary: min_ts > now_ts (future)
+        (
+            "offset",
+            0.0,
+            "mdi:weather-sunny",
+        ),  # Exact boundary: min_ts == now_ts (active)
+        ("absolute", -10.0, "mdi:clock-outline"),  # Timestamp < 0
+        ("absolute", 253402300800.0, "mdi:clock-outline"),  # Timestamp > 253402300799
+        ("absolute", 1e300, "mdi:clock-outline"),  # Non-finite / overflow
+    ],
+)
+async def test_timing_icons_temporal_and_bounds_validation(
+    hass, key, stamp_type, value, expected_icon
 ):
-    """Only temporally applicable, representable forecast bins set status icons."""
+    """Verify icon evaluation behavior for out-of-bounds, expired, future, and boundary timestamps."""
     from unittest.mock import MagicMock, patch
     from custom_components.buienalarm.sensor import BuienalarmSensor
 
@@ -1217,87 +1241,11 @@ async def test_timing_icons_reject_expired_future_and_out_of_range_bins(
     )
     coordinator = MagicMock()
     coordinator.last_update_success = True
-    stamp = 1e300 if offset is None else datetime.now(timezone.utc).timestamp() + offset
-    coordinator.data = {"data": [{"timestamp": stamp, "precipitationrate": 0.0}]}
-    entity = BuienalarmSensor(
-        coordinator,
-        entry,
-        name=key,
-        unit_of_measurement="min",
-        icon="mdi:clock-outline",
-        device_class=None,
-        state_class=None,
-        key=key,
-    )
-    with patch.object(
-        BuienalarmSensor,
-        "native_value",
-        property(lambda self: None if key == "next_precipitation" else 0),
-    ):
-        assert entity.icon == "mdi:clock-outline"
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize("key", ["next_precipitation", "precipitation_duration"])
-@pytest.mark.parametrize(
-    "stamp",
-    [
-        -10.0,  # Below 0
-        253402300800.0,  # Above 253402300799
-    ],
-)
-async def test_timing_icons_reject_out_of_bounds_timestamps(hass, key, stamp):
-    """Verify timestamps outside valid boundaries [0, 253402300799] fall back to default icon."""
-    from unittest.mock import MagicMock, patch
-    from custom_components.buienalarm.sensor import BuienalarmSensor
-
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        title="Out of bounds icons",
-        unique_id="out_of_bounds_icons",
-        data={"latitude": 52.37, "longitude": 4.89},
-    )
-    coordinator = MagicMock()
-    coordinator.last_update_success = True
-    coordinator.data = {"data": [{"timestamp": stamp, "precipitationrate": 0.0}]}
-    entity = BuienalarmSensor(
-        coordinator,
-        entry,
-        name=key,
-        unit_of_measurement="min",
-        icon="mdi:clock-outline",
-        device_class=None,
-        state_class=None,
-        key=key,
-    )
-    with patch.object(
-        BuienalarmSensor,
-        "native_value",
-        property(lambda self: None if key == "next_precipitation" else 0),
-    ):
-        assert entity.icon == "mdi:clock-outline"
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize("key", ["next_precipitation", "precipitation_duration"])
-async def test_timing_icons_exact_five_minute_window_boundaries(hass, key):
-    """Verify icon evaluation behavior at exact 5-minute forecast window boundaries."""
-    from unittest.mock import MagicMock, patch
-    from custom_components.buienalarm.sensor import BuienalarmSensor
-
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        title="Boundary icons",
-        unique_id="boundary_icons",
-        data={"latitude": 52.37, "longitude": 4.89},
-    )
-    coordinator = MagicMock()
-    coordinator.last_update_success = True
 
     now_ts = datetime.now(timezone.utc).timestamp()
+    stamp = now_ts + value if stamp_type == "offset" else value
 
-    # 1. Exact boundary: max_ts + 300 == now_ts (expired)
-    coordinator.data = {"data": [{"timestamp": now_ts - 300, "precipitationrate": 0.0}]}
+    coordinator.data = {"data": [{"timestamp": stamp, "precipitationrate": 0.0}]}
     entity = BuienalarmSensor(
         coordinator,
         entry,
@@ -1313,26 +1261,7 @@ async def test_timing_icons_exact_five_minute_window_boundaries(hass, key):
         "native_value",
         property(lambda self: None if key == "next_precipitation" else 0),
     ):
-        assert entity.icon == "mdi:clock-outline"
-
-    # 2. Exact boundary: min_ts == now_ts (active)
-    coordinator.data = {"data": [{"timestamp": now_ts, "precipitationrate": 0.0}]}
-    expected = "mdi:weather-sunny"
-    with patch.object(
-        BuienalarmSensor,
-        "native_value",
-        property(lambda self: None if key == "next_precipitation" else 0),
-    ):
-        assert entity.icon == expected
-
-    # 3. Exact boundary: min_ts > now_ts (future)
-    coordinator.data = {"data": [{"timestamp": now_ts + 1.0, "precipitationrate": 0.0}]}
-    with patch.object(
-        BuienalarmSensor,
-        "native_value",
-        property(lambda self: None if key == "next_precipitation" else 0),
-    ):
-        assert entity.icon == "mdi:clock-outline"
+        assert entity.icon == expected_icon
 
 
 @pytest.mark.asyncio
