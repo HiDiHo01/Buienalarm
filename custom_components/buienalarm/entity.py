@@ -645,19 +645,14 @@ class BuienalarmEntity(CoordinatorEntity):
                 )
                 continue
 
-            ts = _safe_get(data_point, "timestamp")
-            if ts is None or isinstance(ts, bool):
+            ts = _as_float(_safe_get(data_point, "timestamp"))
+            if ts is None:
                 _LOGGER.debug(
                     "Skipping data point without valid 'timestamp': %r", data_point
                 )
                 continue
-            if not isinstance(ts, (int, float)):
-                _LOGGER.debug(
-                    "Skipping data point with non‑numeric 'timestamp': %r", data_point
-                )
-                continue
 
-            if ts + 300 > start_ts and ts <= end_ts:
+            if ts + 300 > start_ts and ts < end_ts:
                 # mypy: safe because we've validated Mapping presence
                 filtered.append(data_point)
 
@@ -681,11 +676,11 @@ class BuienalarmEntity(CoordinatorEntity):
 
         for data_point in data:
             if type(data_point) is dict:
-                ts = data_point.get("timestamp")
+                raw_ts = data_point.get("timestamp")
             elif isinstance(data_point, Mapping) or callable(
                 getattr(data_point, "get", None)
             ):
-                ts = _safe_get(data_point, "timestamp")
+                raw_ts = _safe_get(data_point, "timestamp")
             else:
                 _LOGGER.debug(
                     "Skipping non‑mapping data point (no callable 'get' attribute): %r",
@@ -693,30 +688,25 @@ class BuienalarmEntity(CoordinatorEntity):
                 )
                 continue
 
-            if ts is None or isinstance(ts, bool):
+            ts = _as_float(raw_ts)
+            if ts is None:
                 _LOGGER.debug(
                     "Skipping data point without valid 'timestamp': %r", data_point
                 )
                 continue
-            if not isinstance(ts, (int, float)):
-                _LOGGER.debug(
-                    "Skipping data point with non‑numeric 'timestamp': %r", data_point
-                )
-                continue
 
-            if ts + 300 > start_ts and ts <= end_ts:
+            if ts + 300 > start_ts and ts < end_ts:
                 raw_rate = (
                     data_point.get("precipitationrate")
                     if type(data_point) is dict
                     else _safe_get(data_point, "precipitationrate")
                 )
-                if raw_rate is None or isinstance(raw_rate, bool):
-                    continue
-                try:
-                    total_rate += float(raw_rate)
-                    has_rate = True
-                except (ValueError, TypeError):
+                rate = _as_float(raw_rate)
+                if rate is None:
                     _LOGGER.debug("Skipping invalid precipitationrate: %r", raw_rate)
+                    continue
+                total_rate += rate
+                has_rate = True
 
         if not has_rate:
             return 0.0
@@ -1246,17 +1236,8 @@ class BuienalarmEntity(CoordinatorEntity):
                 )
                 continue
 
-            if isinstance(raw_precipitation, bool):
-                _LOGGER.warning(
-                    "[BUIENALARM ENTITY] Ongeldige neerslagwaarde op index %d: %s",
-                    i,
-                    raw_precipitation,
-                )
-                continue
-
-            try:
-                precipitation_rate = float(raw_precipitation)
-            except (TypeError, ValueError):
+            precipitation_rate = _as_float(raw_precipitation)
+            if precipitation_rate is None:
                 _LOGGER.warning(
                     "[BUIENALARM ENTITY] Ongeldige neerslagwaarde op index %d: %s",
                     i,
