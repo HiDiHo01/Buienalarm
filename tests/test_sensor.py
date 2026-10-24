@@ -1933,3 +1933,58 @@ async def test_precipitation_periods_skip_non_finite_timestamps(
         [1.2, 2.4]
     )
     assert entity.get_data("precipitation_periods") == 2
+
+
+@pytest.mark.asyncio
+async def test_buienalarm_entity_oversized_integer_overflow_handling(
+    hass: HomeAssistant,
+) -> None:
+    """Verify get_rain_start_time_and_duration and get_mycastmessage handle oversized integer overflow gracefully."""
+    from datetime import datetime, timezone
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.entity import BuienalarmEntity
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Overflow Handling Test",
+        unique_id="test_overflow_handling",
+        data={"latitude": 52.3702, "longitude": 4.8952},
+    )
+
+    coordinator = MagicMock()
+    entity = BuienalarmEntity(coordinator, entry, "mycastmessage")
+
+    now_ts = int(datetime.now(timezone.utc).timestamp())
+
+    coordinator.data = {
+        "data": [
+            {
+                "timestamp": 10**400,
+                "precipitationrate": 1.0,
+            },
+            {
+                "timestamp": now_ts + 300,
+                "precipitationrate": 10**400,
+            },
+            {
+                "timestamp": now_ts + 600,
+                "precipitationrate": 2.5,
+                "precipitationtype": "rain",
+            },
+            {
+                "timestamp": now_ts + 900,
+                "precipitationrate": 0.0,
+                "precipitationtype": "rain",
+            },
+        ]
+    }
+
+    start, stop, restart, dur, stopped = entity.get_rain_start_time_and_duration(
+        coordinator.data["data"]
+    )
+    assert start is not None
+    assert dur == 5
+
+    msg = entity.get_mycastmessage()
+    assert msg is not None
+    assert msg != "Geen data"
