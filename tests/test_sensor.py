@@ -1,5 +1,5 @@
 import pytest
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone, tzinfo
 from unittest.mock import AsyncMock, patch
 
 from freezegun.api import FrozenDateTimeFactory
@@ -1988,3 +1988,85 @@ async def test_buienalarm_entity_oversized_integer_overflow_handling(
     msg = entity.get_mycastmessage()
     assert msg is not None
     assert msg != "Geen data"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("wrapped", [False, True], ids=["unwrapped", "wrapped"])
+@pytest.mark.parametrize(
+    "conversion_error",
+    [ValueError, OverflowError, OSError],
+    ids=["value_error", "overflow_error", "os_error"],
+)
+@pytest.mark.parametrize("invalid_first", [True, False], ids=["first", "last"])
+async def test_mycastmessage_skips_unconvertible_timestamps(
+    hass: HomeAssistant,
+    freezer: FrozenDateTimeFactory,
+    monkeypatch: pytest.MonkeyPatch,
+    wrapped: bool,
+    conversion_error: type[Exception],
+    invalid_first: bool,
+) -> None:
+    """Reject platform-invalid timestamps before they alter valid rain boundaries."""
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.sensor import BuienalarmSensor
+
+    freezer.move_to("2026-10-24T12:00:00Z")
+    start_time = datetime.now(timezone.utc)
+    stop_time = start_time + timedelta(minutes=5)
+    unsupported_timestamp = 253402300799.0
+    original_fromtimestamp = datetime.fromtimestamp
+
+    def fromtimestamp_with_platform_limit(
+        timestamp: float, tz: tzinfo | None = None
+    ) -> datetime:
+        """Simulate a platform rejecting a timestamp within the numeric bounds."""
+        if timestamp == unsupported_timestamp:
+            raise conversion_error("Timestamp outside the platform datetime range")
+        return original_fromtimestamp(timestamp, tz=tz)
+
+    monkeypatch.setattr(
+        "custom_components.buienalarm.entity.datetime.fromtimestamp",
+        staticmethod(fromtimestamp_with_platform_limit),
+    )
+
+    invalid_point = {
+        "timestamp": unsupported_timestamp,
+        "precipitationrate": 1.0,
+    }
+    forecast = [
+        {"timestamp": start_time.timestamp(), "precipitationrate": 1.0},
+        {
+            "timestamp": stop_time.timestamp(),
+            "precipitationrate": 0.0 if invalid_first else 1.0,
+        },
+    ]
+    forecast.insert(0 if invalid_first else len(forecast), invalid_point)
+    payload = {"data": forecast}
+    coordinator = MagicMock()
+    coordinator.last_update_success = True
+    coordinator.device_info = {}
+    coordinator.data = {"timeseries": payload} if wrapped else payload
+    entry = MockConfigEntry(domain=DOMAIN, data={})
+    sensor = BuienalarmSensor(
+        coordinator,
+        entry,
+        name="Test forecast",
+        unit_of_measurement=None,
+        icon=None,
+        device_class=None,
+        state_class=None,
+        key="mycastmessage",
+    )
+
+    assert sensor.available is True
+    assert sensor.get_rain_start_time_and_duration(forecast) == (
+        start_time,
+        stop_time if invalid_first else None,
+        None,
+        5,
+        invalid_first,
+    )
+    expected_message = "Neerslag duurt nog 5 minuten"
+    if invalid_first:
+        expected_message += f" en stopt rond {sensor.format_time(stop_time)}"
+    assert sensor.native_value == expected_message
