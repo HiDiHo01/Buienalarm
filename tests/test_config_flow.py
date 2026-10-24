@@ -78,7 +78,7 @@ async def test_options_flow_preserves_data_defaults(hass: HomeAssistant) -> None
 
 @pytest.mark.asyncio
 async def test_options_flow_invalid_coordinates(hass: HomeAssistant) -> None:
-    """Test that options flow schema enforces bounds on coordinates."""
+    """Test that options flow rejects invalid coordinates with error while falling back to valid defaults in form."""
     custom_data = {
         CONF_NAME: "Custom Spot",
         CONF_LATITUDE: 51.5,
