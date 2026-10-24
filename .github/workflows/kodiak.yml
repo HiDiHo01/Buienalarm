@@ -38,7 +38,12 @@ jobs:
         # Pin the schema to the reviewed upstream revision, not a moving branch.
         env:
           KODIAK_SCHEMA_URL: https://raw.githubusercontent.com/chdsbd/kodiak/4aff5fcd5d6446eb273e21ed0a6c6037243a240b/bot/kodiak/test/fixtures/config/config-schema.json
-        run: check-jsonschema --schemafile "$KODIAK_SCHEMA_URL" .kodiak.toml
+        run: |
+          curl --fail --silent --show-error --location \
+            --retry 3 --retry-delay 2 --retry-max-time 45 \
+            --connect-timeout 10 --max-time 20 \
+            --output "$RUNNER_TEMP/kodiak-config-schema.json" "$KODIAK_SCHEMA_URL"
+          check-jsonschema --schemafile "$RUNNER_TEMP/kodiak-config-schema.json" .kodiak.toml
 
   prepare-label:
     name: Ensure automerge label
@@ -63,7 +68,10 @@ jobs:
           if grep -Fxq "automerge" <<< "$label_names"; then
             echo "The automerge label already exists; keeping its settings."
           else
-            gh label create automerge --repo "$GH_REPO" \
+            if ! gh label create automerge --repo "$GH_REPO" \
               --color "0e8a16" \
-              --description "Queue a reviewed pull request for Kodiak after required checks pass."
+              --description "Queue a reviewed pull request for Kodiak after required checks pass."; then
+              echo "Label creation failed; checking whether another actor created it."
+              gh api "repos/${GH_REPO}/labels/automerge" > /dev/null
+            fi
           fi
