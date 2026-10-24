@@ -1161,12 +1161,12 @@ class BuienalarmEntity(CoordinatorEntity):
         its end is strictly after the current UTC time, even if it has already
         started.
 
-        A period ends at the next retained rate that is not greater than zero,
+        A period ends at the next retained non-positive or invalid rate,
         or at the last retained timestamp if still open. No five minutes are
         added to that final timestamp, so an open period with one point lasts
         zero minutes. Return an empty list for missing or non-list data, or when
-        there are no precipitation periods. Rate conversions raising TypeError
-        or ValueError are skipped; timestamp conversion errors propagate.
+        there are no precipitation periods. Invalid rates end active periods
+        at the unknown bin's timestamp; timestamp conversion errors propagate.
 
         Returns:
             A list of dictionaries per period:
@@ -1178,8 +1178,7 @@ class BuienalarmEntity(CoordinatorEntity):
 
         Raises:
             ValueError: A retained timestamp is NaN or outside datetime's range.
-            OverflowError: A timestamp or precipitation rate exceeds numeric
-                conversion limits.
+            OverflowError: A timestamp exceeds numeric conversion limits.
             OSError: The system cannot convert a retained timestamp.
         """
         precipitation_data: object = self.data.get("data", [])
@@ -1220,9 +1219,9 @@ class BuienalarmEntity(CoordinatorEntity):
             raw_timestamp = _safe_get(item, "timestamp")
             raw_precipitation = _safe_get(item, "precipitationrate")
 
-            if raw_timestamp is None or raw_precipitation is None:
+            if raw_timestamp is None:
                 _LOGGER.warning(
-                    "[BUIENALARM ENTITY] Ontbrekende keys of None-waarde op index %d",
+                    "[BUIENALARM ENTITY] Ontbrekende timestamp of None-waarde op index %d",
                     i,
                 )
                 continue
@@ -1244,7 +1243,6 @@ class BuienalarmEntity(CoordinatorEntity):
                     i,
                     raw_precipitation,
                 )
-                continue
 
             if raw_timestamp + 300 <= now_ts:
                 continue  # negeer historische data
@@ -1252,7 +1250,7 @@ class BuienalarmEntity(CoordinatorEntity):
             data_time = datetime.fromtimestamp(raw_timestamp, tz=timezone.utc)
             last_valid_time = data_time
 
-            if precipitation_rate > 0:
+            if precipitation_rate is not None and precipitation_rate > 0:
                 current_rates.append(precipitation_rate)
                 if not in_precipitation:
                     precipitation_start = data_time

@@ -558,11 +558,17 @@ async def test_forecast_sensor_availability_requires_usable_data(
 @pytest.mark.parametrize(
     ("timestamp", "hour", "total", "message"),
     [
-        (1700003600, True, True, True),
+        (1699999700, False, False, False),
+        (1699999701, True, True, True),
+        (1700003599, True, True, True),
+        (1700003600, False, True, True),
         (1700003601, False, True, True),
-        (1700007200, False, True, True),
+        (1700007199, False, True, True),
+        (1700007200, False, False, True),
         (1700007201, False, False, True),
-        ("1700000300", False, False, True),
+        ("1700000300", True, True, True),
+        ("1700003600", False, True, True),
+        ("1700007200", False, False, True),
     ],
 )
 async def test_forecast_availability_matches_calculation_window(
@@ -600,6 +606,8 @@ async def test_forecast_availability_matches_calculation_window(
             key=key,
         )
         assert sensor.available is expected_available
+        if key != "mycastmessage":
+            assert (sensor.native_value is not None) is expected_available
 
 
 @pytest.mark.asyncio
@@ -1331,6 +1339,56 @@ async def test_buienalarm_entity_unique_id_attribute(hass: HomeAssistant) -> Non
     expected_uid = f"{entry.entry_id}_{sensor_key}"
     assert entity._attr_unique_id == expected_uid
     assert entity.unique_id == expected_uid
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "invalid_rate",
+    [float("nan"), float("inf"), -float("inf"), None, True, "invalid", 10**400],
+    ids=[
+        "nan",
+        "infinity",
+        "negative-infinity",
+        "missing",
+        "boolean",
+        "malformed",
+        "overflow",
+    ],
+)
+async def test_precipitation_periods_split_at_invalid_rate(
+    hass: HomeAssistant, freezer, invalid_rate: object
+) -> None:
+    """Unknown bins separate rain periods without contributing to their averages."""
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.entity import BuienalarmEntity
+
+    freezer.move_to("2026-10-22T12:00:00Z")
+    coordinator = MagicMock()
+    entity = BuienalarmEntity(
+        coordinator, MockConfigEntry(domain=DOMAIN, data={}), "precipitation_periods"
+    )
+    start_ts = datetime.now(timezone.utc).timestamp()
+    coordinator.data = {
+        "timeseries": {
+            "data": [
+                {"timestamp": start_ts + i * 300, "precipitationrate": rate}
+                for i, rate in enumerate([2.0, invalid_rate, 4.0, 0.0])
+            ]
+        }
+    }
+
+    periods = entity.get_precipitation_periods_as_dict()
+    assert len(periods) == 2
+    for period, offset, rate in zip(periods, [0, 600], [2.0, 4.0], strict=True):
+        assert datetime.fromisoformat(period["start"]) == datetime.fromtimestamp(
+            start_ts + offset, timezone.utc
+        )
+        assert datetime.fromisoformat(period["stop"]) == datetime.fromtimestamp(
+            start_ts + offset + 300, timezone.utc
+        )
+        assert period["duration"] == 5
+        assert period["precipitationrate"] == pytest.approx(rate)
+    assert entity.get_data("precipitation_periods") == 2
 
 
 @pytest.mark.asyncio

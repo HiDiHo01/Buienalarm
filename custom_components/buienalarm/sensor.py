@@ -145,25 +145,18 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
                 "precipitationrate_total": 7200,
             }.get(self._key)
             for point in self.data["data"]:
-                timestamp = _safe_get(point, "timestamp")
+                timestamp = _as_float(_safe_get(point, "timestamp"))
                 rate = _safe_get(point, "precipitationrate")
-                if isinstance(timestamp, bool) or isinstance(rate, bool):
-                    continue
-                # Aggregate calculations require numeric timestamps; the message
-                # calculation also accepts timestamps encoded as numeric strings.
-                if self._key != "mycastmessage" and not isinstance(
-                    timestamp, (int, float)
-                ):
+                if timestamp is None or isinstance(rate, bool):
                     continue
                 try:
-                    timestamp = float(timestamp)
                     rate = float(rate)
                 except (TypeError, ValueError, OverflowError):
                     continue
                 if (
                     0 <= timestamp <= 253402300799
                     and current_ts < timestamp + 300
-                    and (horizon is None or timestamp <= current_ts + horizon)
+                    and (horizon is None or timestamp < current_ts + horizon)
                     and math.isfinite(rate)
                     and rate >= 0
                 ):
