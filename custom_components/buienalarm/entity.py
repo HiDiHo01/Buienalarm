@@ -406,13 +406,17 @@ class BuienalarmEntity(CoordinatorEntity):
         if not isinstance(rain_data, list) or not rain_data:
             return "Geen data"
 
+        rain_forecast = self.get_rain_start_time_and_duration(rain_data)
+        if rain_forecast is None:
+            return None
+
         (
             rain_start_time,
             rain_stop_time,
             rain_restart_time,
             rain_duration,
             rain_stopped,
-        ) = self.get_rain_start_time_and_duration(rain_data)
+        ) = rain_forecast
 
         if rain_start_time is None:
             _LOGGER.debug("[BUIENALARM ENTITY] rain_start_time is None")
@@ -1015,8 +1019,8 @@ class BuienalarmEntity(CoordinatorEntity):
 
     def get_rain_start_time_and_duration(
         self, precipitation_data: list[dict[str, object]]
-    ) -> tuple[datetime | None, datetime | None, datetime | None, int, bool]:
-        """Calculate the start time and duration of rain from the precipitation data."""
+    ) -> tuple[datetime | None, datetime | None, datetime | None, int, bool] | None:
+        """Calculate rain timing, or return None without a usable unexpired point."""
         current_time_utc: datetime = datetime.now(timezone.utc)
         current_ts: float = current_time_utc.timestamp()
         rain_start_time_utc: datetime | None = None
@@ -1030,12 +1034,12 @@ class BuienalarmEntity(CoordinatorEntity):
         for data_point in precipitation_data:
             if type(data_point) is dict:
                 timestamp = data_point.get("timestamp")
-                raw_rate = data_point.get("precipitationrate", 0.0)
+                raw_rate = data_point.get("precipitationrate")
             elif isinstance(data_point, Mapping) or callable(
                 getattr(data_point, "get", None)
             ):
                 timestamp = _safe_get(data_point, "timestamp")
-                raw_rate = _safe_get(data_point, "precipitationrate", 0.0)
+                raw_rate = _safe_get(data_point, "precipitationrate")
             else:
                 continue
 
@@ -1072,24 +1076,25 @@ class BuienalarmEntity(CoordinatorEntity):
             except (ValueError, OverflowError, OSError):
                 continue
 
-            last_valid_time_utc = forecast_time_utc
-
             if type(raw_rate) is bool:
-                precipitation_rate = 0.0
+                continue
             elif type(raw_rate) is float:
-                precipitation_rate = raw_rate if math.isfinite(raw_rate) else 0.0
+                precipitation_rate = raw_rate
             elif type(raw_rate) is int:
                 try:
                     precipitation_rate = float(raw_rate)
                 except OverflowError:
-                    precipitation_rate = 0.0
+                    continue
             else:
                 try:
                     precipitation_rate = float(raw_rate)
-                    if not math.isfinite(precipitation_rate):
-                        precipitation_rate = 0.0
                 except (ValueError, TypeError, OverflowError):
-                    precipitation_rate = 0.0
+                    continue
+
+            if not math.isfinite(precipitation_rate) or precipitation_rate < 0:
+                continue
+
+            last_valid_time_utc = forecast_time_utc
 
             if precipitation_rate > 0:
                 rain_stopped = False
@@ -1104,6 +1109,9 @@ class BuienalarmEntity(CoordinatorEntity):
             elif rain_start_time_utc is not None and rain_stop_time_utc is None:
                 rain_stop_time_utc = forecast_time_utc
                 rain_stopped = True
+
+        if last_valid_time_utc is None:
+            return None
 
         if rain_start_time_utc is not None:
             if rain_stop_time_utc is not None:

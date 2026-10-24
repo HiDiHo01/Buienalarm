@@ -1188,11 +1188,7 @@ async def test_boolean_timestamps_and_rates_rejected(hass: HomeAssistant) -> Non
     assert entity.get_current_precipitation_type() == "Geen neerslag"
     assert entity.get_next_precipitation() is None
     assert entity.get_precipitation_duration() == 0
-    overflow_start, _, _, overflow_dur, _ = entity.get_rain_start_time_and_duration(
-        coordinator.data["data"]
-    )
-    assert overflow_start is None
-    assert overflow_dur == 0
+    assert entity.get_rain_start_time_and_duration(coordinator.data["data"]) is None
 
     # Verify boolean timestamps are rejected
     coordinator.data = {
@@ -2070,3 +2066,160 @@ async def test_mycastmessage_skips_unconvertible_timestamps(
     if invalid_first:
         expected_message += f" en stopt rond {sensor.format_time(stop_time)}"
     assert sensor.native_value == expected_message
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("wrapped", [False, True], ids=["unwrapped", "wrapped"])
+@pytest.mark.parametrize("conversion_error", [ValueError, OverflowError, OSError])
+async def test_mycastmessage_unknown_without_convertible_future_points(
+    hass: HomeAssistant,
+    freezer: FrozenDateTimeFactory,
+    monkeypatch: pytest.MonkeyPatch,
+    wrapped: bool,
+    conversion_error: type[Exception],
+) -> None:
+    """Unconvertible future timestamps cannot turn an expired forecast into dry data."""
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.sensor import BuienalarmSensor
+
+    freezer.move_to("2026-10-24T12:00:00Z")
+    now_ts = datetime.now(timezone.utc).timestamp()
+    unsupported_timestamp = 253402300799.0
+    original_fromtimestamp = datetime.fromtimestamp
+
+    def fromtimestamp_with_platform_limit(
+        timestamp: float, tz: tzinfo | None = None
+    ) -> datetime:
+        """Reject an otherwise numerically valid future timestamp."""
+        if timestamp == unsupported_timestamp:
+            raise conversion_error("Timestamp outside the platform datetime range")
+        return original_fromtimestamp(timestamp, tz=tz)
+
+    monkeypatch.setattr(
+        "custom_components.buienalarm.entity.datetime.fromtimestamp",
+        staticmethod(fromtimestamp_with_platform_limit),
+    )
+    forecast = [
+        {"timestamp": now_ts - 300, "precipitationrate": 0.0},
+        {"timestamp": unsupported_timestamp, "precipitationrate": 1.0},
+    ]
+    coordinator = MagicMock()
+    coordinator.last_update_success = True
+    payload = {"data": forecast}
+    coordinator.data = {"timeseries": payload} if wrapped else payload
+    sensor = BuienalarmSensor(
+        coordinator,
+        MockConfigEntry(domain=DOMAIN, data={}),
+        name="Test forecast",
+        unit_of_measurement=None,
+        icon=None,
+        device_class=None,
+        state_class=None,
+        key="mycastmessage",
+    )
+
+    assert sensor.get_rain_start_time_and_duration(forecast) is None
+    assert sensor.native_value is None
+    assert sensor.available is False
+
+    # An ongoing, successfully converted dry bin restores a known forecast.
+    forecast.append({"timestamp": now_ts - 299, "precipitationrate": 0.0})
+    assert sensor.available is True
+    assert sensor.native_value == "Geen neerslag"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("wrapped", [False, True], ids=["unwrapped", "wrapped"])
+@pytest.mark.parametrize(
+    "rate_fields",
+    [
+        {},
+        {"precipitationrate": None},
+        {"precipitationrate": True},
+        {"precipitationrate": "invalid"},
+        {"precipitationrate": 10**400},
+        {"precipitationrate": -(10**400)},
+        {"precipitationrate": "1e400"},
+        {"precipitationrate": float("nan")},
+        {"precipitationrate": float("inf")},
+        {"precipitationrate": -float("inf")},
+        {"precipitationrate": -1.0},
+    ],
+    ids=[
+        "missing",
+        "null",
+        "boolean",
+        "malformed",
+        "overflow",
+        "negative-overflow",
+        "string-overflow",
+        "nan",
+        "infinity",
+        "negative-infinity",
+        "negative",
+    ],
+)
+async def test_mycastmessage_invalid_rates_do_not_establish_boundaries(
+    hass: HomeAssistant,
+    freezer: FrozenDateTimeFactory,
+    wrapped: bool,
+    rate_fields: dict[str, object],
+) -> None:
+    """Invalid rates establish neither dry forecasts nor rain-stop or end times."""
+    from collections import UserDict
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.sensor import BuienalarmSensor
+
+    freezer.move_to("2026-10-24T12:00:00Z")
+    start_time = datetime.now(timezone.utc)
+    now_ts = start_time.timestamp()
+    invalid_points = [
+        {"timestamp": now_ts + 300, **rate_fields},
+        UserDict({"timestamp": now_ts + 900, **rate_fields}),
+    ]
+    forecast = [
+        {"timestamp": now_ts, "precipitationrate": 1.0},
+        invalid_points[0],
+        {"timestamp": now_ts + 600, "precipitationrate": 1.0},
+        invalid_points[1],
+    ]
+    payload = {"data": forecast}
+    coordinator = MagicMock()
+    coordinator.last_update_success = True
+    coordinator.data = {"timeseries": payload} if wrapped else payload
+    sensor = BuienalarmSensor(
+        coordinator,
+        MockConfigEntry(domain=DOMAIN, data={}),
+        name="Test forecast",
+        unit_of_measurement=None,
+        icon=None,
+        device_class=None,
+        state_class=None,
+        key="mycastmessage",
+    )
+
+    assert sensor.available is True
+    assert sensor.get_rain_start_time_and_duration(forecast) == (
+        start_time,
+        None,
+        None,
+        10,
+        False,
+    )
+    assert sensor.native_value == "Neerslag duurt nog 10 minuten"
+
+    # Only an explicitly valid zero rate can establish the stop boundary.
+    stop_time = start_time + timedelta(minutes=20)
+    forecast.append({"timestamp": stop_time.timestamp(), "precipitationrate": 0.0})
+    assert sensor.get_rain_start_time_and_duration(forecast) == (
+        start_time,
+        stop_time,
+        None,
+        20,
+        True,
+    )
+
+    payload["data"] = invalid_points
+    assert sensor.get_rain_start_time_and_duration(invalid_points) is None
+    assert sensor.native_value is None
+    assert sensor.available is False
