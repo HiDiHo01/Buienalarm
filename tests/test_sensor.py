@@ -2,6 +2,7 @@ import pytest
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
 
+from freezegun.api import FrozenDateTimeFactory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -1805,3 +1806,54 @@ async def test_total_precipitation_rate_weights_partial_bins(
 
     # Three minutes at 12 mm/h plus two at 6 mm/h yield 0.8 mm.
     assert entity.get_data(key) == pytest.approx(expected)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("wrapped", [False, True], ids=["unwrapped", "wrapped"])
+@pytest.mark.parametrize(
+    "invalid_timestamp",
+    [float("nan"), float("inf"), float("-inf")],
+    ids=["nan", "positive-infinity", "negative-infinity"],
+)
+async def test_precipitation_periods_skip_non_finite_timestamps(
+    hass: HomeAssistant,
+    freezer: FrozenDateTimeFactory,
+    wrapped: bool,
+    invalid_timestamp: float,
+) -> None:
+    """Skip non-finite timestamps without losing later valid rain periods."""
+    from datetime import timedelta
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.entity import BuienalarmEntity
+
+    freezer.move_to("2026-10-22T12:00:00Z")
+    start_time = datetime.now(timezone.utc)
+    start_timestamp = start_time.timestamp()
+    config_entry = MockConfigEntry(domain=DOMAIN, data={})
+    coordinator = MagicMock()
+    forecast_payload = {
+        "data": [
+            {"timestamp": invalid_timestamp, "precipitationrate": 1.0},
+            {"timestamp": start_timestamp, "precipitationrate": 1.2},
+            {"timestamp": start_timestamp + 300, "precipitationrate": 0.0},
+            {"timestamp": invalid_timestamp, "precipitationrate": 1.0},
+            {"timestamp": start_timestamp + 600, "precipitationrate": 2.4},
+            {"timestamp": start_timestamp + 900, "precipitationrate": 0.0},
+        ]
+    }
+    coordinator.data = {"timeseries": forecast_payload} if wrapped else forecast_payload
+    entity = BuienalarmEntity(coordinator, config_entry, "precipitation_periods")
+
+    periods = entity._get_precipitation_periods()
+
+    assert [
+        (period["start"], period["stop"], period["duration_minutes"])
+        for period in periods
+    ] == [
+        (start_time, start_time + timedelta(minutes=5), 5),
+        (start_time + timedelta(minutes=10), start_time + timedelta(minutes=15), 5),
+    ]
+    assert [period["precipitationrate"] for period in periods] == pytest.approx(
+        [1.2, 2.4]
+    )
+    assert entity.get_data("precipitation_periods") == 2
