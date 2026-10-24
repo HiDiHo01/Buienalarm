@@ -3,6 +3,8 @@ import logging
 from homeassistant.util import dt as dt_util
 from homeassistant.util.dt import as_local
 
+from .entity import _as_float
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -70,13 +72,12 @@ class BuienalarmDataProcessor:
                 )
                 continue
 
-            rate = item.get("precipitationrate")
-            if not isinstance(rate, (int, float)):
-                try:
-                    rate = float(rate)
-                except (ValueError, TypeError):
-                    _LOGGER.debug("Buienalarm: ongeldig 'precipitationrate': %s", rate)
-                    continue
+            raw_rate = item.get("precipitationrate")
+            parsed_rate = _as_float(raw_rate)
+            if parsed_rate is None or parsed_rate < 0:
+                _LOGGER.debug("Buienalarm: ongeldig 'precipitationrate': %s", raw_rate)
+                continue
+            rate = parsed_rate
 
             ts_str = item.get("time")
             timestamp = (
