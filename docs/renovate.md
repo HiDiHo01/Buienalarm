@@ -35,7 +35,7 @@ lower bounds so Renovate can target the reviewed version. Poetry's range-based
 lock updates have limitations; inspect the resulting lock diff and CI for every
 manual baseline or maintenance update.
 
-Versioned updates eligible for automerge require a release timestamp for the
+Minor/patch updates eligible for automerge require a release timestamp for the
 three-day age check. An update without a usable timestamp remains blocked.
 
 ## One-time GitHub setup
