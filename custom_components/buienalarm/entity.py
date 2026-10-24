@@ -1019,13 +1019,13 @@ class BuienalarmEntity(CoordinatorEntity):
         """Calculate the start time and duration of rain from the precipitation data."""
         current_time_utc: datetime = datetime.now(timezone.utc)
         current_ts: float = current_time_utc.timestamp()
-        rain_start_ts: float | None = None
-        rain_stop_ts: float | None = None
-        rain_restart_ts: float | None = None
+        rain_start_time_utc: datetime | None = None
+        rain_stop_time_utc: datetime | None = None
+        rain_restart_time_utc: datetime | None = None
         rain_duration: int = 0
         rain_stopped: bool = True
 
-        last_valid_ts: float | None = None
+        last_valid_time_utc: datetime | None = None
 
         for data_point in precipitation_data:
             if type(data_point) is dict:
@@ -1065,7 +1065,14 @@ class BuienalarmEntity(CoordinatorEntity):
             if not (0 <= ts_float <= 253402300799):
                 continue
 
-            last_valid_ts = ts_float
+            # Numeric bounds do not guarantee conversion on every platform.
+            # Reject unsupported timestamps before changing any rain boundaries.
+            try:
+                forecast_time_utc = datetime.fromtimestamp(ts_float, tz=timezone.utc)
+            except (ValueError, OverflowError, OSError):
+                continue
+
+            last_valid_time_utc = forecast_time_utc
 
             if type(raw_rate) is bool:
                 precipitation_rate = 0.0
@@ -1086,55 +1093,17 @@ class BuienalarmEntity(CoordinatorEntity):
 
             if precipitation_rate > 0:
                 rain_stopped = False
-                if rain_start_ts is None:
-                    rain_start_ts = ts_float
-                if rain_stop_ts is None:
+                if rain_start_time_utc is None:
+                    rain_start_time_utc = forecast_time_utc
+                if rain_stop_time_utc is None:
                     rain_duration += 5
                     rain_stopped = False
-                if rain_restart_ts is None and rain_stop_ts is not None:
-                    rain_restart_ts = ts_float
+                if rain_restart_time_utc is None and rain_stop_time_utc is not None:
+                    rain_restart_time_utc = forecast_time_utc
             # Check if there's a gap in precipitation
-            elif rain_start_ts is not None and rain_stop_ts is None:
-                rain_stop_ts = ts_float
+            elif rain_start_time_utc is not None and rain_stop_time_utc is None:
+                rain_stop_time_utc = forecast_time_utc
                 rain_stopped = True
-
-        # Bolt performance optimization: Convert boundary timestamps to datetime
-        # at the return boundary (~3.7x faster) and compute duration from the converted endpoints.
-        try:
-            rain_start_time_utc = (
-                datetime.fromtimestamp(rain_start_ts, tz=timezone.utc)
-                if rain_start_ts is not None
-                else None
-            )
-        except (ValueError, OverflowError, OSError):
-            rain_start_time_utc = None
-
-        try:
-            rain_stop_time_utc = (
-                datetime.fromtimestamp(rain_stop_ts, tz=timezone.utc)
-                if rain_stop_ts is not None
-                else None
-            )
-        except (ValueError, OverflowError, OSError):
-            rain_stop_time_utc = None
-
-        try:
-            rain_restart_time_utc = (
-                datetime.fromtimestamp(rain_restart_ts, tz=timezone.utc)
-                if rain_restart_ts is not None
-                else None
-            )
-        except (ValueError, OverflowError, OSError):
-            rain_restart_time_utc = None
-
-        try:
-            last_valid_time_utc = (
-                datetime.fromtimestamp(last_valid_ts, tz=timezone.utc)
-                if last_valid_ts is not None
-                else None
-            )
-        except (ValueError, OverflowError, OSError):
-            last_valid_time_utc = None
 
         if rain_start_time_utc is not None:
             if rain_stop_time_utc is not None:
