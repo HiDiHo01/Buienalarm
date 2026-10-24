@@ -58,6 +58,7 @@ jobs:
   renovate:
     name: Run Renovate
     needs: validate
+    environment: renovate
     if: >-
       github.ref == 'refs/heads/main' &&
       (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
@@ -65,14 +66,17 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Check GitHub App configuration
+        id: repository
         env:
           APP_CLIENT_ID: ${{ vars.RENOVATE_APP_CLIENT_ID }}
           APP_PRIVATE_KEY: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
+          REPOSITORY: ${{ github.repository }}
         run: |
           if [[ -z "$APP_CLIENT_ID" || -z "$APP_PRIVATE_KEY" ]]; then
-            echo "::error::Set RENOVATE_APP_CLIENT_ID and RENOVATE_APP_PRIVATE_KEY before running Renovate. See docs/renovate.md."
+            echo "::error::Set RENOVATE_APP_CLIENT_ID and the renovate environment's RENOVATE_APP_PRIVATE_KEY. See docs/renovate.md."
             exit 1
           fi
+          printf 'name=%s\n' "${REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
 
       - name: Create repository-scoped GitHub App token
         id: app-token
@@ -81,7 +85,7 @@ jobs:
           client-id: ${{ vars.RENOVATE_APP_CLIENT_ID }}
           private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
-          repositories: ${{ github.event.repository.name }}
+          repositories: ${{ steps.repository.outputs.name }}
           permission-administration: read
           permission-checks: write
           permission-statuses: write
@@ -97,17 +101,25 @@ jobs:
         run: |
           set -euo pipefail
           required_checks='["build (3.14.2)", "Validate", "Validate Renovate configuration"]'
-          rules="$(gh api "repos/${GH_REPO}/rules/branches/main")"
-          if ! jq -e --argjson required "$required_checks" '
-            any(.[];
+          rules="$(gh api "repos/${GH_REPO}/rules/branches/main?per_page=100" --paginate | jq -s 'add')"
+          # GitHub Actions has integration ID 15368 on github.com.
+          ruleset_ids="$(jq -r --argjson required "$required_checks" '
+            .[] | select(
               .type == "required_status_checks" and
               .parameters.strict_required_status_checks_policy == true and
-              (($required - [.parameters.required_status_checks[].context]) | length) == 0
-            )
-          ' <<< "$rules" > /dev/null; then
-            echo "::error::Configure an active main ruleset with up-to-date branches and the required build, Validate, and Renovate checks. See docs/renovate.md."
-            exit 1
-          fi
+              (($required - [.parameters.required_status_checks[] |
+                select(.integration_id == 15368) | .context]) | length) == 0
+            ) | .ruleset_id | numbers
+          ' <<< "$rules")"
+          for ruleset_id in $ruleset_ids; do
+            ruleset="$(gh api "repos/${GH_REPO}/rulesets/${ruleset_id}")"
+            if jq -e '.enforcement == "active" and .current_user_can_bypass == "never"' \
+                <<< "$ruleset" > /dev/null; then
+              exit 0
+            fi
+          done
+          echo "::error::Require an active main CI ruleset with up-to-date branches, GitHub Actions checks, and no Renovate App bypass. See docs/renovate.md."
+          exit 1
 
       - name: Check out trusted main configuration
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

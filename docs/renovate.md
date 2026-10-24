@@ -55,19 +55,27 @@ scheduled version updates over from Dependabot.
    | Metadata | Read, implicit |
 
 2. In **Settings → Secrets and variables → Actions**, add the App's **Client ID**
-   as repository variable `RENOVATE_APP_CLIENT_ID`, and its generated PEM
-   private key as secret `RENOVATE_APP_PRIVATE_KEY`.
-3. Extend the active `main` ruleset with required status checks and **Require
-   branches to be up to date before merging**. A single required-check rule must
-   contain at least:
+   as repository variable `RENOVATE_APP_CLIENT_ID`. In **Settings → Environments**,
+   create `renovate`, select **Selected branches and tags**, and add only a
+   **branch** rule for `main`. Store the generated PEM private key there as the
+   environment secret `RENOVATE_APP_PRIVATE_KEY`, rather than a repository or
+   organization secret. This prevents a same-repository PR from accessing the key
+   by editing the workflow. No manual environment reviewer is needed for scheduled
+   runs.
+3. Add an active `main` CI ruleset without a bypass for the Renovate App, required
+   status checks, and **Require branches to be up to date before merging**. Each required
+   check must use **GitHub Actions** as its expected source. A single required-check
+   rule must contain at least:
    - `build (3.14.2)`
    - `Validate`
    - `Validate Renovate configuration`
 
-   Keep existing review and check requirements, including Kodiak validation
-   when that automation is enabled. Require pull requests before merging.
-   The Renovate runner verifies the three checks and strict policy before
-   changing dependencies; missing protection produces a descriptive failure.
+   Keep existing review and check requirements in their current rulesets,
+   including Kodiak validation when enabled. Require pull requests before merging.
+   The runner verifies the check sources, strict policy, and the App token's
+   `current_user_can_bypass: never` result before changing dependencies. It does
+   not need access to the full bypass list or permission to edit the ruleset.
+   Missing protection or an unavailable caller-bypass status produces a failure.
 4. Keep squash merges enabled. After the configuration is merged, use
    **Actions → Renovate → Run workflow** on `main` to verify authentication.
    Manual runs still honor the maintenance and automerge schedules.
@@ -77,6 +85,9 @@ revokes it when the job ends. The bot job has a 45-minute timeout, within the
 installation token's one-hour lifetime. Pull request validation uses no App
 credentials. The default `GITHUB_TOKEN` has read-only access; dependency PRs are
 created with the App token so their CI can run normally.
+
+The preflight checks the ruleset at startup; it cannot lock an administrator out
+of changing repository protection during a run. Keep the CI ruleset enabled.
 
 ## Dependabot and Kodiak
 
@@ -107,6 +118,7 @@ References:
 
 - [Renovate GitHub Action](https://github.com/renovatebot/github-action)
 - [GitHub App permissions for Renovate](https://docs.renovatebot.com/modules/platform/github/#running-as-a-github-app)
+- [GitHub environment branch restrictions and secrets](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments)
 - [Renovate scheduling](https://docs.renovatebot.com/key-concepts/scheduling/)
 - [Renovate automerge configuration](https://docs.renovatebot.com/key-concepts/automerge/)
 - [Dependabot security-only configuration](https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/manage-your-dependency-security/customizing-dependabot-security-prs)
