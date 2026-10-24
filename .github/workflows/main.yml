@@ -32,6 +32,10 @@ jobs:
           python -m pip install --only-binary=:all: "poetry==2.3.2"
 
       - name: ⚙️ Configure Poetry environment
+        env:
+          POETRY_INSTALLER_ONLY_BINARY: ":all:"
+          # These two locked test dependencies only provide source distributions.
+          POETRY_INSTALLER_NO_BINARY: "pyric,mock-open"
         run: |
           poetry check --lock
           poetry env use "${{ matrix.python-version }}"
