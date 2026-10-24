@@ -87,10 +87,11 @@ for (const [description, instant, expected] of schedule_cases) {
 
 const required_checks = ["build (3.14.2)", "Validate", "Validate Renovate configuration"];
 const protection_rule = {
+  ruleset_id: 123,
   type: "required_status_checks",
   parameters: {
     strict_required_status_checks_policy: true,
-    required_status_checks: required_checks.map((context) => ({ context }))
+    required_status_checks: required_checks.map((context) => ({ context, integration_id: 15368 }))
   }
 };
 const protection_cases = [
@@ -107,20 +108,57 @@ const protection_cases = [
     ...protection_rule,
     parameters: { ...protection_rule.parameters, strict_required_status_checks_policy: false }
   }], 0, false],
+  ["unrestricted check source", [{
+    ...protection_rule,
+    parameters: {
+      ...protection_rule.parameters,
+      required_status_checks: required_checks.map((context) => ({ context }))
+    }
+  }], 0, false],
+  ["incorrect check source", [{
+    ...protection_rule,
+    parameters: {
+      ...protection_rule.parameters,
+      required_status_checks: required_checks.map((context) => ({ context, integration_id: 999 }))
+    }
+  }], 0, false],
   ["GitHub rules API failure", [protection_rule], 1, false],
-  ["malformed GitHub rules response", null, 0, false]
+  ["malformed GitHub rules response", null, 0, false],
+  ["App can bypass required CI", [protection_rule], 0, false, {
+    enforcement: "active", current_user_can_bypass: "always"
+  }],
+  ["App can bypass through PRs", [protection_rule], 0, false, {
+    enforcement: "active", current_user_can_bypass: "pull_requests_only"
+  }],
+  ["App exempt from CI", [protection_rule], 0, false, {
+    enforcement: "active", current_user_can_bypass: "exempt"
+  }],
+  ["caller bypass status not visible", [protection_rule], 0, false, { enforcement: "active" }],
+  ["ruleset disabled after initial response", [protection_rule], 0, false, {
+    enforcement: "disabled", current_user_can_bypass: "never"
+  }]
 ];
 
-for (const [description, rules, api_status, expected] of protection_cases) {
+for (const [description, rules, api_status, expected, ruleset = {
+  enforcement: "active", current_user_can_bypass: "never"
+}] of protection_cases) {
   test(description, () => {
     const result = spawnSync("/bin/bash", ["-c", String.raw`
-      gh() { printf '%s\n' "$RENOVATE_TEST_RULES"; return "$RENOVATE_TEST_API_STATUS"; }
+      gh() {
+        if [[ "$2" == */rulesets/* ]]; then
+          printf '%s\n' "$RENOVATE_TEST_RULESET"
+        else
+          printf '%s\n' "$RENOVATE_TEST_RULES"
+        fi
+        return "$RENOVATE_TEST_API_STATUS"
+      }
       ${protection_guard}
     `], {
       env: {
         PATH: "/usr/bin:/bin",
         GH_REPO: "test/repository",
         RENOVATE_TEST_RULES: JSON.stringify(rules),
+        RENOVATE_TEST_RULESET: JSON.stringify(ruleset),
         RENOVATE_TEST_API_STATUS: api_status === 0 ? "0" : "1"
       },
       encoding: "utf8"
@@ -128,3 +166,15 @@ for (const [description, rules, api_status, expected] of protection_cases) {
     assert.equal(result.status === 0, expected, result.error?.message ?? result.stderr);
   });
 }
+
+test("App job uses a protected environment", () => {
+  assert.equal(workflow.jobs.renovate.environment, "renovate");
+  assert.equal(workflow.jobs.validate.environment, undefined);
+});
+
+test("App token repository comes from the stable repository context", () => {
+  const repository_step = workflow.jobs.renovate.steps.find((step) => step.id === "repository");
+  const token_step = workflow.jobs.renovate.steps.find((step) => step.id === "app-token");
+  assert.equal(repository_step.env.REPOSITORY, "${{ github.repository }}");
+  assert.equal(token_step.with.repositories, "${{ steps.repository.outputs.name }}");
+});
