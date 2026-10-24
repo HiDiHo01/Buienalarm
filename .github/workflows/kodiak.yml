@@ -1,0 +1,78 @@
+name: Kodiak
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate Kodiak configuration
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14.2"
+
+      - name: Install configuration validator
+        run: |
+          python -m pip install --only-binary=:all: "check-jsonschema==0.38.2"
+
+      - name: Validate configuration against the upstream Kodiak schema
+        # Pin the schema to the reviewed upstream revision, not a moving branch.
+        env:
+          KODIAK_SCHEMA_URL: https://raw.githubusercontent.com/chdsbd/kodiak/4aff5fcd5d6446eb273e21ed0a6c6037243a240b/bot/kodiak/test/fixtures/config/config-schema.json
+        run: |
+          curl --fail --silent --show-error --location \
+            --proto '=https' --proto-redir '=https' \
+            --retry 3 --retry-delay 2 --retry-max-time 45 \
+            --connect-timeout 10 --max-time 20 \
+            --output "$RUNNER_TEMP/kodiak-config-schema.json" "$KODIAK_SCHEMA_URL"
+          check-jsonschema --schemafile "$RUNNER_TEMP/kodiak-config-schema.json" .kodiak.toml
+
+  prepare-label:
+    name: Ensure automerge label
+    needs: validate
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Create the opt-in label when missing
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          label_names="$(gh api --paginate \
+            "repos/${GH_REPO}/labels?per_page=100" \
+            --jq '.[].name')"
+
+          if grep -Fxq "automerge" <<< "$label_names"; then
+            echo "The automerge label already exists; keeping its settings."
+          else
+            if ! gh label create automerge --repo "$GH_REPO" \
+              --color "0e8a16" \
+              --description "Queue a reviewed pull request for Kodiak after required checks pass."; then
+              echo "Label creation failed; checking whether another actor created it."
+              gh api "repos/${GH_REPO}/labels/automerge" > /dev/null
+            fi
+          fi
