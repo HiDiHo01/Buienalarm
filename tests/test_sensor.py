@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
 
 from freezegun.api import FrozenDateTimeFactory
+from homeassistant.const import STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -263,8 +264,8 @@ async def test_buienalarm_entity_invalid_precipitation_rates(
         ]
     }
 
-    assert entity.get_total_precipitation_rate_for_next_hour() >= 0.0
-    assert entity.get_total_precipitation_rate() >= 0.0
+    assert entity.get_total_precipitation_rate_for_next_hour() is None
+    assert entity.get_total_precipitation_rate() is None
     assert entity.get_precipitation_duration() >= 0
     assert entity.get_mycastmessage() != "Geen data"
     assert entity.get_current_precipitation_rate_desc() in (
@@ -1669,11 +1670,86 @@ async def test_buienalarm_entity_wet_snow_and_mix_precipitation_type_handling(
     assert entity.get_current_precipitation_rate_desc() == "Lichte regen en sneeuw"
 
 
+@pytest.mark.parametrize("valid_rate", [0.0, 1.2], ids=["dry", "rain"])
+@pytest.mark.parametrize(
+    "invalid_rate",
+    [float("nan"), float("inf"), -float("inf")],
+    ids=["nan", "inf", "-inf"],
+)
+@pytest.mark.parametrize(
+    ("invalid_offset", "unknown_hours"),
+    [(-300, ()), (300, (1, 2)), (3600, (2,)), (7200, ())],
+    ids=["expired", "both-windows", "two-hour-only", "exclusive-endpoint"],
+)
+@pytest.mark.asyncio
+async def test_aggregate_sensor_states_with_non_finite_rate(
+    hass: HomeAssistant,
+    freezer: FrozenDateTimeFactory,
+    valid_rate: float,
+    invalid_rate: float,
+    invalid_offset: int,
+    unknown_hours: tuple[int, ...],
+) -> None:
+    """Keep aggregates unknown only when an included rate is non-finite."""
+    freezer.move_to("2026-10-22T12:00:00Z")
+    start_ts = datetime.now(timezone.utc).timestamp()
+    data = [
+        {
+            "timestamp": start_ts + index * 300,
+            "precipitationrate": (
+                invalid_rate if index * 300 == invalid_offset else valid_rate
+            ),
+            "precipitationtype": "rain",
+        }
+        for index in range(24)
+    ]
+    if invalid_offset < 0 or invalid_offset >= 7200:
+        data.append(
+            {
+                "timestamp": start_ts + invalid_offset,
+                "precipitationrate": invalid_rate,
+                "precipitationtype": "rain",
+            }
+        )
+    response = AsyncMock()
+    response.__aenter__.return_value = response
+    response.status = 200
+    response.headers = {"Content-Type": "application/json", "Age": "0"}
+    response.json.return_value = {
+        "data": data,
+        "nowcastmessage": {"nl": "Verwachting"},
+    }
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Aggregate validity test",
+        unique_id="aggregate_validity",
+        data={"latitude": 52.3702, "longitude": 4.8952},
+    )
+    entry.add_to_hass(hass)
+
+    with patch("aiohttp.ClientSession.get", return_value=response):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    registry = async_get_entity_registry(hass)
+    for hours, key in ((1, "precipitationrate_hour"), (2, "precipitationrate_total")):
+        entity_id = registry.async_get_entity_id(
+            "sensor", DOMAIN, f"{entry.entry_id}_{key}"
+        )
+        assert entity_id is not None
+        state = hass.states.get(entity_id)
+        assert state is not None
+        if hours in unknown_hours:
+            assert state.state == STATE_UNKNOWN
+        else:
+            assert float(state.state) == pytest.approx(valid_rate)
+
+
 @pytest.mark.asyncio
 async def test_calculate_total_precipitation_rate_non_finite_values_and_window_boundaries(
     hass: HomeAssistant, freezer
 ) -> None:
-    """Verify non-finite rates (NaN/Inf) are safely skipped and hour window excludes bins starting at end_time."""
+    """Keep invalid windows unknown and exclude bins starting at end_time."""
     from datetime import datetime, timezone
     from unittest.mock import MagicMock
     from custom_components.buienalarm.entity import BuienalarmEntity
@@ -1711,8 +1787,8 @@ async def test_calculate_total_precipitation_rate_non_finite_values_and_window_b
         ]
     }
 
-    # The valid five-minute bin contributes 1.2 * (5 / 60) = 0.1 mm/h.
-    assert entity.get_total_precipitation_rate_for_next_hour() == pytest.approx(0.1)
+    # A valid bin cannot make an aggregate known when other included rates are invalid.
+    assert entity.get_total_precipitation_rate_for_next_hour() is None
 
     # 2. Window boundary check: exactly 12 bins for 1 hour (12:00:00 to 13:00:00)
     # Bins at 12:00, 12:05, ..., 12:55 (12 bins with rate 1.2 mm/h)
@@ -1744,7 +1820,7 @@ async def test_calculate_total_precipitation_rate_non_finite_values_and_window_b
     [
         ([float("nan"), float("inf"), -float("inf")], None),
         ([0.0, 0.0, 0.0], 0.0),
-        ([float("nan"), 0.0, float("inf")], 0.0),
+        ([float("nan"), 0.0, float("inf")], None),
         ([], None),
     ],
     ids=["only-non-finite", "valid-zero", "zero-with-invalid", "empty"],
