@@ -78,7 +78,7 @@ async def test_options_flow_preserves_data_defaults(hass: HomeAssistant) -> None
 
 @pytest.mark.asyncio
 async def test_options_flow_invalid_coordinates(hass: HomeAssistant) -> None:
-    """Test that options flow rejects invalid coordinates with error while preserving submitted input."""
+    """Test that options flow schema enforces bounds on coordinates."""
     custom_data = {
         CONF_NAME: "Custom Spot",
         CONF_LATITUDE: 51.5,
@@ -97,27 +97,17 @@ async def test_options_flow_invalid_coordinates(hass: HomeAssistant) -> None:
     result = await hass.config_entries.options.async_init(entry.entry_id)
     assert result["type"] == FlowResultType.FORM
 
-    # Submit invalid coordinates along with modified fields
-    result2 = await hass.config_entries.options.async_configure(
-        result["flow_id"],
-        user_input={
-            CONF_NAME: "Modified Spot",
-            CONF_LATITUDE: 999.0,
-            CONF_LONGITUDE: 4.5,
-            "notification_limit": 20,
-            "refresh_interval": 600,
-        },
-    )
-
-    assert result2["type"] == FlowResultType.FORM
-    assert result2["errors"] == {"base": "invalid_coordinates"}
-
-    # Verify that the returned form preserves the attempted user_input values
-    defaults = result2["data_schema"]({})
-    assert defaults[CONF_NAME] == "Modified Spot"
-    assert defaults[CONF_LATITUDE] == 999.0
-    assert defaults["notification_limit"] == 20
-    assert defaults["refresh_interval"] == 600
+    # Schema validation raises when submitting out-of-bounds coordinates
+    with pytest.raises((vol.Invalid, vol.MultipleInvalid)):
+        result["data_schema"](
+            {
+                CONF_NAME: "Modified Spot",
+                CONF_LATITUDE: 999.0,
+                CONF_LONGITUDE: 4.5,
+                "notification_limit": 20,
+                "refresh_interval": 600,
+            }
+        )
 
 
 @pytest.mark.asyncio
@@ -207,14 +197,26 @@ async def test_config_flow_default_coordinates_zero_latitude(
 
 @pytest.mark.asyncio
 async def test_config_flow_selector_configs(hass: HomeAssistant) -> None:
-    """Test that number selectors have step=1.0 and min bounds set."""
+    """Test that number selectors have min/max bounds and expected properties set."""
     from custom_components.buienalarm.config_flow import (
+        _LATITUDE_SELECTOR,
+        _LONGITUDE_SELECTOR,
         _NOTIFICATION_LIMIT_SCHEMA,
         _REFRESH_INTERVAL_SCHEMA,
     )
 
+    lat_config = _LATITUDE_SELECTOR.config
+    lon_config = _LONGITUDE_SELECTOR.config
     notif_config = _NOTIFICATION_LIMIT_SCHEMA.config
     refresh_config = _REFRESH_INTERVAL_SCHEMA.config
+
+    assert lat_config["min"] == -90.0
+    assert lat_config["max"] == 90.0
+    assert lat_config["step"] == "any"
+
+    assert lon_config["min"] == -180.0
+    assert lon_config["max"] == 180.0
+    assert lon_config["step"] == "any"
 
     assert notif_config["min"] == 0.0
     assert notif_config["step"] == 1.0

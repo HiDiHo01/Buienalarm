@@ -43,8 +43,19 @@ DEFAULT_LONGITUDE: Final[float] = 4.79861
 DEFAULT_REFRESH_INTERVAL: Final[int] = 300  # seconds (5 min)
 DEFAULT_NOTIFICATION_LIMIT: Final[int] = 0  # mm/h – notify on any value
 
-_COORDINATE_SELECTOR: Final[selector.NumberSelector] = selector.NumberSelector(
+_LATITUDE_SELECTOR: Final[selector.NumberSelector] = selector.NumberSelector(
     selector.NumberSelectorConfig(
+        min=-90.0,
+        max=90.0,
+        step="any",
+        mode=selector.NumberSelectorMode.BOX,
+    )
+)
+
+_LONGITUDE_SELECTOR: Final[selector.NumberSelector] = selector.NumberSelector(
+    selector.NumberSelectorConfig(
+        min=-180.0,
+        max=180.0,
         step="any",
         mode=selector.NumberSelectorMode.BOX,
     )
@@ -225,8 +236,8 @@ class BuienalarmConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         data_schema: vol.Schema = vol.Schema(
             {
                 vol.Required(CONF_NAME, default=NAME): selector.TextSelector(),
-                vol.Required(CONF_LATITUDE, default=default_lat): _COORDINATE_SELECTOR,
-                vol.Required(CONF_LONGITUDE, default=default_lon): _COORDINATE_SELECTOR,
+                vol.Required(CONF_LATITUDE, default=default_lat): _LATITUDE_SELECTOR,
+                vol.Required(CONF_LONGITUDE, default=default_lon): _LONGITUDE_SELECTOR,
                 vol.Optional(
                     "notification_limit", default=DEFAULT_NOTIFICATION_LIMIT
                 ): _NOTIFICATION_LIMIT_SCHEMA,
@@ -307,13 +318,13 @@ class BuienalarmOptionsFlow(config_entries.OptionsFlow):
                     default=options.get(
                         CONF_LATITUDE, data.get(CONF_LATITUDE, DEFAULT_LATITUDE)
                     ),
-                ): _COORDINATE_SELECTOR,
+                ): _LATITUDE_SELECTOR,
                 vol.Required(
                     CONF_LONGITUDE,
                     default=options.get(
                         CONF_LONGITUDE, data.get(CONF_LONGITUDE, DEFAULT_LONGITUDE)
                     ),
-                ): _COORDINATE_SELECTOR,
+                ): _LONGITUDE_SELECTOR,
                 vol.Required(
                     "notification_limit",
                     default=options.get(
