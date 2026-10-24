@@ -55,7 +55,7 @@ The maintainers may provide feedback on your PR. Please respond to comments and 
 After review, maintainers can add the `automerge` label to queue a pull request
 for a squash merge once required checks and reviews pass. See the
 [Kodiak setup and maintainer workflow](docs/kodiak.md) for the GitHub App,
-classic branch protection requirements, and configuration validation.
+branch protection requirements, and configuration validation.
 
 ## Code of Conduct
 We expect all contributors to follow our [Code of Conduct](CODE_OF_CONDUCT.md). Please treat others with kindness and respect.
