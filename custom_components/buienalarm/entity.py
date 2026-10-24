@@ -660,18 +660,19 @@ class BuienalarmEntity(CoordinatorEntity):
 
     def calculate_total_precipitation_rate(
         self, data: list[dict[str, object]], start_time: datetime, end_time: datetime
-    ) -> float:
+    ) -> float | None:
+        """Average five-minute rates over the window, or return None without valid data."""
         self._validate_timestamps(start_time, end_time)
         total_time_seconds = (end_time - start_time).total_seconds()
         if total_time_seconds <= 0:
-            return 0.0
+            return None
 
         # Bolt performance optimization: Filter and aggregate precipitation rate in a single
         # pass over forecast points to avoid intermediate list allocation and iterating twice (~1.81x faster).
         start_ts: float = start_time.timestamp()
         end_ts: float = end_time.timestamp()
 
-        total_rate = 0.0
+        total_precipitation = 0.0
         has_rate = False
 
         for data_point in data:
@@ -705,31 +706,31 @@ class BuienalarmEntity(CoordinatorEntity):
                 if rate is None:
                     _LOGGER.debug("Skipping invalid precipitationrate: %r", raw_rate)
                     continue
-                total_rate += rate
+                overlap_seconds = min(ts + 300, end_ts) - max(ts, start_ts)
+                total_precipitation += rate * (overlap_seconds / 3600)
                 has_rate = True
 
         if not has_rate:
-            return 0.0
+            return None
 
-        # Gemiddelde per uur
-        average_precipitation_rate = total_rate / (total_time_seconds / 3600)
+        average_precipitation_rate = total_precipitation / (total_time_seconds / 3600)
         return round(average_precipitation_rate, 1)
 
-    def get_total_precipitation_rate(self) -> float:
-        """Get total precipitation rate rounded to one decimal place for the next 2 hours"""
+    def get_total_precipitation_rate(self) -> float | None:
+        """Get the average rate for the next two hours, or None without valid data."""
         data: object = self.data.get("data", [])
         if not isinstance(data, list):
-            return 0.0
+            return None
         current_time: datetime = datetime.now(timezone.utc)
         end_time: datetime = current_time + timedelta(hours=2)
         return self.calculate_total_precipitation_rate(data, current_time, end_time)
 
-    def get_total_precipitation_rate_for_next_hour(self) -> float:
-        """Calculate the total precipitation rate in mm/h for the upcoming hour."""
+    def get_total_precipitation_rate_for_next_hour(self) -> float | None:
+        """Get the next hour's average rate in mm/h, or None without valid data."""
         # Fetch the precipitation data; expecting a list of dictionaries
         data: object = self.data.get("data", [])
         if not isinstance(data, list):
-            return 0.0
+            return None
         current_time: datetime = datetime.now(timezone.utc)  # Use UTC time
         end_time: datetime = current_time + timedelta(hours=1)
 
