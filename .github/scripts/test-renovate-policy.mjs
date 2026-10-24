@@ -42,7 +42,7 @@ const dependency_cases = [
   ["unversioned action digest", "github-actions", "hacs/action", "main", "digest", false],
   ["immutable pin", "github-actions", "hacs/action", "1.0.0", "pinDigest", true],
   ["Python patch", "pyenv", "python", "3.14.2", "patch", false],
-  ["runner patch", "custom.regex", "renovate", "44.181.5", "patch", false],
+  ["runner patch", "regex", "renovate", "44.181.5", "patch", false],
   ["lock refresh", "poetry", "black", "26.1.0", "lockFileMaintenance", false],
   ["dependency rollback", "poetry", "black", "26.1.0", "rollback", false]
 ];
@@ -113,15 +113,15 @@ const protection_cases = [
 
 for (const [description, rules, api_status, expected] of protection_cases) {
   test(description, () => {
-    const result = spawnSync("bash", ["-c", `
-      gh() { printf '%s\\n' "$RENOVATE_TEST_RULES"; return "$RENOVATE_TEST_API_STATUS"; }
+    const result = spawnSync("/bin/bash", ["-c", String.raw`
+      gh() { printf '%s\n' "$RENOVATE_TEST_RULES"; return "$RENOVATE_TEST_API_STATUS"; }
       ${protection_guard}
     `], {
       env: {
-        ...process.env,
+        PATH: "/usr/bin:/bin",
         GH_REPO: "test/repository",
         RENOVATE_TEST_RULES: JSON.stringify(rules),
-        RENOVATE_TEST_API_STATUS: String(api_status)
+        RENOVATE_TEST_API_STATUS: api_status === 0 ? "0" : "1"
       },
       encoding: "utf8"
     });
