@@ -198,8 +198,8 @@ async def test_buienalarm_entity_untrusted_data_handling(hass: HomeAssistant) ->
 
         assert entity.get_mycastmessage() == "Geen data"
         assert entity.get_precipitation_duration() == 0
-        assert entity.get_total_precipitation_rate() == 0.0
-        assert entity.get_total_precipitation_rate_for_next_hour() == 0.0
+        assert entity.get_total_precipitation_rate() is None
+        assert entity.get_total_precipitation_rate_for_next_hour() is None
         assert entity.get_current_precipitation() == 0.0
         assert entity.get_current_precipitation_rate_desc() == "Geen neerslag"
         assert entity.get_current_precipitation_type() == "Geen neerslag"
@@ -1124,7 +1124,7 @@ async def test_boolean_timestamps_and_rates_rejected(hass: HomeAssistant) -> Non
 
     assert entity._get_precipitation_periods() == []
     assert entity.get_precipitation_duration() == 0
-    assert entity.get_total_precipitation_rate_for_next_hour() == 0.0
+    assert entity.get_total_precipitation_rate_for_next_hour() is None
 
     # Verify current precipitation, rate desc, precip type, and next precip reject booleans
     coordinator.data = {
@@ -1615,7 +1615,7 @@ async def test_calculate_total_precipitation_rate_non_finite_values_and_window_b
     hass: HomeAssistant, freezer
 ) -> None:
     """Verify non-finite rates (NaN/Inf) are safely skipped and hour window excludes bins starting at end_time."""
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timezone
     from unittest.mock import MagicMock
     from custom_components.buienalarm.entity import BuienalarmEntity
 
@@ -1652,8 +1652,8 @@ async def test_calculate_total_precipitation_rate_non_finite_values_and_window_b
         ]
     }
 
-    # Should safely ignore NaN and Inf and return 1.2 / 1.0 = 1.2
-    assert entity.get_total_precipitation_rate_for_next_hour() == 1.2
+    # The valid five-minute bin contributes 1.2 * (5 / 60) = 0.1 mm/h.
+    assert entity.get_total_precipitation_rate_for_next_hour() == pytest.approx(0.1)
 
     # 2. Window boundary check: exactly 12 bins for 1 hour (12:00:00 to 13:00:00)
     # Bins at 12:00, 12:05, ..., 12:55 (12 bins with rate 1.2 mm/h)
@@ -1675,6 +1675,75 @@ async def test_calculate_total_precipitation_rate_non_finite_values_and_window_b
 
     coordinator.data = {"data": data}
 
-    # Sum of 12 bins = 12 * 1.2 = 14.4. Hourly rate = 14.4 / 1 = 14.4
-    # If the 13th bin (rate 10.0) were incorrectly included, total rate would be 24.4
-    assert entity.get_total_precipitation_rate_for_next_hour() == 14.4
+    # Twelve five-minute bins at 1.2 mm/h average 1.2 mm/h over the hour.
+    assert entity.get_total_precipitation_rate_for_next_hour() == pytest.approx(1.2)
+
+
+@pytest.mark.parametrize("hours", [1, 2])
+@pytest.mark.parametrize(
+    ("rates", "expected"),
+    [
+        ([float("nan"), float("inf"), -float("inf")], None),
+        ([0.0, 0.0, 0.0], 0.0),
+        ([float("nan"), 0.0, float("inf")], 0.0),
+        ([], None),
+    ],
+    ids=["only-non-finite", "valid-zero", "zero-with-invalid", "empty"],
+)
+@pytest.mark.asyncio
+async def test_total_precipitation_rate_distinguishes_missing_and_zero(
+    hass: HomeAssistant, freezer, hours: int, rates: list[float], expected: float | None
+) -> None:
+    """Keep missing rates unknown while exposing valid dry forecasts as zero."""
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.entity import BuienalarmEntity
+
+    freezer.move_to("2026-10-22T12:00:00Z")
+    entry = MockConfigEntry(domain=DOMAIN, data={})
+    coordinator = MagicMock()
+    key = "precipitationrate_hour" if hours == 1 else "precipitationrate_total"
+    entity = BuienalarmEntity(coordinator, entry, key)
+    start_ts = datetime.now(timezone.utc).timestamp()
+    coordinator.data = {
+        "timeseries": {
+            "data": [
+                {"timestamp": start_ts + i * 300, "precipitationrate": rate}
+                for i, rate in enumerate(rates)
+            ]
+        }
+    }
+
+    result = entity.get_data(key)
+    if expected is None:
+        assert result is None
+    else:
+        assert result == pytest.approx(expected)
+
+
+@pytest.mark.parametrize(("hours", "expected"), [(1, 0.8), (2, 0.4)])
+@pytest.mark.asyncio
+async def test_total_precipitation_rate_weights_partial_bins(
+    hass: HomeAssistant, freezer, hours: int, expected: float
+) -> None:
+    """Weight only the portions of five-minute bins overlapping the window."""
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.entity import BuienalarmEntity
+
+    freezer.move_to("2026-10-22T12:00:00Z")
+    entry = MockConfigEntry(domain=DOMAIN, data={})
+    coordinator = MagicMock()
+    key = "precipitationrate_hour" if hours == 1 else "precipitationrate_total"
+    entity = BuienalarmEntity(coordinator, entry, key)
+    start_ts = datetime.now(timezone.utc).timestamp()
+    end_ts = start_ts + hours * 3600
+    coordinator.data = {
+        "data": [
+            {"timestamp": start_ts - 300, "precipitationrate": 100.0},
+            {"timestamp": start_ts - 120, "precipitationrate": 12.0},
+            {"timestamp": end_ts - 120, "precipitationrate": 6.0},
+            {"timestamp": end_ts, "precipitationrate": 100.0},
+        ]
+    }
+
+    # Three minutes at 12 mm/h plus two at 6 mm/h yield 0.8 mm.
+    assert entity.get_data(key) == pytest.approx(expected)
