@@ -1,0 +1,85 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "helpers:pinGitHubActionDigests",
+    "customManagers:githubActionsVersions"
+  ],
+  "enabledManagers": ["poetry", "github-actions", "pyenv", "custom.regex"],
+  "timezone": "Europe/Amsterdam",
+  "schedule": ["* 3-5 * * 1,4"],
+  "automergeSchedule": ["* 3-5 * * 1,4"],
+  "updateNotScheduled": false,
+  "platformAutomerge": false,
+  "automerge": false,
+  "automergeType": "pr",
+  "automergeStrategy": "squash",
+  "ignoreTests": false,
+  "rebaseWhen": "behind-base-branch",
+  "branchPrefix": "renovate-actions/",
+  "labels": ["dependencies"],
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 2,
+  "vulnerabilityAlerts": {"enabled": false},
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["* 3-5 * * 1"],
+    "automerge": false
+  },
+  "packageRules": [
+    {
+      "description": "Bump the lower bounds of explicitly managed development tools",
+      "matchManagers": ["poetry"],
+      "matchPackageNames": ["black", "pylint", "pytest", "pytest-asyncio"],
+      "rangeStrategy": "bump"
+    },
+    {
+      "description": "Automerge mature Python development tools after CI and a three-day release age",
+      "matchManagers": ["poetry"],
+      "matchPackageNames": ["black", "pylint", "pytest", "pytest-asyncio"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "matchCurrentVersion": ">=1.0.0",
+      "minimumReleaseAge": "3 days",
+      "automerge": true
+    },
+    {
+      "description": "Automerge mature GitHub Actions minor and patch releases after CI and a three-day release age",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "matchCurrentVersion": ">=1.0.0",
+      "minimumReleaseAge": "3 days",
+      "automerge": true
+    },
+    {
+      "description": "Automerge stable GitHub Actions digest updates and immutable pins after CI",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["digest", "pinDigest"],
+      "matchCurrentVersion": ">=1.0.0",
+      "automerge": true
+    },
+    {
+      "description": "Review Home Assistant and its test plugin together",
+      "matchManagers": ["poetry"],
+      "matchPackageNames": ["homeassistant", "pytest-homeassistant-custom-component"],
+      "groupName": "Home Assistant test baseline",
+      "automerge": false
+    },
+    {
+      "description": "Keep Python on the supported 3.14 series and require review",
+      "matchManagers": ["pyenv"],
+      "allowedVersions": "/^3\\.14\\./",
+      "automerge": false
+    },
+    {
+      "description": "Review Renovate runner upgrades",
+      "matchManagers": ["custom.regex"],
+      "matchPackageNames": ["renovate"],
+      "automerge": false
+    },
+    {
+      "description": "Require review for major, replacement, rollback, and bulk lock updates",
+      "matchUpdateTypes": ["major", "replacement", "rollback", "lockFileMaintenance"],
+      "automerge": false
+    }
+  ]
+}

@@ -4,12 +4,15 @@
 # https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
 
 version: 2
+# Renovate owns scheduled version updates; retain Dependabot security updates.
 updates:
   - package-ecosystem: "pip"
     directory: "/"  # Geef de locatie van requirements.txt of pyproject.toml op
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 0
   - package-ecosystem: "github-actions"
     directory: "/"  # Controleert GitHub Actions workflows in .github/workflows
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 0

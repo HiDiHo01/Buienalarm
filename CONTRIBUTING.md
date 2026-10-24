@@ -59,6 +59,9 @@ If you encounter a bug or have a suggestion for the project, feel free to open a
 ## Documentation
 If you contribute to the documentation, please follow the existing structure and format. It's important to ensure that the documentation is clear, accurate, and up-to-date.
 
+For dependency maintenance, see the [Renovate schedule, merge policy, and setup
+guide](docs/renovate.md).
+
 ---
 
 This template gives clear instructions for contributing to the project, including how to fork the repository, create a branch, make changes, and submit a pull request. You can further customize it based on specific contribution guidelines you want to set for your repository.
