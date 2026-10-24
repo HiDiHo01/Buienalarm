@@ -40,6 +40,7 @@ jobs:
           KODIAK_SCHEMA_URL: https://raw.githubusercontent.com/chdsbd/kodiak/4aff5fcd5d6446eb273e21ed0a6c6037243a240b/bot/kodiak/test/fixtures/config/config-schema.json
         run: |
           curl --fail --silent --show-error --location \
+            --proto '=https' --proto-redir '=https' \
             --retry 3 --retry-delay 2 --retry-max-time 45 \
             --connect-timeout 10 --max-time 20 \
             --output "$RUNNER_TEMP/kodiak-config-schema.json" "$KODIAK_SCHEMA_URL"
