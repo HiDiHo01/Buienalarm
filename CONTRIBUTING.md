@@ -50,6 +50,13 @@ After pushing your changes, navigate to the original repository and create a pul
 ### 8. Respond to Feedback
 The maintainers may provide feedback on your PR. Please respond to comments and make the necessary updates to your PR. We appreciate your help in improving the project!
 
+### 9. Queue an Approved Pull Request with Kodiak
+
+After review, maintainers can add the `automerge` label to queue a pull request
+for a squash merge once required checks and reviews pass. See the
+[Kodiak setup and maintainer workflow](docs/kodiak.md) for the GitHub App,
+branch protection requirements, and configuration validation.
+
 ## Code of Conduct
 We expect all contributors to follow our [Code of Conduct](CODE_OF_CONDUCT.md). Please treat others with kindness and respect.
 

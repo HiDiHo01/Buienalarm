@@ -1,0 +1,19 @@
+# Kodiak runs as a GitHub App and respects branch protection rules on main.
+# Setup and required checks: docs/kodiak.md
+version = 1
+
+[merge]
+automerge_label = "automerge"
+require_automerge_label = true
+method = "squash"
+delete_branch_on_merge = false
+
+[merge.message]
+title = "pull_request_title"
+body = "pull_request_body"
+strip_html_comments = true
+
+[update]
+# Let Dependabot manage its own branches and superseded dependency updates.
+# Kodiak's documented bot username format omits the REST API's "[bot]" suffix.
+ignored_usernames = ["dependabot"]
