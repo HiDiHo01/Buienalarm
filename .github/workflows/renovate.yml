@@ -1,0 +1,126 @@
+name: Renovate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: "17 3-5 * * 1,4"
+      timezone: Europe/Amsterdam
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # renovate: datasource=npm depName=renovate
+  RENOVATE_VERSION: "44.181.5"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate Renovate configuration
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+
+      - name: Install pinned Renovate validator
+        run: |
+          npm install --prefix "$RUNNER_TEMP/renovate-validator" \
+            --ignore-scripts --no-audit --no-fund --no-save "renovate@${RENOVATE_VERSION}"
+          npm rebuild --prefix "$RUNNER_TEMP/renovate-validator" re2 --foreground-scripts
+
+      - name: Validate repository and self-hosted configuration
+        env:
+          RENOVATE_VALIDATOR_ROOT: ${{ runner.temp }}/renovate-validator/node_modules/renovate
+        run: |
+          node "$RENOVATE_VALIDATOR_ROOT/dist/config-validator.js" --strict --no-global renovate.json
+          node "$RENOVATE_VALIDATOR_ROOT/dist/config-validator.js" --strict .github/renovate-config.json
+
+      - name: Verify automerge rules and local-time schedules
+        env:
+          RENOVATE_VALIDATOR_ROOT: ${{ runner.temp }}/renovate-validator/node_modules/renovate
+        run: node --test .github/scripts/test-renovate-policy.mjs
+
+  renovate:
+    name: Run Renovate
+    needs: validate
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check GitHub App configuration
+        env:
+          APP_CLIENT_ID: ${{ vars.RENOVATE_APP_CLIENT_ID }}
+          APP_PRIVATE_KEY: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
+        run: |
+          if [[ -z "$APP_CLIENT_ID" || -z "$APP_PRIVATE_KEY" ]]; then
+            echo "::error::Set RENOVATE_APP_CLIENT_ID and RENOVATE_APP_PRIVATE_KEY before running Renovate. See docs/renovate.md."
+            exit 1
+          fi
+
+      - name: Create repository-scoped GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.RENOVATE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-administration: read
+          permission-checks: write
+          permission-statuses: write
+          permission-contents: write
+          permission-issues: write
+          permission-pull-requests: write
+          permission-workflows: write
+
+      - name: Require CI protection before dependency changes
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          required_checks='["build (3.14.2)", "Validate", "Validate Renovate configuration"]'
+          rules="$(gh api "repos/${GH_REPO}/rules/branches/main")"
+          if ! jq -e --argjson required "$required_checks" '
+            any(.[];
+              .type == "required_status_checks" and
+              .parameters.strict_required_status_checks_policy == true and
+              (($required - [.parameters.required_status_checks[].context]) | length) == 0
+            )
+          ' <<< "$rules" > /dev/null; then
+            echo "::error::Configure an active main ruleset with up-to-date branches and the required build, Validate, and Renovate checks. See docs/renovate.md."
+            exit 1
+          fi
+
+      - name: Check out trusted main configuration
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Run repository-scoped Renovate
+        uses: renovatebot/github-action@a63d9a7bc606f7336fd20b47f2f32259a35e6213 # v46.3.9
+        with:
+          configurationFile: .github/renovate-config.json
+          renovate-version: ${{ env.RENOVATE_VERSION }}
+          token: ${{ steps.app-token.outputs.token }}
+        env:
+          RENOVATE_REPOSITORIES: ${{ github.repository }}
+          RENOVATE_USERNAME: ${{ steps.app-token.outputs.app-slug }}[bot]
+          LOG_LEVEL: info
