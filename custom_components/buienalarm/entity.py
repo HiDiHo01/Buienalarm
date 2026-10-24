@@ -661,7 +661,7 @@ class BuienalarmEntity(CoordinatorEntity):
     def calculate_total_precipitation_rate(
         self, data: list[dict[str, object]], start_time: datetime, end_time: datetime
     ) -> float | None:
-        """Average five-minute rates over the window, or return None without valid data."""
+        """Average five-minute rates, or return None for missing or invalid window data."""
         self._validate_timestamps(start_time, end_time)
         total_time_seconds = (end_time - start_time).total_seconds()
         if total_time_seconds <= 0:
@@ -704,8 +704,11 @@ class BuienalarmEntity(CoordinatorEntity):
                 )
                 rate = _as_float(raw_rate)
                 if rate is None:
-                    _LOGGER.debug("Skipping invalid precipitationrate: %r", raw_rate)
-                    continue
+                    _LOGGER.debug(
+                        "Cannot calculate aggregate with invalid precipitationrate: %r",
+                        raw_rate,
+                    )
+                    return None
                 overlap_seconds = min(ts + 300, end_ts) - max(ts, start_ts)
                 total_precipitation += rate * (overlap_seconds / 3600)
                 has_rate = True
