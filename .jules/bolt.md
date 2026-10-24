@@ -28,3 +28,7 @@ Critical learnings on performance optimizations for this repository.
 ## 2026-10-23 - Validate forecast points and compute timestamp bounds in a single pass
 **Learning:** Redundantly converting numeric epoch timestamps float -> datetime -> float inside sensor icon checks (`datetime.fromtimestamp(...).timestamp()`) and using double list traversals (`all(...)` followed by `for point in forecast`) creates unnecessary `datetime` object instantiations and list allocations. Validating points and updating min/max timestamp floats directly in a single pass reduces execution latency by ~63% (~2.71x speedup).
 **Action:** Always validate timeseries entries and compute minimum/maximum timestamp bounds in a single pass using direct float comparisons (`0 <= ts <= 253402300799`).
+
+## 2026-10-24 - Validate datetime conversion before updating rain boundaries
+**Learning:** Numeric epoch bounds do not guarantee that `datetime.fromtimestamp(...)` succeeds on every platform. Deferring conversion until after rain boundaries have been updated lets unsupported points erase a valid rain start or inflate the duration. Numeric float subtraction can also change whole-minute rounding compared with subtraction of converted datetimes.
+**Action:** Keep numeric filtering and parsing fast paths, but convert each accepted timestamp before changing any rain boundary. Skip conversion failures, reuse the validated UTC datetime, and calculate duration from datetime endpoints to preserve rounding.
