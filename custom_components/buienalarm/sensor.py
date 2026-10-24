@@ -13,7 +13,7 @@ from homeassistant.helpers.typing import StateType
 
 from .const import ATTR_ATTRIBUTION, DOMAIN, SENSORS
 from .coordinator import BuienalarmConfigEntry, BuienalarmDataUpdateCoordinator
-from .entity import BuienalarmEntity
+from .entity import BuienalarmEntity, _as_float, _safe_get
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -114,14 +114,66 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
             )
             return False
 
-        has_data_list = isinstance(self.data.get("data"), list)
-        has_nowcast_msg = isinstance(self.data.get("nowcastmessage"), Mapping)
+        if self._key == "nowcastmessage":
+            nowcastmessage = self.data.get("nowcastmessage")
+            if (
+                not isinstance(nowcastmessage, Mapping)
+                or not isinstance(nowcastmessage.get("nl"), str)
+                or not nowcastmessage["nl"]
+            ):
+                _LOGGER.debug(
+                    "[SENSOR ENTITY] Payload missing usable 'nowcastmessage.nl' for key %s",
+                    self._key,
+                )
+                return False
+        else:
+            if not isinstance(self.data.get("data"), list):
+                _LOGGER.debug(
+                    "[SENSOR ENTITY] Payload missing 'data' list for key %s",
+                    self._key,
+                )
+                return False
 
-        if not (has_data_list or has_nowcast_msg):
-            _LOGGER.debug(
-                "[SENSOR ENTITY] Payload missing forecast fields ('data' list or 'nowcastmessage' mapping) for key %s",
-                self._key,
-            )
+        if self._key in (
+            "precipitationrate_total",
+            "precipitationrate_hour",
+            "mycastmessage",
+        ):
+            current_ts = datetime.now(timezone.utc).timestamp()
+            horizon = {
+                "precipitationrate_hour": 3600,
+                "precipitationrate_total": 7200,
+            }.get(self._key)
+            for point in self.data["data"]:
+                timestamp = _as_float(_safe_get(point, "timestamp"))
+                rate = _safe_get(point, "precipitationrate")
+                if timestamp is None or isinstance(rate, bool):
+                    continue
+                try:
+                    rate = float(rate)
+                except (TypeError, ValueError, OverflowError):
+                    continue
+                if (
+                    0 <= timestamp <= 253402300799
+                    and current_ts < timestamp + 300
+                    and (horizon is None or timestamp < current_ts + horizon)
+                    and math.isfinite(rate)
+                    and rate >= 0
+                ):
+                    return True
+            return False
+
+        if self._key == "precipitationrate_now":
+            current_ts = datetime.now(timezone.utc).timestamp()
+            for point in self.data["data"]:
+                timestamp = _as_float(_safe_get(point, "timestamp"))
+                rate = _as_float(_safe_get(point, "precipitationrate"))
+                if (
+                    timestamp is not None
+                    and rate is not None
+                    and timestamp <= current_ts < timestamp + 300
+                ):
+                    return rate >= 0
             return False
 
         return True
