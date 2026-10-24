@@ -1045,7 +1045,10 @@ class BuienalarmEntity(CoordinatorEntity):
             if type(timestamp) is float:
                 ts_float = timestamp
             elif type(timestamp) is int:
-                ts_float = float(timestamp)
+                try:
+                    ts_float = float(timestamp)
+                except OverflowError:
+                    continue
             else:
                 try:
                     ts_float = float(timestamp)
@@ -1069,7 +1072,10 @@ class BuienalarmEntity(CoordinatorEntity):
             elif type(raw_rate) is float:
                 precipitation_rate = raw_rate if math.isfinite(raw_rate) else 0.0
             elif type(raw_rate) is int:
-                precipitation_rate = float(raw_rate)
+                try:
+                    precipitation_rate = float(raw_rate)
+                except OverflowError:
+                    precipitation_rate = 0.0
             else:
                 try:
                     precipitation_rate = float(raw_rate)
