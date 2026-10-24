@@ -43,19 +43,8 @@ DEFAULT_LONGITUDE: Final[float] = 4.79861
 DEFAULT_REFRESH_INTERVAL: Final[int] = 300  # seconds (5 min)
 DEFAULT_NOTIFICATION_LIMIT: Final[int] = 0  # mm/h – notify on any value
 
-_LATITUDE_SELECTOR: Final[selector.NumberSelector] = selector.NumberSelector(
+_COORDINATE_SELECTOR: Final[selector.NumberSelector] = selector.NumberSelector(
     selector.NumberSelectorConfig(
-        min=-90.0,
-        max=90.0,
-        step="any",
-        mode=selector.NumberSelectorMode.BOX,
-    )
-)
-
-_LONGITUDE_SELECTOR: Final[selector.NumberSelector] = selector.NumberSelector(
-    selector.NumberSelectorConfig(
-        min=-180.0,
-        max=180.0,
         step="any",
         mode=selector.NumberSelectorMode.BOX,
     )
@@ -236,8 +225,8 @@ class BuienalarmConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         data_schema: vol.Schema = vol.Schema(
             {
                 vol.Required(CONF_NAME, default=NAME): selector.TextSelector(),
-                vol.Required(CONF_LATITUDE, default=default_lat): _LATITUDE_SELECTOR,
-                vol.Required(CONF_LONGITUDE, default=default_lon): _LONGITUDE_SELECTOR,
+                vol.Required(CONF_LATITUDE, default=default_lat): _COORDINATE_SELECTOR,
+                vol.Required(CONF_LONGITUDE, default=default_lon): _COORDINATE_SELECTOR,
                 vol.Optional(
                     "notification_limit", default=DEFAULT_NOTIFICATION_LIMIT
                 ): _NOTIFICATION_LIMIT_SCHEMA,
@@ -307,57 +296,6 @@ class BuienalarmOptionsFlow(config_entries.OptionsFlow):
         """Return schema for the options form."""
         options = user_input if user_input is not None else self._entry.options
         data = self._entry.data
-
-        raw_lat = options.get(CONF_LATITUDE)
-        raw_lon = options.get(CONF_LONGITUDE)
-        raw_notif = options.get("notification_limit")
-        raw_refresh = options.get("refresh_interval")
-
-        saved_lat = self._entry.options.get(
-            CONF_LATITUDE, data.get(CONF_LATITUDE, DEFAULT_LATITUDE)
-        )
-        saved_lon = self._entry.options.get(
-            CONF_LONGITUDE, data.get(CONF_LONGITUDE, DEFAULT_LONGITUDE)
-        )
-        saved_notif = self._entry.options.get(
-            "notification_limit",
-            data.get("notification_limit", DEFAULT_NOTIFICATION_LIMIT),
-        )
-        saved_refresh = self._entry.options.get(
-            "refresh_interval",
-            data.get("refresh_interval", DEFAULT_REFRESH_INTERVAL),
-        )
-
-        lat_val = saved_lat
-        if raw_lat is not None:
-            try:
-                f_lat = float(str(raw_lat).replace(",", "."))
-                if -90.0 <= f_lat <= 90.0:
-                    lat_val = f_lat
-            except (TypeError, ValueError):
-                pass
-
-        lon_val = saved_lon
-        if raw_lon is not None:
-            try:
-                f_lon = float(str(raw_lon).replace(",", "."))
-                if -180.0 <= f_lon <= 180.0:
-                    lon_val = f_lon
-            except (TypeError, ValueError):
-                pass
-
-        notif_val = saved_notif
-        if raw_notif is not None:
-            parsed_notif = _parse_int_option(raw_notif, 0)
-            if parsed_notif is not None:
-                notif_val = parsed_notif
-
-        refresh_val = saved_refresh
-        if raw_refresh is not None:
-            parsed_refresh = _parse_int_option(raw_refresh, 60)
-            if parsed_refresh is not None:
-                refresh_val = parsed_refresh
-
         return vol.Schema(
             {
                 vol.Required(
@@ -366,19 +304,29 @@ class BuienalarmOptionsFlow(config_entries.OptionsFlow):
                 ): selector.TextSelector(),
                 vol.Required(
                     CONF_LATITUDE,
-                    default=lat_val,
-                ): _LATITUDE_SELECTOR,
+                    default=options.get(
+                        CONF_LATITUDE, data.get(CONF_LATITUDE, DEFAULT_LATITUDE)
+                    ),
+                ): _COORDINATE_SELECTOR,
                 vol.Required(
                     CONF_LONGITUDE,
-                    default=lon_val,
-                ): _LONGITUDE_SELECTOR,
+                    default=options.get(
+                        CONF_LONGITUDE, data.get(CONF_LONGITUDE, DEFAULT_LONGITUDE)
+                    ),
+                ): _COORDINATE_SELECTOR,
                 vol.Required(
                     "notification_limit",
-                    default=notif_val,
+                    default=options.get(
+                        "notification_limit",
+                        data.get("notification_limit", DEFAULT_NOTIFICATION_LIMIT),
+                    ),
                 ): _NOTIFICATION_LIMIT_SCHEMA,
                 vol.Required(
                     "refresh_interval",
-                    default=refresh_val,
+                    default=options.get(
+                        "refresh_interval",
+                        data.get("refresh_interval", DEFAULT_REFRESH_INTERVAL),
+                    ),
                 ): _REFRESH_INTERVAL_SCHEMA,
             }
         )

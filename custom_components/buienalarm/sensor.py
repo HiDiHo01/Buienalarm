@@ -134,10 +134,12 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
                 )
                 return False
 
+        if self._key == "mycastmessage":
+            return self.get_rain_start_time_and_duration(self.data["data"]) is not None
+
         if self._key in (
             "precipitationrate_total",
             "precipitationrate_hour",
-            "mycastmessage",
         ):
             current_ts = datetime.now(timezone.utc).timestamp()
             horizon = {
