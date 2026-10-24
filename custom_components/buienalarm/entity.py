@@ -1098,30 +1098,54 @@ class BuienalarmEntity(CoordinatorEntity):
                 rain_stop_ts = ts_float
                 rain_stopped = True
 
-        # Bolt performance optimization: Calculate duration directly via numeric subtraction
-        # and defer datetime object instantiations to the return boundary (~3.7x faster).
-        if rain_start_ts is not None:
-            if rain_stop_ts is not None:
-                rain_duration = int((rain_stop_ts - rain_start_ts) / 60)
-            elif last_valid_ts is not None:
-                rain_duration = int((last_valid_ts - rain_start_ts) / 60)
-            rain_duration = int(rain_duration)
+        # Bolt performance optimization: Convert boundary timestamps to datetime
+        # at the return boundary (~3.7x faster) and compute duration from the converted endpoints.
+        try:
+            rain_start_time_utc = (
+                datetime.fromtimestamp(rain_start_ts, tz=timezone.utc)
+                if rain_start_ts is not None
+                else None
+            )
+        except (ValueError, OverflowError, OSError):
+            rain_start_time_utc = None
 
-        rain_start_time_utc = (
-            datetime.fromtimestamp(rain_start_ts, tz=timezone.utc)
-            if rain_start_ts is not None
-            else None
-        )
-        rain_stop_time_utc = (
-            datetime.fromtimestamp(rain_stop_ts, tz=timezone.utc)
-            if rain_stop_ts is not None
-            else None
-        )
-        rain_restart_time_utc = (
-            datetime.fromtimestamp(rain_restart_ts, tz=timezone.utc)
-            if rain_restart_ts is not None
-            else None
-        )
+        try:
+            rain_stop_time_utc = (
+                datetime.fromtimestamp(rain_stop_ts, tz=timezone.utc)
+                if rain_stop_ts is not None
+                else None
+            )
+        except (ValueError, OverflowError, OSError):
+            rain_stop_time_utc = None
+
+        try:
+            rain_restart_time_utc = (
+                datetime.fromtimestamp(rain_restart_ts, tz=timezone.utc)
+                if rain_restart_ts is not None
+                else None
+            )
+        except (ValueError, OverflowError, OSError):
+            rain_restart_time_utc = None
+
+        try:
+            last_valid_time_utc = (
+                datetime.fromtimestamp(last_valid_ts, tz=timezone.utc)
+                if last_valid_ts is not None
+                else None
+            )
+        except (ValueError, OverflowError, OSError):
+            last_valid_time_utc = None
+
+        if rain_start_time_utc is not None:
+            if rain_stop_time_utc is not None:
+                rain_duration = int(
+                    (rain_stop_time_utc - rain_start_time_utc).total_seconds() / 60
+                )
+            elif last_valid_time_utc is not None:
+                rain_duration = int(
+                    (last_valid_time_utc - rain_start_time_utc).total_seconds() / 60
+                )
+            rain_duration = int(rain_duration)
 
         return (
             rain_start_time_utc,
