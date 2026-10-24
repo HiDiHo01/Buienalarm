@@ -1166,7 +1166,8 @@ class BuienalarmEntity(CoordinatorEntity):
         added to that final timestamp, so an open period with one point lasts
         zero minutes. Return an empty list for missing or non-list data, or when
         there are no precipitation periods. Invalid rates end active periods
-        at the unknown bin's timestamp; timestamp conversion errors propagate.
+        at the unknown bin's timestamp. Non-finite timestamps are skipped;
+        conversion errors for retained finite timestamps propagate.
 
         Returns:
             A list of dictionaries per period:
@@ -1177,8 +1178,8 @@ class BuienalarmEntity(CoordinatorEntity):
                   mm/h, rounded to two decimal places.
 
         Raises:
-            ValueError: A retained timestamp is NaN or outside datetime's range.
-            OverflowError: A timestamp exceeds numeric conversion limits.
+            ValueError: A retained timestamp is outside datetime's range.
+            OverflowError: A retained timestamp exceeds datetime conversion limits.
             OSError: The system cannot convert a retained timestamp.
         """
         precipitation_data: object = self.data.get("data", [])
@@ -1226,8 +1227,9 @@ class BuienalarmEntity(CoordinatorEntity):
                 )
                 continue
 
-            if not isinstance(raw_timestamp, (int, float)) or isinstance(
-                raw_timestamp, bool
+            if (
+                not isinstance(raw_timestamp, (int, float))
+                or _as_float(raw_timestamp) is None
             ):
                 _LOGGER.warning(
                     "[BUIENALARM ENTITY] Ongeldige timestamp op index %d: %s",
