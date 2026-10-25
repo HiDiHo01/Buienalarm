@@ -1368,6 +1368,17 @@ async def test_dynamic_sensor_icons(hass: HomeAssistant) -> None:
         key="precipitationtype_now",
     )
 
+    precip_desc_sensor = BuienalarmSensor(
+        coordinator,
+        entry,
+        name="Precipitation Description",
+        unit_of_measurement=None,
+        icon="mdi:weather-cloudy-alert",
+        device_class=None,
+        state_class=None,
+        key="precipitationrate_now_desc",
+    )
+
     # 1. Test when dry (rate = 0.0, type = "Geen neerslag")
     coordinator.data = {
         "data": [
@@ -1383,6 +1394,7 @@ async def test_dynamic_sensor_icons(hass: HomeAssistant) -> None:
     assert precip_rate_hour_sensor.icon == "mdi:weather-sunny"
     assert precip_rate_total_sensor.icon == "mdi:weather-sunny"
     assert precip_type_sensor.icon == "mdi:weather-sunny"
+    assert precip_desc_sensor.icon == "mdi:weather-sunny"
 
     # 2. Test when raining (rate = 2.5, type = "rain")
     coordinator.data = {
@@ -1399,6 +1411,7 @@ async def test_dynamic_sensor_icons(hass: HomeAssistant) -> None:
     assert precip_rate_hour_sensor.icon == "mdi:weather-pouring"
     assert precip_rate_total_sensor.icon == "mdi:weather-pouring"
     assert precip_type_sensor.icon == "mdi:weather-pouring"
+    assert precip_desc_sensor.icon == "mdi:weather-pouring"
 
     # 3. Test when snowing (type = "snow")
     coordinator.data = {
@@ -1412,6 +1425,7 @@ async def test_dynamic_sensor_icons(hass: HomeAssistant) -> None:
     }
 
     assert precip_type_sensor.icon == "mdi:weather-snowy"
+    assert precip_desc_sensor.icon == "mdi:weather-snowy"
 
 
 @pytest.mark.asyncio
