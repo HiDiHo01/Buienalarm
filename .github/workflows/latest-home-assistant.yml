@@ -1,0 +1,65 @@
+name: Latest stable Home Assistant
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: "43 6 * * *"
+      timezone: Europe/Amsterdam
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  latest:
+    name: Latest stable Home Assistant
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version-file: .python-version
+
+      - name: Install the exact latest stable Home Assistant release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          latest_version="$(gh api repos/home-assistant/core/releases/latest --jq .tag_name)"
+          if [[ ! "$latest_version" =~ ^[0-9]{4}\.[0-9]{1,2}\.[0-9]+$ ]]; then
+            echo "::error::Unexpected stable Home Assistant release tag: $latest_version"
+            exit 1
+          fi
+          # PyRIC is a transitive runtime dependency without a published wheel.
+          python -m pip install --only-binary=:all: --no-binary=pyric \
+            "homeassistant==${latest_version}"
+          python -m pip check
+
+      - name: Check integration lifecycle against the latest release
+        run: |
+          set -o pipefail
+          mkdir -p debug-logs
+          python -m unittest discover -s compatibility -v \
+            2>&1 | tee debug-logs/latest-home-assistant.log
+
+      - name: Upload compatibility log
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: latest-home-assistant-log
+          path: debug-logs/latest-home-assistant.log
+          if-no-files-found: warn
+          retention-days: 14
