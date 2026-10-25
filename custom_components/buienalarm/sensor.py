@@ -276,7 +276,7 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
             if self._key == "next_precipitation":
                 return "mdi:weather-pouring" if val == 0 else "mdi:clock-start"
             return "mdi:weather-pouring" if val > 0 else "mdi:weather-sunny"
-        elif self._key == "precipitationtype_now":
+        elif self._key in ("precipitationtype_now", "precipitationrate_now_desc"):
             val = self.native_value
             if isinstance(val, str):
                 val_lower = val.lower()
