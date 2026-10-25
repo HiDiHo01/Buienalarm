@@ -85,6 +85,27 @@ for (const [description, instant, expected] of schedule_cases) {
   });
 }
 
+for (const package_name of ["homeassistant", "pytest-homeassistant-custom-component"]) {
+  test(`${package_name} baseline updates on an ordinary Tuesday`, async (context) => {
+    context.mock.method(Date, "now", () => Date.parse("2026-10-27T03:17:00Z"));
+    const result = await apply_package_rules({
+      ...repository_config,
+      manager: "poetry",
+      depName: package_name,
+      packageName: package_name,
+      currentVersion: package_name === "homeassistant" ? "2026.10.4" : "0.13.374",
+      versioning: "pep440",
+      updateType: "patch"
+    });
+    assert.equal(is_scheduled_now(result), true);
+    assert.equal(is_scheduled_now(repository_config), false);
+    assert.equal(result.rangeStrategy, "update-lockfile");
+    assert.equal(result.groupName, "Home Assistant test baseline");
+    assert.equal(result.automerge, false);
+    assert.equal(result.ignoreUnstable, true);
+  });
+}
+
 const required_checks = ["build (3.14.2)", "Validate", "Validate Renovate configuration"];
 const protection_rule = {
   ruleset_id: 123,

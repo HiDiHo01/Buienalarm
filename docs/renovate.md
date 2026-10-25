@@ -9,10 +9,11 @@ every pull request and runs the bot only from `main` on scheduled or manual runs
 
 ## Schedule and merge policy
 
-Branch creation, branch updates, and automatic merges use Monday and Thursday
-03:00–06:00 in `Europe/Amsterdam`. GitHub starts the runner at 03:17, 04:17,
-and 05:17 on those days using its native timezone setting. Renovate checks the
-window again, including on manual runs and when a workflow is delayed.
+Ordinary dependency updates and automatic merges use Monday and Thursday
+03:00–06:00 in `Europe/Amsterdam`. The Home Assistant/test-plugin group can update
+every day in the same hours. GitHub starts the runner at 03:17, 04:17, and 05:17
+daily; package-specific schedules keep other updates in their original window.
+Renovate checks the window again on manual runs and delayed workflows.
 
 `platformAutomerge` is disabled so GitHub cannot complete an automatically
 queued merge outside `automergeSchedule`. Renovate creates pull requests,
@@ -24,7 +25,7 @@ checks CI on an up-to-date branch, and uses squash merges within the window.
 | Stable GitHub Actions minor/patch releases | After passing CI and a release age of at least three days |
 | Stable, versioned GitHub Actions digest changes and immutable digest pins | After passing CI |
 | Unversioned or pre-1.0 GitHub Actions | Manual review |
-| Home Assistant and its custom-component test plugin | Manual review, grouped together |
+| Home Assistant and its custom-component test plugin | Checked daily, grouped together, manual review |
 | Python 3.14 patch releases | Manual review; other Python series are excluded |
 | Renovate runner upgrades | Manual review |
 | Major, replacement, rollback, and lock-file maintenance updates | Manual review |
@@ -34,6 +35,13 @@ ranges are retained except the four listed development tools, which bump their
 lower bounds so Renovate can target the reviewed version. Poetry's range-based
 lock updates have limitations; inspect the resulting lock diff and CI for every
 manual baseline or maintenance update.
+
+The Home Assistant group refreshes the root and `test_dependencies/poetry.lock` files within
+open-ended stable-version requirements. The test plugin's upstream pin is
+isolated in `test_dependencies/`, so it cannot hold back the main environment. The full pytest
+baseline can lag the newest release until matching fixtures are published.
+An independent [latest-stable compatibility check](testing.md) installs the exact
+newest stable Home Assistant without that plugin and tests the integration lifecycle.
 
 Minor/patch updates eligible for automerge require a release timestamp for the
 three-day age check. An update without a usable timestamp remains blocked.

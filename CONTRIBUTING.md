@@ -25,7 +25,8 @@ Make your changes in the appropriate files. If you're adding a new feature, plea
 Make sure all tests are passing by running:
 
 ```bash
-pytest
+poetry --project test_dependencies install --no-root
+poetry --project test_dependencies run pytest
 ```
 
 We use `pytest` to run tests. If your changes introduce new functionality, consider adding tests to cover that functionality.
@@ -68,6 +69,9 @@ If you contribute to the documentation, please follow the existing structure and
 
 For dependency maintenance, see the [Renovate schedule, merge policy, and setup
 guide](docs/renovate.md).
+
+See [testing against the latest stable Home Assistant](docs/testing.md) for the
+independent compatibility check and the matching pytest-fixture baseline.
 
 ---
 

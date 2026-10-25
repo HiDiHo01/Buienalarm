@@ -6,7 +6,7 @@ on:
     branches:
       - main
   schedule:
-    - cron: "17 3-5 * * 1,4"
+    - cron: "17 3-5 * * *"
       timezone: Europe/Amsterdam
   workflow_dispatch:
 

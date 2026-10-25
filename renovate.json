@@ -58,10 +58,13 @@
       "automerge": true
     },
     {
-      "description": "Review Home Assistant and its test plugin together",
+      "description": "Track stable Home Assistant and its isolated test baseline daily",
       "matchManagers": ["poetry"],
       "matchPackageNames": ["homeassistant", "pytest-homeassistant-custom-component"],
       "groupName": "Home Assistant test baseline",
+      "rangeStrategy": "update-lockfile",
+      "schedule": ["* 3-5 * * *"],
+      "ignoreUnstable": true,
       "automerge": false
     },
     {

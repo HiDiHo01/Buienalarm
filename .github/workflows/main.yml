@@ -34,12 +34,21 @@ jobs:
       - name: ⚙️ Configure Poetry environment
         env:
           POETRY_INSTALLER_ONLY_BINARY: ":all:"
-          # These two locked test dependencies only provide source distributions.
+          # PyRIC has no wheel; the isolated test environment also needs mock-open.
           POETRY_INSTALLER_NO_BINARY: "pyric,mock-open"
         run: |
           poetry check --lock
           poetry env use "${{ matrix.python-version }}"
           poetry install --no-interaction --no-ansi --no-root
+
+      - name: Install isolated regression-test baseline
+        env:
+          POETRY_INSTALLER_ONLY_BINARY: ":all:"
+          POETRY_INSTALLER_NO_BINARY: "pyric,mock-open"
+        run: |
+          poetry --project test_dependencies check --lock
+          poetry --project test_dependencies env use "${{ matrix.python-version }}"
+          poetry --project test_dependencies install --no-interaction --no-ansi --no-root
 
       - name: 🧠 Set PYTHONPATH
         run: echo "PYTHONPATH=$GITHUB_WORKSPACE/Buienalarm" >> $GITHUB_ENV
@@ -65,7 +74,7 @@ jobs:
         run: |
           mkdir -p debug-logs
           set -o pipefail
-          poetry run pytest -vv \
+          poetry --project test_dependencies run pytest -vv \
             --log-cli-level=DEBUG \
             --log-file=debug-logs/pytest-debug.log \
             --log-file-level=DEBUG \
