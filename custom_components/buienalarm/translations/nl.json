@@ -16,8 +16,8 @@
                     "name": "Naam voor deze locatie.",
                     "latitude": "Breedtegraad van de locatie.",
                     "longitude": "Lengtegraad van de locatie.",
-                    "notification_limit": "Minimale neerslagintensiteit om meldingen te activeren (mm/u).",
-                    "refresh_interval": "Dataverversingsinterval in seconden (minimaal 300 seconden aanbevolen)."
+                    "notification_limit": "Minimale neerslagintensiteit om meldingen te activeren in mm/u (stel in op 0 voor elke hoeveelheid regen).",
+                    "refresh_interval": "Dataverversingsinterval in seconden (minimaal 60 seconden, 300 seconden aanbevolen)."
                 }
             }
         },
@@ -51,8 +51,8 @@
                     "name": "Naam voor deze locatie.",
                     "latitude": "Breedtegraad van de locatie.",
                     "longitude": "Lengtegraad van de locatie.",
-                    "notification_limit": "Minimale neerslagintensiteit om meldingen te activeren (mm/u).",
-                    "refresh_interval": "Dataverversingsinterval in seconden (minimaal 300 seconden aanbevolen)."
+                    "notification_limit": "Minimale neerslagintensiteit om meldingen te activeren in mm/u (stel in op 0 voor elke hoeveelheid regen).",
+                    "refresh_interval": "Dataverversingsinterval in seconden (minimaal 60 seconden, 300 seconden aanbevolen)."
                 }
             }
         },
