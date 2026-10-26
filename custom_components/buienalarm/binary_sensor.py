@@ -68,17 +68,14 @@ class BuienalarmBinarySensor(
     def _update_state(self) -> None:
         """Update availability and state from the coordinator data."""
         data = self.coordinator.data
-        if not isinstance(data, Mapping):
+        if not isinstance(data, Mapping) or not self.coordinator.last_update_success:
             self._attr_available = False
             self._attr_is_on = None
             return
 
         periods = _get_precipitation_periods(data)
-        self._attr_available = (
-            self.coordinator.last_update_success and periods is not None
-        )
-
         if periods is None:
+            self._attr_available = False
             self._attr_is_on = None
             return
 
@@ -86,25 +83,56 @@ class BuienalarmBinarySensor(
 
         match self.entity_description.key:
             case "precipitation_expected":
-                # Bolt optimization: short-circuit timestamp check before rate evaluation to skip historical points
+                unexpired_periods = [
+                    p
+                    for p in periods
+                    if (_as_float(p.get("timestamp")) or 0.0) + 300 > current_ts
+                ]
+                if not unexpired_periods:
+                    self._attr_available = False
+                    self._attr_is_on = None
+                    return
+                self._attr_available = True
                 self._attr_is_on = any(
-                    (_as_float(period.get("timestamp")) or 0.0) + 300 > current_ts
-                    and _is_precipitation_period(period)
-                    for period in periods
+                    _is_precipitation_period(period)
+                    for period in unexpired_periods
                 )
             case "currently_raining":
+                current_period_exists = any(
+                    (_as_float(p.get("timestamp")) or 0.0)
+                    <= current_ts
+                    < (_as_float(p.get("timestamp")) or 0.0) + 300
+                    for p in periods
+                )
+                if not current_period_exists:
+                    self._attr_available = False
+                    self._attr_is_on = None
+                    return
+                self._attr_available = True
                 self._attr_is_on = any(
                     _is_current_precipitation_period(period, current_ts)
                     and _is_rain_period(period)
                     for period in periods
                 )
             case "currently_snowing":
+                current_period_exists = any(
+                    (_as_float(p.get("timestamp")) or 0.0)
+                    <= current_ts
+                    < (_as_float(p.get("timestamp")) or 0.0) + 300
+                    for p in periods
+                )
+                if not current_period_exists:
+                    self._attr_available = False
+                    self._attr_is_on = None
+                    return
+                self._attr_available = True
                 self._attr_is_on = any(
                     _is_current_precipitation_period(period, current_ts)
                     and _is_snow_period(period)
                     for period in periods
                 )
             case _:
+                self._attr_available = True
                 self._attr_is_on = False
 
     @property

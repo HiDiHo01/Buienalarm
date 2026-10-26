@@ -260,7 +260,7 @@ async def test_binary_sensors_nested_timeseries_data(hass: HomeAssistant) -> Non
 
 @pytest.mark.asyncio
 async def test_binary_sensors_empty_data_list(hass: HomeAssistant) -> None:
-    """Test binary sensors remain available and off when API returns an empty data list."""
+    """Test binary sensors become unavailable when API returns an empty data list."""
     with patch(
         "custom_components.buienalarm.api.BuienalarmApiClient.async_get_data",
         return_value={"data": []},
@@ -286,7 +286,54 @@ async def test_binary_sensors_empty_data_list(hass: HomeAssistant) -> None:
             assert entity_id is not None
             state = hass.states.get(entity_id)
             assert state is not None
-            assert state.state == "off"
+            assert state.state == "unknown"
+
+
+@pytest.mark.asyncio
+async def test_binary_sensors_stale_data(hass: HomeAssistant) -> None:
+    """Test binary sensors become unavailable when forecast data contains only past timestamps."""
+    now_ts = datetime.now(timezone.utc).timestamp()
+    stale_data = {
+        "data": [
+            {
+                "precipitationrate": 5.0,
+                "precipitationtype": "rain",
+                "timestamp": now_ts - 3600,
+            },
+            {
+                "precipitationrate": 0.0,
+                "precipitationtype": "rain",
+                "timestamp": now_ts - 3300,
+            },
+        ]
+    }
+
+    with patch(
+        "custom_components.buienalarm.api.BuienalarmApiClient.async_get_data",
+        return_value=stale_data,
+    ):
+        entry = MockConfigEntry(
+            domain=DOMAIN,
+            title="Buienalarm Test Stale Data",
+            unique_id="test_stale_binary_data",
+            data={"latitude": 52.3702, "longitude": 4.8952},
+        )
+        entry.add_to_hass(hass)
+
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        entity_registry = async_get_entity_registry(hass)
+
+        for key in ("precipitation_expected", "currently_raining", "currently_snowing"):
+            unique_id = f"{entry.entry_id}_{key}"
+            entity_id = entity_registry.async_get_entity_id(
+                "binary_sensor", DOMAIN, unique_id
+            )
+            assert entity_id is not None
+            state = hass.states.get(entity_id)
+            assert state is not None
+            assert state.state == "unknown"
 
 
 @pytest.mark.asyncio
@@ -297,14 +344,19 @@ async def test_binary_sensor_precipitation_expected_unclassified_type(
 ) -> None:
     """Test precipitation_expected turns on for positive rate even with unclassified precipitationtype."""
     now_ts = datetime.now(timezone.utc).timestamp()
-    period = {
+    current_period = {
+        "precipitationrate": 0.0,
+        "precipitationtype": "none",
+        "timestamp": now_ts,
+    }
+    future_period = {
         "precipitationrate": 1.5,
         "timestamp": now_ts + 300,
     }
     if unclassified_type is not None:
-        period["precipitationtype"] = unclassified_type
+        future_period["precipitationtype"] = unclassified_type
 
-    data = {"data": [period]}
+    data = {"data": [current_period, future_period]}
 
     with patch(
         "custom_components.buienalarm.api.BuienalarmApiClient.async_get_data",

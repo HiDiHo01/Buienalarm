@@ -297,6 +297,64 @@ async def test_buienalarm_entity_invalid_precipitation_rates(
 
 
 @pytest.mark.asyncio
+async def test_buienalarm_sensor_stale_data_availability(hass: HomeAssistant) -> None:
+    """Test sensor entities become unavailable when forecast data is stale (all bins in past)."""
+    from datetime import datetime, timezone
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.sensor import BuienalarmSensor
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Stale Data Test",
+        unique_id="test_stale_sensor_data",
+        data={"latitude": 52.3702, "longitude": 4.8952},
+    )
+
+    coordinator = MagicMock()
+    coordinator.last_update_success = True
+    now_ts = datetime.now(timezone.utc).timestamp()
+
+    # Forecast points ending in the past (stale)
+    coordinator.data = {
+        "nowcastmessage": {"nl": "Oude melding"},
+        "data": [
+            {
+                "timestamp": now_ts - 3600,
+                "precipitationrate": 1.0,
+                "precipitationtype": "rain",
+            },
+            {
+                "timestamp": now_ts - 3300,
+                "precipitationrate": 0.0,
+                "precipitationtype": "rain",
+            },
+        ],
+    }
+
+    sensor_now_desc = BuienalarmSensor(
+        coordinator, entry, "Desc", None, None, None, None, key="precipitationrate_now_desc"
+    )
+    sensor_type_now = BuienalarmSensor(
+        coordinator, entry, "Type", None, None, None, None, key="precipitationtype_now"
+    )
+    sensor_next = BuienalarmSensor(
+        coordinator, entry, "Next", None, None, None, None, key="next_precipitation"
+    )
+    sensor_dur = BuienalarmSensor(
+        coordinator, entry, "Dur", None, None, None, None, key="precipitation_duration"
+    )
+    sensor_periods = BuienalarmSensor(
+        coordinator, entry, "Periods", None, None, None, None, key="precipitation_periods"
+    )
+
+    assert sensor_now_desc.available is False
+    assert sensor_type_now.available is False
+    assert sensor_next.available is False
+    assert sensor_dur.available is False
+    assert sensor_periods.available is False
+
+
+@pytest.mark.asyncio
 async def test_buienalarm_sensor_availability(hass: HomeAssistant) -> None:
     """Test BuienalarmSensor available property returns False when required key-specific payload fields are missing or invalid."""
     from collections import UserDict
