@@ -259,16 +259,39 @@ async def test_binary_sensors_nested_timeseries_data(hass: HomeAssistant) -> Non
 
 
 @pytest.mark.asyncio
-async def test_binary_sensors_empty_data_list(hass: HomeAssistant) -> None:
-    """Test binary sensors remain available and off when API returns an empty data list."""
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"data": []},
+        {
+            "data": [
+                {
+                    "precipitationrate": 5.0,
+                    "precipitationtype": "rain",
+                    "timestamp": datetime.now(timezone.utc).timestamp() - 3600,
+                },
+                {
+                    "precipitationrate": 0.0,
+                    "precipitationtype": "rain",
+                    "timestamp": datetime.now(timezone.utc).timestamp() - 3300,
+                },
+            ]
+        },
+    ],
+    ids=["empty_data", "stale_data"],
+)
+async def test_binary_sensors_empty_or_stale_data(
+    hass: HomeAssistant, payload: dict
+) -> None:
+    """Test binary sensors become unavailable when API returns empty or stale data."""
     with patch(
         "custom_components.buienalarm.api.BuienalarmApiClient.async_get_data",
-        return_value={"data": []},
+        return_value=payload,
     ):
         entry = MockConfigEntry(
             domain=DOMAIN,
-            title="Buienalarm Test Empty Data List",
-            unique_id="test_empty_data_list",
+            title="Buienalarm Test Empty/Stale Data",
+            unique_id="test_empty_stale_data",
             data={"latitude": 52.3702, "longitude": 4.8952},
         )
         entry.add_to_hass(hass)
@@ -286,7 +309,7 @@ async def test_binary_sensors_empty_data_list(hass: HomeAssistant) -> None:
             assert entity_id is not None
             state = hass.states.get(entity_id)
             assert state is not None
-            assert state.state == "off"
+            assert state.state == "unknown"
 
 
 @pytest.mark.asyncio
@@ -297,14 +320,19 @@ async def test_binary_sensor_precipitation_expected_unclassified_type(
 ) -> None:
     """Test precipitation_expected turns on for positive rate even with unclassified precipitationtype."""
     now_ts = datetime.now(timezone.utc).timestamp()
-    period = {
+    current_period = {
+        "precipitationrate": 0.0,
+        "precipitationtype": "none",
+        "timestamp": now_ts,
+    }
+    future_period = {
         "precipitationrate": 1.5,
         "timestamp": now_ts + 300,
     }
     if unclassified_type is not None:
-        period["precipitationtype"] = unclassified_type
+        future_period["precipitationtype"] = unclassified_type
 
-    data = {"data": [period]}
+    data = {"data": [current_period, future_period]}
 
     with patch(
         "custom_components.buienalarm.api.BuienalarmApiClient.async_get_data",
