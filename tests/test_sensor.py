@@ -331,27 +331,17 @@ async def test_buienalarm_sensor_stale_data_availability(hass: HomeAssistant) ->
         ],
     }
 
-    sensor_now_desc = BuienalarmSensor(
-        coordinator, entry, "Desc", None, None, None, None, key="precipitationrate_now_desc"
-    )
-    sensor_type_now = BuienalarmSensor(
-        coordinator, entry, "Type", None, None, None, None, key="precipitationtype_now"
-    )
-    sensor_next = BuienalarmSensor(
-        coordinator, entry, "Next", None, None, None, None, key="next_precipitation"
-    )
-    sensor_dur = BuienalarmSensor(
-        coordinator, entry, "Dur", None, None, None, None, key="precipitation_duration"
-    )
-    sensor_periods = BuienalarmSensor(
-        coordinator, entry, "Periods", None, None, None, None, key="precipitation_periods"
-    )
-
-    assert sensor_now_desc.available is False
-    assert sensor_type_now.available is False
-    assert sensor_next.available is False
-    assert sensor_dur.available is False
-    assert sensor_periods.available is False
+    for key in (
+        "precipitationrate_now_desc",
+        "precipitationtype_now",
+        "next_precipitation",
+        "precipitation_duration",
+        "precipitation_periods",
+    ):
+        sensor = BuienalarmSensor(
+            coordinator, entry, "Test", None, None, None, None, key=key
+        )
+        assert sensor.available is False
 
 
 @pytest.mark.asyncio

@@ -259,63 +259,39 @@ async def test_binary_sensors_nested_timeseries_data(hass: HomeAssistant) -> Non
 
 
 @pytest.mark.asyncio
-async def test_binary_sensors_empty_data_list(hass: HomeAssistant) -> None:
-    """Test binary sensors become unavailable when API returns an empty data list."""
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"data": []},
+        {
+            "data": [
+                {
+                    "precipitationrate": 5.0,
+                    "precipitationtype": "rain",
+                    "timestamp": datetime.now(timezone.utc).timestamp() - 3600,
+                },
+                {
+                    "precipitationrate": 0.0,
+                    "precipitationtype": "rain",
+                    "timestamp": datetime.now(timezone.utc).timestamp() - 3300,
+                },
+            ]
+        },
+    ],
+    ids=["empty_data", "stale_data"],
+)
+async def test_binary_sensors_empty_or_stale_data(
+    hass: HomeAssistant, payload: dict
+) -> None:
+    """Test binary sensors become unavailable when API returns empty or stale data."""
     with patch(
         "custom_components.buienalarm.api.BuienalarmApiClient.async_get_data",
-        return_value={"data": []},
+        return_value=payload,
     ):
         entry = MockConfigEntry(
             domain=DOMAIN,
-            title="Buienalarm Test Empty Data List",
-            unique_id="test_empty_data_list",
-            data={"latitude": 52.3702, "longitude": 4.8952},
-        )
-        entry.add_to_hass(hass)
-
-        assert await hass.config_entries.async_setup(entry.entry_id)
-        await hass.async_block_till_done()
-
-        entity_registry = async_get_entity_registry(hass)
-
-        for key in ("precipitation_expected", "currently_raining", "currently_snowing"):
-            unique_id = f"{entry.entry_id}_{key}"
-            entity_id = entity_registry.async_get_entity_id(
-                "binary_sensor", DOMAIN, unique_id
-            )
-            assert entity_id is not None
-            state = hass.states.get(entity_id)
-            assert state is not None
-            assert state.state == "unknown"
-
-
-@pytest.mark.asyncio
-async def test_binary_sensors_stale_data(hass: HomeAssistant) -> None:
-    """Test binary sensors become unavailable when forecast data contains only past timestamps."""
-    now_ts = datetime.now(timezone.utc).timestamp()
-    stale_data = {
-        "data": [
-            {
-                "precipitationrate": 5.0,
-                "precipitationtype": "rain",
-                "timestamp": now_ts - 3600,
-            },
-            {
-                "precipitationrate": 0.0,
-                "precipitationtype": "rain",
-                "timestamp": now_ts - 3300,
-            },
-        ]
-    }
-
-    with patch(
-        "custom_components.buienalarm.api.BuienalarmApiClient.async_get_data",
-        return_value=stale_data,
-    ):
-        entry = MockConfigEntry(
-            domain=DOMAIN,
-            title="Buienalarm Test Stale Data",
-            unique_id="test_stale_binary_data",
+            title="Buienalarm Test Empty/Stale Data",
+            unique_id="test_empty_stale_data",
             data={"latitude": 52.3702, "longitude": 4.8952},
         )
         entry.add_to_hass(hass)
