@@ -737,9 +737,10 @@ async def test_buienalarm_entity_missing_or_none_precipitationtype(
 
 @pytest.mark.asyncio
 async def test_sensor_integration_user_provided_data(
-    hass: HomeAssistant, user_sample_payload: dict
+    hass: HomeAssistant, user_sample_payload: dict, freezer
 ) -> None:
     """Test integration setup and sensor states against the user-provided data payload."""
+    freezer.move_to("2026-10-11T23:00:00Z")
 
     async def _mock_json(*args, **kwargs):
         return user_sample_payload
@@ -764,13 +765,32 @@ async def test_sensor_integration_user_provided_data(
         await hass.async_block_till_done()
 
     entity_registry = async_get_entity_registry(hass)
-    unique_id = f"{entry.entry_id}_nowcastmessage"
-    entity_id = entity_registry.async_get_entity_id("sensor", DOMAIN, unique_id)
-    assert entity_id is not None
 
-    state = hass.states.get(entity_id)
-    assert state is not None
-    assert state.state == "Het blijft voorlopig droog"
+    expected_states = {
+        "nowcastmessage": "Het blijft voorlopig droog",
+        "mycastmessage": "Geen neerslag",
+        "precipitationrate_now_desc": "Geen neerslag",
+        "precipitationtype_now": "Geen neerslag",
+        "precipitation_duration": "0",
+        "precipitationrate_now": "0.0",
+        "precipitationrate_hour": "0.0",
+        "precipitationrate_total": "0.0",
+        "precipitation_periods": "0",
+    }
+
+    for sensor in SENSORS:
+        key = sensor["key"]
+        unique_id = f"{entry.entry_id}_{key}"
+        entity_id = entity_registry.async_get_entity_id("sensor", DOMAIN, unique_id)
+        assert entity_id is not None, f"Entity ID missing for {key}"
+
+        state = hass.states.get(entity_id)
+        assert state is not None, f"State missing for {entity_id}"
+
+        if key in expected_states:
+            assert state.state == expected_states[key], f"Mismatch for {key}: expected {expected_states[key]}, got {state.state}"
+        elif key == "next_precipitation":
+            assert state.state == STATE_UNKNOWN or state.state == "unknown" or state.state is None
 
 
 @pytest.mark.asyncio
