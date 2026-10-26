@@ -737,9 +737,10 @@ async def test_buienalarm_entity_missing_or_none_precipitationtype(
 
 @pytest.mark.asyncio
 async def test_sensor_integration_user_provided_data(
-    hass: HomeAssistant, user_sample_payload: dict
+    hass: HomeAssistant, user_sample_payload: dict, freezer: FrozenDateTimeFactory
 ) -> None:
     """Test integration setup and sensor states against the user-provided data payload."""
+    freezer.move_to("2026-10-11T23:00:00Z")
 
     async def _mock_json(*args, **kwargs):
         return user_sample_payload
@@ -764,13 +765,47 @@ async def test_sensor_integration_user_provided_data(
         await hass.async_block_till_done()
 
     entity_registry = async_get_entity_registry(hass)
-    unique_id = f"{entry.entry_id}_nowcastmessage"
-    entity_id = entity_registry.async_get_entity_id("sensor", DOMAIN, unique_id)
-    assert entity_id is not None
 
-    state = hass.states.get(entity_id)
-    assert state is not None
-    assert state.state == "Het blijft voorlopig droog"
+    expected_sensor_states = {
+        "nowcastmessage": "Het blijft voorlopig droog",
+        "mycastmessage": "Geen neerslag",
+        "precipitationrate_now_desc": "Geen neerslag",
+        "precipitationtype_now": "Geen neerslag",
+        "next_precipitation": STATE_UNKNOWN,
+        "precipitation_duration": "0",
+        "precipitationrate_now": "0.0",
+        "precipitationrate_hour": "0.0",
+        "precipitationrate_total": "0.0",
+        "precipitation_periods": "0",
+    }
+
+    for sensor_key, expected_state in expected_sensor_states.items():
+        unique_id = f"{entry.entry_id}_{sensor_key}"
+        entity_id = entity_registry.async_get_entity_id("sensor", DOMAIN, unique_id)
+        assert entity_id is not None, f"Sensor entity for key '{sensor_key}' not found"
+
+        state = hass.states.get(entity_id)
+        assert state is not None, f"State for entity '{entity_id}' missing"
+        assert state.state == expected_state, (
+            f"Expected state '{expected_state}' for sensor '{sensor_key}', got '{state.state}'"
+        )
+
+    expected_binary_sensor_states = {
+        "precipitation_expected": "off",
+        "currently_raining": "off",
+        "currently_snowing": "off",
+    }
+
+    for key, expected_state in expected_binary_sensor_states.items():
+        unique_id = f"{entry.entry_id}_{key}"
+        entity_id = entity_registry.async_get_entity_id("binary_sensor", DOMAIN, unique_id)
+        assert entity_id is not None, f"Binary sensor entity for key '{key}' not found"
+
+        state = hass.states.get(entity_id)
+        assert state is not None, f"State for binary sensor entity '{entity_id}' missing"
+        assert state.state == expected_state, (
+            f"Expected state '{expected_state}' for binary sensor '{key}', got '{state.state}'"
+        )
 
 
 @pytest.mark.asyncio
