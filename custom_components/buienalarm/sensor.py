@@ -165,7 +165,11 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
                     return True
             return False
 
-        if self._key == "precipitationrate_now":
+        if self._key in (
+            "precipitationrate_now",
+            "precipitationrate_now_desc",
+            "precipitationtype_now",
+        ):
             current_ts = datetime.now(timezone.utc).timestamp()
             for point in self.data["data"]:
                 timestamp = _as_float(_safe_get(point, "timestamp"))
@@ -176,6 +180,30 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
                     and timestamp <= current_ts < timestamp + 300
                 ):
                     return rate >= 0
+            return False
+
+        if self._key in (
+            "next_precipitation",
+            "precipitation_duration",
+            "precipitation_periods",
+        ):
+            current_ts = datetime.now(timezone.utc).timestamp()
+            for point in self.data["data"]:
+                timestamp = _as_float(_safe_get(point, "timestamp"))
+                rate = _safe_get(point, "precipitationrate")
+                if timestamp is None or isinstance(rate, bool):
+                    continue
+                try:
+                    rate = float(rate)
+                except (TypeError, ValueError, OverflowError):
+                    continue
+                if (
+                    0 <= timestamp <= 253402300799
+                    and current_ts < timestamp + 300
+                    and math.isfinite(rate)
+                    and rate >= 0
+                ):
+                    return True
             return False
 
         return True

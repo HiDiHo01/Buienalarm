@@ -260,7 +260,7 @@ async def test_binary_sensors_nested_timeseries_data(hass: HomeAssistant) -> Non
 
 @pytest.mark.asyncio
 async def test_binary_sensors_empty_data_list(hass: HomeAssistant) -> None:
-    """Test binary sensors remain available and off when API returns an empty data list."""
+    """Test binary sensors become unavailable (unknown) when API returns an empty data list."""
     with patch(
         "custom_components.buienalarm.api.BuienalarmApiClient.async_get_data",
         return_value={"data": []},
@@ -286,7 +286,7 @@ async def test_binary_sensors_empty_data_list(hass: HomeAssistant) -> None:
             assert entity_id is not None
             state = hass.states.get(entity_id)
             assert state is not None
-            assert state.state == "off"
+            assert state.state == "unknown"
 
 
 @pytest.mark.asyncio
@@ -304,7 +304,13 @@ async def test_binary_sensor_precipitation_expected_unclassified_type(
     if unclassified_type is not None:
         period["precipitationtype"] = unclassified_type
 
-    data = {"data": [period]}
+    # Include active period for current time so currently_raining/currently_snowing remain available
+    active_period = {
+        "precipitationrate": 0.0,
+        "precipitationtype": "none",
+        "timestamp": now_ts,
+    }
+    data = {"data": [active_period, period]}
 
     with patch(
         "custom_components.buienalarm.api.BuienalarmApiClient.async_get_data",
