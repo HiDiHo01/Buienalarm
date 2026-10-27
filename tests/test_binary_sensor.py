@@ -628,3 +628,20 @@ async def test_binary_sensor_dynamic_icons(
             if expected_snow_state == "on"
             else snow_description.icon
         )
+
+        exp_id = entity_registry.async_get_entity_id(
+            "binary_sensor", DOMAIN, f"{entry.entry_id}_precipitation_expected"
+        )
+        exp_state = hass.states.get(exp_id)
+        exp_description = next(
+            description
+            for description in BINARY_SENSOR_DESCRIPTIONS
+            if description.key == "precipitation_expected"
+        )
+        expected_exp_state = "on" if precipitation_type is not None else "unknown"
+        assert exp_state.state == expected_exp_state
+        assert exp_state.attributes.get("icon") == (
+            "mdi:weather-pouring"
+            if expected_exp_state == "on"
+            else exp_description.icon
+        )
