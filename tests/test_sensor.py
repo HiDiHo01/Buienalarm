@@ -2223,3 +2223,107 @@ async def test_mycastmessage_invalid_rates_do_not_establish_boundaries(
     assert sensor.get_rain_start_time_and_duration(invalid_points) is None
     assert sensor.native_value is None
     assert sensor.available is False
+
+
+@pytest.mark.asyncio
+async def test_all_sensors_stale_and_empty_availability(hass: HomeAssistant) -> None:
+    """Test that all current and forecast sensors become unavailable when data is stale or empty."""
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.sensor import BuienalarmSensor
+
+    now_ts = datetime.now(timezone.utc).timestamp()
+    entry = MockConfigEntry(domain=DOMAIN, data={})
+
+    # 1. Active payload: active 5-min bin present
+    active_payload = {
+        "nowcastmessage": {"nl": "Regen verwacht"},
+        "data": [
+            {
+                "timestamp": now_ts,
+                "precipitationrate": 1.2,
+                "precipitationtype": "rain",
+            },
+            {
+                "timestamp": now_ts + 300,
+                "precipitationrate": 0.0,
+                "precipitationtype": "rain",
+            },
+        ],
+    }
+
+    coordinator = MagicMock()
+    coordinator.last_update_success = True
+    coordinator.data = active_payload
+
+    for sensor_info in SENSORS:
+        sensor = BuienalarmSensor(
+            coordinator,
+            entry,
+            name=sensor_info["name"],
+            unit_of_measurement=sensor_info["unit_of_measurement"],
+            icon=sensor_info["icon"],
+            device_class=sensor_info["device_class"],
+            state_class=sensor_info["state_class"],
+            key=sensor_info["key"],
+        )
+        assert sensor.available is True, f"Sensor {sensor_info['key']} should be available with active payload"
+
+    # 2. Stale payload: all points in the past
+    stale_payload = {
+        "nowcastmessage": {"nl": "Regen verwacht"},
+        "data": [
+            {
+                "timestamp": now_ts - 3600,
+                "precipitationrate": 1.2,
+                "precipitationtype": "rain",
+            },
+            {
+                "timestamp": now_ts - 3300,
+                "precipitationrate": 0.0,
+                "precipitationtype": "rain",
+            },
+        ],
+    }
+    coordinator.data = stale_payload
+
+    # All data/forecast dependent sensors must be unavailable when data is stale
+    stale_keys = [
+        "mycastmessage",
+        "precipitationrate_now_desc",
+        "precipitationtype_now",
+        "next_precipitation",
+        "precipitation_duration",
+        "precipitationrate_now",
+        "precipitationrate_hour",
+        "precipitationrate_total",
+        "precipitation_periods",
+    ]
+
+    for sensor_info in SENSORS:
+        if sensor_info["key"] in stale_keys:
+            sensor = BuienalarmSensor(
+                coordinator,
+                entry,
+                name=sensor_info["name"],
+                unit_of_measurement=sensor_info["unit_of_measurement"],
+                icon=sensor_info["icon"],
+                device_class=sensor_info["device_class"],
+                state_class=sensor_info["state_class"],
+                key=sensor_info["key"],
+            )
+            assert sensor.available is False, f"Sensor {sensor_info['key']} should be unavailable with stale payload"
+
+    # 3. Empty payload: empty data list
+    coordinator.data = {"data": []}
+    for sensor_info in SENSORS:
+        sensor = BuienalarmSensor(
+            coordinator,
+            entry,
+            name=sensor_info["name"],
+            unit_of_measurement=sensor_info["unit_of_measurement"],
+            icon=sensor_info["icon"],
+            device_class=sensor_info["device_class"],
+            state_class=sensor_info["state_class"],
+            key=sensor_info["key"],
+        )
+        assert sensor.available is False, f"Sensor {sensor_info['key']} should be unavailable with empty payload"
