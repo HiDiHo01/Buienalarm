@@ -92,7 +92,7 @@ SENSORS: Final[list[dict[str, object]]] = [
         "translation_key": "precipitation_duration",
         "unit_of_measurement": UnitOfTime.MINUTES,
         "device_class": SensorDeviceClass.DURATION,
-        "state_class": SensorStateClass.MEASUREMENT,
+        "state_class": None,
     },
     {
         "name": "Neerslag",

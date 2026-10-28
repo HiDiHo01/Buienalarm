@@ -764,8 +764,8 @@ class BuienalarmEntity(CoordinatorEntity):
         )
         return total_precipitation
 
-    def _get_current_data_point(self) -> Mapping[str, object] | None:
-        """Return the forecast data point covering the active 5-minute bin."""
+    def _get_current_data_point(self) -> object | None:
+        """Return the first valid reading covering the active five-minute bin."""
         data = self.data.get("data")
         if not isinstance(data, list):
             return None
@@ -778,7 +778,10 @@ class BuienalarmEntity(CoordinatorEntity):
                 continue
 
             ts = _as_float(_safe_get(data_point, "timestamp"))
-            if ts is not None and ts <= current_ts < ts + 300:
+            if ts is None or not ts <= current_ts < ts + 300:
+                continue
+            rate = _as_float(_safe_get(data_point, "precipitationrate"))
+            if rate is not None and rate >= 0:
                 return data_point
 
         return None
