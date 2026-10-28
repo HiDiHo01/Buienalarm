@@ -317,7 +317,7 @@ class BuienalarmEntity(CoordinatorEntity):
             if isinstance(ts, (int, float)) and not isinstance(ts, bool):
                 try:
                     parsed_time = datetime.fromtimestamp(float(ts), tz=timezone.utc)
-                except (ValueError, TypeError, OverflowError) as exc:
+                except (ValueError, TypeError, OverflowError, OSError) as exc:
                     _LOGGER.debug("Invalid numeric timestamp %r: %s", ts, exc)
 
             # Fallback to ISO time string if timestamp missing or invalid

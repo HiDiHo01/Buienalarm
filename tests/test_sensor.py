@@ -1287,6 +1287,62 @@ async def test_boolean_timestamps_and_rates_rejected(hass: HomeAssistant) -> Non
     assert entity.get_precipitation_duration() == 0
     assert entity.get_rain_start_time_and_duration(coordinator.data["data"]) is None
 
+
+@pytest.mark.asyncio
+async def test_data_points_as_list_handles_oserror_timestamp(
+    hass: HomeAssistant,
+) -> None:
+    """Verify data_points_as_list handles numeric timestamps that raise OSError gracefully."""
+    from datetime import datetime, timezone
+    from unittest.mock import MagicMock, patch
+    from custom_components.buienalarm.entity import BuienalarmEntity
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="OSError Timestamp Test",
+        unique_id="test_oserror_timestamp",
+        data={"latitude": 52.3702, "longitude": 4.8952},
+    )
+
+    coordinator = MagicMock()
+    entity = BuienalarmEntity(coordinator, entry, "precipitationrate_total")
+
+    bad_ts = 253402300799.0
+    original_fromtimestamp = datetime.fromtimestamp
+
+    def mock_fromtimestamp(ts: float, tz: timezone | None = None) -> datetime:
+        if ts == bad_ts:
+            raise OSError("Invalid argument")
+        return original_fromtimestamp(ts, tz=tz)
+
+    valid_ts = int(datetime.now(timezone.utc).timestamp())
+
+    coordinator.data = {
+        "data": [
+            {
+                "timestamp": bad_ts,
+                "precipitationrate": 1.0,
+                "precipitationtype": "rain",
+            },
+            {
+                "timestamp": valid_ts,
+                "precipitationrate": 2.5,
+                "precipitationtype": "rain",
+            },
+        ]
+    }
+
+    with patch(
+        "custom_components.buienalarm.entity.datetime",
+        wraps=datetime,
+    ) as mock_dt:
+        mock_dt.fromtimestamp.side_effect = mock_fromtimestamp
+        points = entity.data_points_as_list
+
+    assert len(points) == 1
+    assert points[0]["timestamp"] == valid_ts
+    assert points[0]["precipitationrate"] == 2.5
+
     # Verify boolean timestamps are rejected
     coordinator.data = {
         "data": [
