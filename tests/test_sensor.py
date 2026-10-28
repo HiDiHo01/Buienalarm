@@ -1,4 +1,5 @@
 import pytest
+from copy import deepcopy
 from datetime import datetime, timedelta, timezone, tzinfo
 from unittest.mock import AsyncMock, patch
 
@@ -736,14 +737,34 @@ async def test_buienalarm_entity_missing_or_none_precipitationtype(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "precipitation_type", [None, "rain", "snow"], ids=["dry", "rain", "snow"]
+)
 async def test_sensor_integration_user_provided_data(
-    hass: HomeAssistant, freezer: FrozenDateTimeFactory, user_sample_payload: dict
+    hass: HomeAssistant,
+    freezer: FrozenDateTimeFactory,
+    user_sample_payload: dict[str, object],
+    precipitation_type: str | None,
 ) -> None:
-    """Test integration setup and sensor states against the user-provided data payload."""
+    """Verify all entity states for the sample forecast and positive rain/snow variants."""
     freezer.move_to("2026-10-11T23:00:00Z")
+    await hass.config.async_set_time_zone("UTC")
+    response_payload = deepcopy(user_sample_payload)
+    if precipitation_type is not None:
+        forecast_points = response_payload["data"]
+        assert isinstance(forecast_points, list)
+        # Three wet five-minute bins, then dry: 15 minutes at 2.4 mm/h.
+        for forecast_point in forecast_points[:3]:
+            assert isinstance(forecast_point, dict)
+            forecast_point["precipitationrate"] = 2.4
+            forecast_point["precipitationtype"] = precipitation_type
+        nowcast_message = response_payload["nowcastmessage"]
+        assert isinstance(nowcast_message, dict)
+        nowcast_message["nl"] = "Neerslag verwacht"
 
-    async def _mock_json(*args, **kwargs):
-        return user_sample_payload
+    async def _mock_json(*_args: object, **_kwargs: object) -> dict[str, object]:
+        """Return the selected forecast through the mocked HTTP response."""
+        return response_payload
 
     mock_resp = AsyncMock()
     mock_resp.__aenter__.return_value = mock_resp
@@ -778,6 +799,25 @@ async def test_sensor_integration_user_provided_data(
         "precipitationrate_total": "0.0",
         "precipitation_periods": "0",
     }
+    if precipitation_type is not None:
+        expected_description, expected_type = {
+            "rain": ("Matige regen", "Regen"),
+            "snow": ("Matige sneeuw", "Sneeuw"),
+        }[precipitation_type]
+        expected_sensor_states.update(
+            {
+                "nowcastmessage": "Neerslag verwacht",
+                "mycastmessage": "Neerslag duurt nog 15 minuten en stopt rond 23:15",
+                "precipitationrate_now_desc": expected_description,
+                "precipitationtype_now": expected_type,
+                "next_precipitation": "0",
+                "precipitation_duration": "15",
+                "precipitationrate_now": "2.4",
+                "precipitationrate_hour": "0.6",
+                "precipitationrate_total": "0.3",
+                "precipitation_periods": "1",
+            }
+        )
 
     for key, expected_state in expected_sensor_states.items():
         unique_id = f"{entry.entry_id}_{key}"
@@ -792,6 +832,14 @@ async def test_sensor_integration_user_provided_data(
         "currently_raining": "off",
         "currently_snowing": "off",
     }
+    if precipitation_type is not None:
+        expected_binary_sensor_states.update(
+            {
+                "precipitation_expected": "on",
+                "currently_raining": "on" if precipitation_type == "rain" else "off",
+                "currently_snowing": "on" if precipitation_type == "snow" else "off",
+            }
+        )
 
     for key, expected_state in expected_binary_sensor_states.items():
         unique_id = f"{entry.entry_id}_{key}"
