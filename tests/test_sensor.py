@@ -1429,6 +1429,83 @@ async def test_dynamic_sensor_icons(hass: HomeAssistant) -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("key", ["precipitationtype_now", "precipitationrate_now_desc"])
+@pytest.mark.parametrize("wrapped", [False, True], ids=["unwrapped", "wrapped"])
+@pytest.mark.parametrize(
+    "forecast",
+    [
+        pytest.param([], id="empty"),
+        pytest.param(None, id="null"),
+        pytest.param({}, id="not-a-list"),
+        pytest.param([None], id="invalid-point"),
+        pytest.param([{"precipitationrate": 0.0}], id="missing-timestamp"),
+        pytest.param(
+            [{"timestamp": "invalid", "precipitationrate": 0.0}],
+            id="malformed-timestamp",
+        ),
+        pytest.param([{"timestamp": 1700000000}], id="missing-rate"),
+        pytest.param(
+            [{"timestamp": 1700000000, "precipitationrate": "invalid"}],
+            id="malformed-rate",
+        ),
+        pytest.param(
+            [{"timestamp": 1700000000, "precipitationrate": True}],
+            id="boolean-rate",
+        ),
+        pytest.param(
+            [{"timestamp": 1700000000, "precipitationrate": float("nan")}],
+            id="non-finite-rate",
+        ),
+        pytest.param(
+            [{"timestamp": 1700000000, "precipitationrate": -1.0}],
+            id="negative-rate",
+        ),
+        pytest.param([{"timestamp": 1699999699, "precipitationrate": 0.0}], id="stale"),
+        pytest.param(
+            [{"timestamp": 1699999700, "precipitationrate": 0.0}], id="expired-bin"
+        ),
+        pytest.param(
+            [{"timestamp": 1700000001, "precipitationrate": 0.0}], id="future-bin"
+        ),
+    ],
+)
+async def test_current_precipitation_icons_require_valid_current_interval(
+    hass: HomeAssistant,
+    freezer: FrozenDateTimeFactory,
+    key: str,
+    wrapped: bool,
+    forecast: object,
+) -> None:
+    """Unknown current conditions retain the configured icon instead of sunny."""
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.sensor import BuienalarmSensor
+
+    freezer.move_to("2023-11-14T22:13:20Z")  # 1700000000
+    payload = {"data": forecast}
+    coordinator = MagicMock()
+    coordinator.last_update_success = True
+    coordinator.data = {"timeseries": payload} if wrapped else payload
+    sensor = BuienalarmSensor(
+        coordinator,
+        MockConfigEntry(domain=DOMAIN, data={}),
+        name="Current precipitation",
+        unit_of_measurement=None,
+        icon="mdi:weather-cloudy-alert",
+        device_class=None,
+        state_class=None,
+        key=key,
+    )
+
+    assert sensor.icon == "mdi:weather-cloudy-alert"
+
+    # A valid dry interval remains current until its exclusive end boundary.
+    payload["data"] = [{"timestamp": 1699999701, "precipitationrate": 0.0}]
+    assert sensor.icon == "mdi:weather-sunny"
+    freezer.tick(timedelta(seconds=1))
+    assert sensor.icon == "mdi:weather-cloudy-alert"
+
+
+@pytest.mark.asyncio
 async def test_buienalarm_entity_unique_id_attribute(hass: HomeAssistant) -> None:
     """Verify BuienalarmEntity sets _attr_unique_id correctly without property override conflicts."""
     from unittest.mock import MagicMock

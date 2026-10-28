@@ -288,7 +288,9 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
                 if any(k in val_lower for k in ("rain", "regen", "mix", "motregen")):
                     return "mdi:weather-pouring"
                 if any(k in val_lower for k in ("geen", "none", "droog")):
-                    return "mdi:weather-sunny"
+                    # The text also defaults to dry when no current reading exists.
+                    if self._get_current_data_point() is not None:
+                        return "mdi:weather-sunny"
         return self._icon
 
     @property
