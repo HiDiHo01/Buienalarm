@@ -343,6 +343,7 @@ async def test_binary_sensor_precipitation_expected_unclassified_type(
 @pytest.mark.parametrize(
     "data_payload",
     [
+        pytest.param({}, id="missing_forecast"),
         {"data": "invalid"},
         {
             "data": [
@@ -475,9 +476,9 @@ async def test_binary_sensor_precipitation_expected_unclassified_type(
 )
 async def test_binary_sensors_missing_or_invalid_data(
     hass: HomeAssistant,
-    data_payload: dict,
+    data_payload: dict[str, object],
 ) -> None:
-    """Test binary sensors when precipitation data or period timestamp is missing/unparseable."""
+    """Test unknown states and default icons for missing or malformed forecasts."""
     with patch(
         "custom_components.buienalarm.api.BuienalarmApiClient.async_get_data",
         return_value=data_payload,
@@ -504,6 +505,12 @@ async def test_binary_sensors_missing_or_invalid_data(
             state = hass.states.get(entity_id)
             assert state is not None
             assert state.state == "unknown"
+            binary_description = next(
+                description
+                for description in BINARY_SENSOR_DESCRIPTIONS
+                if description.key == key
+            )
+            assert state.attributes.get("icon") == binary_description.icon
 
 
 @pytest.mark.asyncio
@@ -555,7 +562,7 @@ async def test_binary_sensors_freezing_rain_now(hass: HomeAssistant) -> None:
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("precipitation_type", "expected_rain_state", "expected_snow_state"),
-    [("rain", "on", "off"), ("snow", "off", "on"), (None, "unknown", "unknown")],
+    [("rain", "on", "off"), ("snow", "off", "on"), (None, "off", "off")],
 )
 async def test_binary_sensor_dynamic_icons(
     hass: HomeAssistant,
@@ -564,20 +571,16 @@ async def test_binary_sensor_dynamic_icons(
     expected_rain_state: str,
     expected_snow_state: str,
 ) -> None:
-    """Test binary sensor entity icons update dynamically based on is_on state."""
+    """Test precipitation icons with positive rates, including an omitted type."""
     freezer.move_to("2026-10-23T12:00:00Z")
     now_ts = datetime.now(timezone.utc).timestamp()
-    data = {
-        "data": [
-            {
-                "precipitationrate": 1.5,
-                "precipitationtype": precipitation_type,
-                "timestamp": now_ts,
-            }
-        ]
+    period: dict[str, object] = {
+        "precipitationrate": 1.5,
+        "timestamp": now_ts,
     }
-    if precipitation_type is None:
-        data = {}
+    if precipitation_type is not None:
+        period["precipitationtype"] = precipitation_type
+    data = {"data": [period]}
 
     with patch(
         "custom_components.buienalarm.api.BuienalarmApiClient.async_get_data",
@@ -628,3 +631,12 @@ async def test_binary_sensor_dynamic_icons(
             if expected_snow_state == "on"
             else snow_description.icon
         )
+
+        exp_id = entity_registry.async_get_entity_id(
+            "binary_sensor", DOMAIN, f"{entry.entry_id}_precipitation_expected"
+        )
+        assert exp_id is not None
+        exp_state = hass.states.get(exp_id)
+        assert exp_state is not None
+        assert exp_state.state == "on"
+        assert exp_state.attributes.get("icon") == "mdi:weather-pouring"
