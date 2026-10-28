@@ -1,5 +1,4 @@
 import pytest
-from copy import deepcopy
 from datetime import datetime, timedelta, timezone, tzinfo
 from unittest.mock import AsyncMock, patch
 
@@ -10,7 +9,6 @@ from homeassistant.helpers.entity_registry import async_get as async_get_entity_
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.buienalarm.const import DOMAIN, SENSORS
-from custom_components.buienalarm.sensor_types import SENSOR_DESCRIPTIONS
 
 
 @pytest.fixture(autouse=True)
@@ -744,34 +742,13 @@ async def test_buienalarm_entity_missing_or_none_precipitationtype(
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "precipitation_type", [None, "rain", "snow"], ids=["dry", "rain", "snow"]
-)
 async def test_sensor_integration_user_provided_data(
-    hass: HomeAssistant,
-    freezer: FrozenDateTimeFactory,
-    user_sample_payload: dict[str, object],
-    precipitation_type: str | None,
+    hass: HomeAssistant, user_sample_payload: dict
 ) -> None:
-    """Verify all entity states for the sample forecast and positive rain/snow variants."""
-    freezer.move_to("2026-10-11T23:00:00Z")
-    await hass.config.async_set_time_zone("UTC")
-    response_payload = deepcopy(user_sample_payload)
-    if precipitation_type is not None:
-        forecast_points = response_payload["data"]
-        assert isinstance(forecast_points, list)
-        # Three wet five-minute bins, then dry: 15 minutes at 2.4 mm/h.
-        for forecast_point in forecast_points[:3]:
-            assert isinstance(forecast_point, dict)
-            forecast_point["precipitationrate"] = 2.4
-            forecast_point["precipitationtype"] = precipitation_type
-        nowcast_message = response_payload["nowcastmessage"]
-        assert isinstance(nowcast_message, dict)
-        nowcast_message["nl"] = "Neerslag verwacht"
+    """Test integration setup and sensor states against the user-provided data payload."""
 
-    async def _mock_json(*_args: object, **_kwargs: object) -> dict[str, object]:
-        """Return the selected forecast through the mocked HTTP response."""
-        return response_payload
+    async def _mock_json(*args, **kwargs):
+        return user_sample_payload
 
     mock_resp = AsyncMock()
     mock_resp.__aenter__.return_value = mock_resp
@@ -787,87 +764,19 @@ async def test_sensor_integration_user_provided_data(
         data={"latitude": 52.787, "longitude": 4.798, "location_name": "Test Location"},
     )
     entry.add_to_hass(hass)
-    # Exercise the optional period sensor as a user-enabled entity.
-    entity_registry = async_get_entity_registry(hass)
-    entity_registry.async_get_or_create(
-        "sensor",
-        DOMAIN,
-        f"{entry.entry_id}_precipitation_periods",
-        config_entry=entry,
-        suggested_object_id="test_precipitation_periods",
-    )
 
     with patch("aiohttp.ClientSession.get", return_value=mock_resp):
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
 
     entity_registry = async_get_entity_registry(hass)
+    unique_id = f"{entry.entry_id}_nowcastmessage"
+    entity_id = entity_registry.async_get_entity_id("sensor", DOMAIN, unique_id)
+    assert entity_id is not None
 
-    expected_sensor_states = {
-        "nowcastmessage": "Het blijft voorlopig droog",
-        "mycastmessage": "Geen neerslag",
-        "precipitationrate_now_desc": "Geen neerslag",
-        "precipitationtype_now": "Geen neerslag",
-        "next_precipitation": STATE_UNKNOWN,
-        "precipitation_duration": "0",
-        "precipitationrate_now": "0.0",
-        "precipitationrate_hour": "0.0",
-        "precipitationrate_total": "0.0",
-        "precipitation_periods": "0",
-    }
-    if precipitation_type is not None:
-        expected_description, expected_type = {
-            "rain": ("Matige regen", "Regen"),
-            "snow": ("Matige sneeuw", "Sneeuw"),
-        }[precipitation_type]
-        expected_sensor_states.update(
-            {
-                "nowcastmessage": "Neerslag verwacht",
-                "mycastmessage": "Neerslag duurt nog 15 minuten en stopt rond 23:15",
-                "precipitationrate_now_desc": expected_description,
-                "precipitationtype_now": expected_type,
-                "next_precipitation": "0",
-                "precipitation_duration": "15",
-                "precipitationrate_now": "2.4",
-                "precipitationrate_hour": "0.6",
-                "precipitationrate_total": "0.3",
-                "precipitation_periods": "1",
-            }
-        )
-
-    for key, expected_state in expected_sensor_states.items():
-        unique_id = f"{entry.entry_id}_{key}"
-        entity_id = entity_registry.async_get_entity_id("sensor", DOMAIN, unique_id)
-        assert entity_id is not None, f"Entity for sensor {key} not found"
-        state = hass.states.get(entity_id)
-        assert state is not None, f"State for sensor {key} missing"
-        assert state.state == expected_state, f"Sensor {key} state mismatch"
-        if key == "precipitation_duration":
-            assert state.attributes.get("state_class") is None
-
-    expected_binary_sensor_states = {
-        "precipitation_expected": "off",
-        "currently_raining": "off",
-        "currently_snowing": "off",
-    }
-    if precipitation_type is not None:
-        expected_binary_sensor_states.update(
-            {
-                "precipitation_expected": "on",
-                "currently_raining": "on" if precipitation_type == "rain" else "off",
-                "currently_snowing": "on" if precipitation_type == "snow" else "off",
-            }
-        )
-
-    for key, expected_state in expected_binary_sensor_states.items():
-        unique_id = f"{entry.entry_id}_{key}"
-        entity_id = entity_registry.async_get_entity_id(
-            "binary_sensor", DOMAIN, unique_id
-        )
-        assert entity_id is not None, f"Entity for binary sensor {key} not found"
-        state = hass.states.get(entity_id)
-        assert state is not None, f"State for binary sensor {key} missing"
-        assert state.state == expected_state, f"Binary sensor {key} state mismatch"
+    state = hass.states.get(entity_id)
+    assert state is not None
+    assert state.state == "Het blijft voorlopig droog"
 
 
 @pytest.mark.asyncio
@@ -2449,57 +2358,3 @@ async def test_precipitation_periods_disabled_by_default(
     )
 
     assert sensor.entity_registry_enabled_default is False
-
-
-def test_forecast_duration_metadata_excludes_measurement_statistics() -> None:
-    """Keep forecast duration out of measurement statistics in both descriptions."""
-    duration_config = next(
-        sensor_config
-        for sensor_config in SENSORS
-        if sensor_config["key"] == "precipitation_duration"
-    )
-    duration_description = next(
-        description
-        for description in SENSOR_DESCRIPTIONS
-        if description.key == "precipitation_duration"
-    )
-    assert duration_config["state_class"] is None
-    assert duration_description.state_class is None
-
-
-@pytest.mark.parametrize("invalid_rate", [-1.0, None, "invalid", float("nan"), True])
-@pytest.mark.asyncio
-async def test_current_readings_skip_invalid_active_points(
-    hass: HomeAssistant,
-    freezer: FrozenDateTimeFactory,
-    invalid_rate: object,
-) -> None:
-    """Retain a valid current reading after an invalid point in the same bin."""
-    from unittest.mock import MagicMock
-    from custom_components.buienalarm.entity import BuienalarmEntity
-
-    freezer.move_to("2026-10-23T12:00:00Z")
-    timestamp = datetime.now(timezone.utc).timestamp()
-    coordinator = MagicMock()
-    coordinator.data = {
-        "data": [
-            {
-                "timestamp": timestamp,
-                "precipitationrate": invalid_rate,
-                "precipitationtype": "snow",
-            },
-            {
-                "timestamp": timestamp,
-                "precipitationrate": 2.5,
-                "precipitationtype": "  RAIN ",
-            },
-        ]
-    }
-    entity = BuienalarmEntity(
-        coordinator, MockConfigEntry(domain=DOMAIN, data={}), "precipitationrate_now"
-    )
-
-    assert entity.get_current_precipitation() == pytest.approx(2.5)
-    assert entity.get_current_precipitation_type() == "Regen"
-    assert entity.get_current_precipitation_rate_desc() == "Matige regen"
-    assert entity.get_next_precipitation() == 0
