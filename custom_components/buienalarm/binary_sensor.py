@@ -68,7 +68,7 @@ class BuienalarmBinarySensor(
     def _update_state(self) -> None:
         """Update availability and state from the coordinator data."""
         data = self.coordinator.data
-        if not isinstance(data, Mapping):
+        if not self.coordinator.last_update_success or not isinstance(data, Mapping):
             self._attr_available = False
             self._attr_is_on = None
             return
@@ -108,6 +108,12 @@ class BuienalarmBinarySensor(
                 self._attr_is_on = False
 
     @property
+    @override
+    def available(self) -> bool:
+        """Require both coordinator success and a valid, unexpired forecast."""
+        return super().available and self._attr_available
+
+    @property
     def icon(self) -> str | None:
         """Return dynamic icon when precipitation is active for improved UI clarity."""
         if self.is_on is True:
@@ -131,20 +137,27 @@ def _get_precipitation_periods(
         return None
 
     if not raw_periods:
-        return []
+        return None
 
     # Bolt performance optimization: Validate mappings, timestamps, and rates in a single-pass loop
     # to avoid multiple iterations and intermediate list allocations.
     periods: list[Mapping[str, object]] = []
+    has_unexpired = False
+    current_ts = datetime.now(timezone.utc).timestamp()
+
     for period in raw_periods:
         if not isinstance(period, Mapping):
             return None
-        if (
-            _as_float(period.get("timestamp")) is None
-            or _as_float(period.get("precipitationrate")) is None
-        ):
+        ts = _as_float(period.get("timestamp"))
+        rate = _as_float(period.get("precipitationrate"))
+        if ts is None or rate is None:
             return None
+        if ts + 300 > current_ts:
+            has_unexpired = True
         periods.append(period)
+
+    if not has_unexpired:
+        return None
 
     return periods
 

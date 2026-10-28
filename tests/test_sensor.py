@@ -10,6 +10,7 @@ from homeassistant.helpers.entity_registry import async_get as async_get_entity_
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.buienalarm.const import DOMAIN, SENSORS
+from custom_components.buienalarm.sensor_types import SENSOR_DESCRIPTIONS
 
 
 @pytest.fixture(autouse=True)
@@ -96,9 +97,12 @@ async def test_sensor_entities_created_and_populated(
         assert entity_id is not None, f"Entity for {sensor['key']} not found"
 
         state = hass.states.get(entity_id)
-        assert state is not None, f"State for {entity_id} missing"
-        if sensor["key"] == "precipitationrate_now":
-            assert state.state == "unavailable"
+        if sensor.get("enabled_by_default", True):
+            assert state is not None, f"State for {entity_id} missing"
+            if sensor["key"] == "precipitationrate_now":
+                assert state.state == "unavailable"
+        else:
+            assert state is None
 
     # ---- guard: invalid data structure ----
     bad_resp = AsyncMock()
@@ -116,7 +120,10 @@ async def test_sensor_entities_created_and_populated(
         unique_id = f"{entry.entry_id}_{sensor['key']}"
         entity_id = entity_registry.async_get_entity_id("sensor", DOMAIN, unique_id)
         state = hass.states.get(entity_id)
-        assert state is not None
+        if sensor.get("enabled_by_default", True):
+            assert state is not None
+        else:
+            assert state is None
 
 
 @pytest.mark.asyncio
@@ -780,6 +787,15 @@ async def test_sensor_integration_user_provided_data(
         data={"latitude": 52.787, "longitude": 4.798, "location_name": "Test Location"},
     )
     entry.add_to_hass(hass)
+    # Exercise the optional period sensor as a user-enabled entity.
+    entity_registry = async_get_entity_registry(hass)
+    entity_registry.async_get_or_create(
+        "sensor",
+        DOMAIN,
+        f"{entry.entry_id}_precipitation_periods",
+        config_entry=entry,
+        suggested_object_id="test_precipitation_periods",
+    )
 
     with patch("aiohttp.ClientSession.get", return_value=mock_resp):
         assert await hass.config_entries.async_setup(entry.entry_id)
@@ -826,6 +842,8 @@ async def test_sensor_integration_user_provided_data(
         state = hass.states.get(entity_id)
         assert state is not None, f"State for sensor {key} missing"
         assert state.state == expected_state, f"Sensor {key} state mismatch"
+        if key == "precipitation_duration":
+            assert state.attributes.get("state_class") is None
 
     expected_binary_sensor_states = {
         "precipitation_expected": "off",
@@ -2302,3 +2320,186 @@ async def test_mycastmessage_invalid_rates_do_not_establish_boundaries(
     assert sensor.get_rain_start_time_and_duration(invalid_points) is None
     assert sensor.native_value is None
     assert sensor.available is False
+
+
+@pytest.mark.asyncio
+async def test_get_precipitation_duration_when_currently_dry_and_rain_upcoming(
+    hass: HomeAssistant,
+) -> None:
+    """Verify get_precipitation_duration calculates upcoming rain duration when currently dry."""
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.entity import BuienalarmEntity
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Upcoming Rain Duration Test",
+        unique_id="test_upcoming_duration",
+        data={"latitude": 52.3702, "longitude": 4.8952},
+    )
+
+    coordinator = MagicMock()
+    entity = BuienalarmEntity(coordinator, entry, "precipitation_duration")
+
+    now_ts = int(datetime.now(timezone.utc).timestamp())
+
+    # Current bin dry, rain starts in 10 minutes (now_ts + 600) and lasts 15 minutes (3 bins of rain)
+    coordinator.data = {
+        "data": [
+            {"timestamp": now_ts, "precipitationrate": 0.0},
+            {"timestamp": now_ts + 300, "precipitationrate": 0.0},
+            {
+                "timestamp": now_ts + 600,
+                "precipitationrate": 2.0,
+                "precipitationtype": "rain",
+            },
+            {
+                "timestamp": now_ts + 900,
+                "precipitationrate": 3.0,
+                "precipitationtype": "rain",
+            },
+            {
+                "timestamp": now_ts + 1200,
+                "precipitationrate": 1.0,
+                "precipitationtype": "rain",
+            },
+            {
+                "timestamp": now_ts + 1500,
+                "precipitationrate": 0.0,
+                "precipitationtype": "rain",
+            },
+        ]
+    }
+
+    assert entity.get_precipitation_duration() == 15
+
+
+@pytest.mark.parametrize(
+    ("raw_type", "expected_type", "expected_desc"),
+    [
+        ("  RAIN ", "Regen", "Lichte regen"),
+        ("  SNOW ", "Sneeuw", "Lichte sneeuw"),
+        (" MIX ", "Mix van regen en sneeuw", "Lichte regen en sneeuw"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_precipitation_type_string_normalization(
+    hass: HomeAssistant,
+    raw_type: str,
+    expected_type: str,
+    expected_desc: str,
+) -> None:
+    """Verify precipitationtype string normalization handles whitespace and case variations."""
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.entity import BuienalarmEntity
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="String Normalization Test",
+        unique_id="test_type_normalization",
+        data={"latitude": 52.3702, "longitude": 4.8952},
+    )
+
+    coordinator = MagicMock()
+    entity = BuienalarmEntity(coordinator, entry, "precipitationtype_now")
+
+    now_ts = int(datetime.now(timezone.utc).timestamp())
+
+    coordinator.data = {
+        "data": [
+            {
+                "timestamp": now_ts,
+                "precipitationrate": 2.0,
+                "precipitationtype": raw_type,
+            }
+        ]
+    }
+    assert entity.get_current_precipitation_type() == expected_type
+    assert entity.get_current_precipitation_rate_desc() == expected_desc
+
+
+@pytest.mark.asyncio
+async def test_precipitation_periods_disabled_by_default(
+    hass: HomeAssistant,
+) -> None:
+    """Verify precipitation_periods entity registry disabled default is set to False."""
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.sensor import BuienalarmSensor
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Disabled Default Test",
+        unique_id="test_disabled_default",
+        data={"latitude": 52.3702, "longitude": 4.8952},
+    )
+
+    coordinator = MagicMock()
+    coordinator.last_update_success = True
+
+    sensor = BuienalarmSensor(
+        coordinator,
+        entry,
+        name="Neerslag periodes",
+        unit_of_measurement=None,
+        icon="mdi:weather-rainy",
+        device_class=None,
+        state_class=None,
+        key="precipitation_periods",
+        translation_key="precipitation_periods",
+        enabled_by_default=False,
+    )
+
+    assert sensor.entity_registry_enabled_default is False
+
+
+def test_forecast_duration_metadata_excludes_measurement_statistics() -> None:
+    """Keep forecast duration out of measurement statistics in both descriptions."""
+    duration_config = next(
+        sensor_config
+        for sensor_config in SENSORS
+        if sensor_config["key"] == "precipitation_duration"
+    )
+    duration_description = next(
+        description
+        for description in SENSOR_DESCRIPTIONS
+        if description.key == "precipitation_duration"
+    )
+    assert duration_config["state_class"] is None
+    assert duration_description.state_class is None
+
+
+@pytest.mark.parametrize("invalid_rate", [-1.0, None, "invalid", float("nan"), True])
+@pytest.mark.asyncio
+async def test_current_readings_skip_invalid_active_points(
+    hass: HomeAssistant,
+    freezer: FrozenDateTimeFactory,
+    invalid_rate: object,
+) -> None:
+    """Retain a valid current reading after an invalid point in the same bin."""
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.entity import BuienalarmEntity
+
+    freezer.move_to("2026-10-23T12:00:00Z")
+    timestamp = datetime.now(timezone.utc).timestamp()
+    coordinator = MagicMock()
+    coordinator.data = {
+        "data": [
+            {
+                "timestamp": timestamp,
+                "precipitationrate": invalid_rate,
+                "precipitationtype": "snow",
+            },
+            {
+                "timestamp": timestamp,
+                "precipitationrate": 2.5,
+                "precipitationtype": "  RAIN ",
+            },
+        ]
+    }
+    entity = BuienalarmEntity(
+        coordinator, MockConfigEntry(domain=DOMAIN, data={}), "precipitationrate_now"
+    )
+
+    assert entity.get_current_precipitation() == pytest.approx(2.5)
+    assert entity.get_current_precipitation_type() == "Regen"
+    assert entity.get_current_precipitation_rate_desc() == "Matige regen"
+    assert entity.get_next_precipitation() == 0
