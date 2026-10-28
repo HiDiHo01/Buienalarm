@@ -29,7 +29,7 @@ SENSOR_KEYS: list[dict] = [
         "name": "Precipitation Duration",
         "icon": "mdi:clock-outline",
         "native_unit_of_measurement": UnitOfTime.MINUTES,
-        "state_class": None,
+        "state_class": SensorStateClass.MEASUREMENT,
         "device_class": SensorDeviceClass.DURATION,
     },
     {

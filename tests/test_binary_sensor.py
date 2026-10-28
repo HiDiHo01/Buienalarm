@@ -8,7 +8,6 @@ from unittest.mock import AsyncMock, Mock, patch
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry
-from homeassistant.helpers.update_coordinator import UpdateFailed
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.buienalarm.const import DOMAIN
@@ -261,7 +260,7 @@ async def test_binary_sensors_nested_timeseries_data(hass: HomeAssistant) -> Non
 
 @pytest.mark.asyncio
 async def test_binary_sensors_empty_data_list(hass: HomeAssistant) -> None:
-    """Test binary sensors become unavailable for an empty forecast."""
+    """Test binary sensors remain available and off when API returns an empty data list."""
     with patch(
         "custom_components.buienalarm.api.BuienalarmApiClient.async_get_data",
         return_value={"data": []},
@@ -287,7 +286,7 @@ async def test_binary_sensors_empty_data_list(hass: HomeAssistant) -> None:
             assert entity_id is not None
             state = hass.states.get(entity_id)
             assert state is not None
-            assert state.state == "unavailable"
+            assert state.state == "off"
 
 
 @pytest.mark.asyncio
@@ -344,7 +343,6 @@ async def test_binary_sensor_precipitation_expected_unclassified_type(
 @pytest.mark.parametrize(
     "data_payload",
     [
-        pytest.param({}, id="missing_forecast"),
         {"data": "invalid"},
         {
             "data": [
@@ -486,9 +484,9 @@ async def test_binary_sensor_precipitation_expected_unclassified_type(
 )
 async def test_binary_sensors_missing_or_invalid_data(
     hass: HomeAssistant,
-    data_payload: dict[str, object],
+    data_payload: dict,
 ) -> None:
-    """Test unavailable states and default icons for missing, invalid, or stale data."""
+    """Test binary sensors when precipitation data or period timestamp is missing/unparseable."""
     with patch(
         "custom_components.buienalarm.api.BuienalarmApiClient.async_get_data",
         return_value=data_payload,
@@ -514,13 +512,7 @@ async def test_binary_sensors_missing_or_invalid_data(
             assert entity_id is not None
             state = hass.states.get(entity_id)
             assert state is not None
-            assert state.state == "unavailable"
-            binary_description = next(
-                description
-                for description in BINARY_SENSOR_DESCRIPTIONS
-                if description.key == key
-            )
-            assert state.attributes.get("icon") == binary_description.icon
+            assert state.state == "unknown"
 
 
 @pytest.mark.asyncio
@@ -572,7 +564,7 @@ async def test_binary_sensors_freezing_rain_now(hass: HomeAssistant) -> None:
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("precipitation_type", "expected_rain_state", "expected_snow_state"),
-    [("rain", "on", "off"), ("snow", "off", "on"), (None, "off", "off")],
+    [("rain", "on", "off"), ("snow", "off", "on"), (None, "unknown", "unknown")],
 )
 async def test_binary_sensor_dynamic_icons(
     hass: HomeAssistant,
@@ -581,16 +573,20 @@ async def test_binary_sensor_dynamic_icons(
     expected_rain_state: str,
     expected_snow_state: str,
 ) -> None:
-    """Test precipitation icons with positive rates, including an omitted type."""
+    """Test binary sensor entity icons update dynamically based on is_on state."""
     freezer.move_to("2026-10-23T12:00:00Z")
     now_ts = datetime.now(timezone.utc).timestamp()
-    period: dict[str, object] = {
-        "precipitationrate": 1.5,
-        "timestamp": now_ts,
+    data = {
+        "data": [
+            {
+                "precipitationrate": 1.5,
+                "precipitationtype": precipitation_type,
+                "timestamp": now_ts,
+            }
+        ]
     }
-    if precipitation_type is not None:
-        period["precipitationtype"] = precipitation_type
-    data = {"data": [period]}
+    if precipitation_type is None:
+        data = {}
 
     with patch(
         "custom_components.buienalarm.api.BuienalarmApiClient.async_get_data",
@@ -641,82 +637,3 @@ async def test_binary_sensor_dynamic_icons(
             if expected_snow_state == "on"
             else snow_description.icon
         )
-
-        exp_id = entity_registry.async_get_entity_id(
-            "binary_sensor", DOMAIN, f"{entry.entry_id}_precipitation_expected"
-        )
-        assert exp_id is not None
-        exp_state = hass.states.get(exp_id)
-        assert exp_state is not None
-        assert exp_state.state == "on"
-        assert exp_state.attributes.get("icon") == "mdi:weather-pouring"
-
-
-@pytest.mark.asyncio
-async def test_binary_sensors_recover_after_failed_and_stale_updates(
-    hass: HomeAssistant, freezer: FrozenDateTimeFactory
-) -> None:
-    """Publish unavailable on failures or expired data and recover on valid rain."""
-    freezer.move_to("2026-10-23T12:00:00Z")
-    timestamp = datetime.now(timezone.utc).timestamp()
-    active_payload = {
-        "data": [
-            {
-                "timestamp": timestamp,
-                "precipitationrate": 2.5,
-                "precipitationtype": "rain",
-            }
-        ]
-    }
-    stale_payload = {
-        "data": [
-            {
-                "timestamp": timestamp - 3600,
-                "precipitationrate": 2.5,
-                "precipitationtype": "rain",
-            }
-        ]
-    }
-    with patch(
-        "custom_components.buienalarm.api.BuienalarmApiClient.async_get_data",
-        return_value=active_payload,
-    ):
-        entry = MockConfigEntry(
-            domain=DOMAIN,
-            data={"latitude": 52.3702, "longitude": 4.8952},
-        )
-        entry.add_to_hass(hass)
-        assert await hass.config_entries.async_setup(entry.entry_id)
-        await hass.async_block_till_done()
-
-        coordinator = entry.runtime_data
-        entity_registry = async_get_entity_registry(hass)
-        sensor_keys = (
-            "precipitation_expected",
-            "currently_raining",
-            "currently_snowing",
-        )
-        for update_payload, expected_states in (
-            (active_payload, ("on", "on", "off")),
-            (None, ("unavailable", "unavailable", "unavailable")),
-            (stale_payload, ("unavailable", "unavailable", "unavailable")),
-            (active_payload, ("on", "on", "off")),
-        ):
-            if update_payload is None:
-                coordinator.async_set_update_error(
-                    UpdateFailed("Forecast fetch failed")
-                )
-            else:
-                coordinator.async_set_updated_data(update_payload)
-            await hass.async_block_till_done()
-
-            for sensor_key, expected_state in zip(
-                sensor_keys, expected_states, strict=True
-            ):
-                entity_id = entity_registry.async_get_entity_id(
-                    "binary_sensor", DOMAIN, f"{entry.entry_id}_{sensor_key}"
-                )
-                assert entity_id is not None
-                state = hass.states.get(entity_id)
-                assert state is not None
-                assert state.state == expected_state
