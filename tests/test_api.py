@@ -164,3 +164,26 @@ async def test_async_get_initial_data_invalid_json(hass: HomeAssistant) -> None:
 
     with pytest.raises(ApiError, match="Invalid JSON"):
         await client.async_get_initial_data()
+
+
+@pytest.mark.asyncio
+async def test_async_get_nowcast_user_sample_payload(
+    hass: HomeAssistant, user_sample_payload: dict
+) -> None:
+    """Test that async_get_nowcast returns wrapped timeseries data for the user sample payload."""
+    mock_session = MagicMock()
+    mock_response = AsyncMock()
+    mock_response.status = 200
+    mock_response.headers = {"Content-Type": "application/json", "Age": "0"}
+    mock_response.json = AsyncMock(return_value=user_sample_payload)
+    mock_session.get.return_value.__aenter__.return_value = mock_response
+
+    client = BuienalarmApiClient(52.787, 4.798, mock_session, hass)
+    result = await client.async_get_nowcast()
+
+    assert "timeseries" in result
+    timeseries = result["timeseries"]
+    assert len(timeseries["data"]) == 26
+    assert timeseries["nowcastmessage"]["nl"] == "Het blijft voorlopig droog"
+    assert timeseries["nowcastmessage"]["en"] == "It will stay dry for now"
+    assert timeseries["summary"]["latitude"] == 52.787
