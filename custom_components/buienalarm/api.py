@@ -284,6 +284,14 @@ class BuienalarmApiClient:
                     except TypeError:
                         data = await resp.json()
 
+                    if not isinstance(data, dict):
+                        _LOGGER.error(
+                            "[API%s]   Invalid response format: expected dict, got %s",
+                            self._sfx,
+                            type(data).__name__,
+                        )
+                        raise ApiError("Invalid response format: expected dictionary")
+
                     age_str = resp_headers.get("Age", "0")
                     try:
                         age_header = int(age_str)
