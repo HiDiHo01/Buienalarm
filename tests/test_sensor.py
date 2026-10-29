@@ -622,6 +622,14 @@ async def test_forecast_availability_matches_calculation_window(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
+    "sensor_key",
+    [
+        "precipitationrate_now",
+        "precipitationrate_now_desc",
+        "precipitationtype_now",
+    ],
+)
+@pytest.mark.parametrize(
     ("timestamp", "rate", "expected_available"),
     [
         pytest.param(1700000000, 2.5, True, id="current-rain"),
@@ -649,11 +657,12 @@ async def test_forecast_availability_matches_calculation_window(
 async def test_current_rate_availability_requires_valid_active_reading(
     hass: HomeAssistant,
     freezer,
+    sensor_key: str,
     timestamp: object,
     rate: object,
     expected_available: bool,
 ) -> None:
-    """Only expose a rate when a valid reading covers the current five-minute bin."""
+    """Only expose current reading sensors when a valid reading covers the current five-minute bin."""
     from unittest.mock import MagicMock
     from custom_components.buienalarm.sensor import BuienalarmSensor
 
@@ -661,21 +670,29 @@ async def test_current_rate_availability_requires_valid_active_reading(
     coordinator = MagicMock()
     coordinator.last_update_success = True
     coordinator.data = {
-        "data": [None, {}, {"timestamp": timestamp, "precipitationrate": rate}]
+        "data": [
+            None,
+            {},
+            {
+                "timestamp": timestamp,
+                "precipitationrate": rate,
+                "precipitationtype": "rain",
+            },
+        ]
     }
     sensor = BuienalarmSensor(
         coordinator,
         MockConfigEntry(domain=DOMAIN, data={}),
-        name="Current Precipitation Rate",
-        unit_of_measurement="mm/h",
+        name=sensor_key,
+        unit_of_measurement="mm/h" if sensor_key == "precipitationrate_now" else None,
         icon="mdi:weather-rainy",
         device_class=None,
         state_class=None,
-        key="precipitationrate_now",
+        key=sensor_key,
     )
 
     assert sensor.available is expected_available
-    if expected_available:
+    if expected_available and sensor_key == "precipitationrate_now":
         expected_rate = float(rate.replace(",", ".")) if isinstance(rate, str) else rate
         assert sensor.native_value == pytest.approx(expected_rate)
 
