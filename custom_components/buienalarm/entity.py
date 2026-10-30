@@ -588,7 +588,6 @@ class BuienalarmEntity(CoordinatorEntity):
                 if start_time is not None:
                     duration = (data_point_time - start_time).total_seconds() / 60
                     return min(MAX_DURATION_MINUTES, int(round(duration)))
-                return 0
 
         # Precipitation continued through all forecast points
         if start_time is not None and last_time is not None:
@@ -765,45 +764,35 @@ class BuienalarmEntity(CoordinatorEntity):
         )
         return total_precipitation
 
+    def _get_current_data_point(self) -> object | None:
+        """Return the first valid reading covering the active five-minute bin."""
+        data = self.data.get("data")
+        if not isinstance(data, list):
+            return None
+
+        current_ts = datetime.now(timezone.utc).timestamp()
+        for data_point in data:
+            if not isinstance(data_point, Mapping) and not callable(
+                getattr(data_point, "get", None)
+            ):
+                continue
+
+            ts = _as_float(_safe_get(data_point, "timestamp"))
+            if ts is None or not ts <= current_ts < ts + 300:
+                continue
+            rate = _as_float(_safe_get(data_point, "precipitationrate"))
+            if rate is not None and rate >= 0:
+                return data_point
+
+        return None
+
     def get_current_precipitation(self) -> float:
         """Get the current precipitation rate."""
-        data: object = self.data.get("data", [])
-        # Bolt performance optimization: use epoch timestamps for rapid interval check
-        current_ts: float = datetime.now(timezone.utc).timestamp()
-
-        if isinstance(data, list):
-            for data_point in data:
-                if not isinstance(data_point, Mapping) and not callable(
-                    getattr(data_point, "get", None)
-                ):
-                    _LOGGER.debug(
-                        "[BUIENALARM ENTITY] Skipping non-mapping data point (type=%s): %r",
-                        type(data_point).__name__,
-                        data_point,
-                    )
-                    continue
-
-                timestamp = _as_float(_safe_get(data_point, "timestamp"))
-                precipitation_rate = _as_float(
-                    _safe_get(data_point, "precipitationrate")
-                )
-                precipitation_type = _safe_get(data_point, "precipitationtype")
-
-                if (
-                    timestamp is not None
-                    and precipitation_rate is not None
-                    and precipitation_rate >= 0
-                ):
-                    _LOGGER.debug(
-                        "[BUIENALARM ENTITY] Checking data point at timestamp %s with precipitation rate %s and type %s",
-                        timestamp,
-                        precipitation_rate,
-                        precipitation_type,
-                    )
-
-                    # Check if current time is within the 5-minute forecast bin [timestamp, timestamp + 300)
-                    if timestamp <= current_ts < timestamp + 300:
-                        return precipitation_rate
+        point = self._get_current_data_point()
+        if point is not None:
+            rate = _as_float(_safe_get(point, "precipitationrate"))
+            if rate is not None and rate >= 0:
+                return rate
         return 0.0
 
     NO_PRECIPITATION = "Geen neerslag"
@@ -834,106 +823,44 @@ class BuienalarmEntity(CoordinatorEntity):
 
     def get_current_precipitation_rate_desc(self) -> str:
         """Get the description of the current precipitation rate."""
-        data: object = self.data.get("data", [])
-        current_ts: float = datetime.now(timezone.utc).timestamp()
-        current_precipitation_rate_desc: str = self.NO_PRECIPITATION
+        point = self._get_current_data_point()
+        if point is not None:
+            rate = _as_float(_safe_get(point, "precipitationrate")) or 0.0
+            raw_type = _safe_get(point, "precipitationtype")
+            ptype = raw_type.strip().lower() if isinstance(raw_type, str) else ""
 
-        # Log the current timestamp for debugging
-        _LOGGER.debug(
-            "[BUIENALARM ENTITY] Current timestamp for precipitation check: %s",
-            current_ts,
-        )
+            categories = self.PRECIPITATION_RAIN_CATEGORIES
+            if ptype in ("snow", "wet snow"):
+                categories = self.PRECIPITATION_SNOW_CATEGORIES
+            elif ptype in ("mix", "mix of rain and snow"):
+                categories = self.PRECIPITATION_RAIN_SNOW_CATEGORIES
 
-        if not isinstance(data, list):
-            return current_precipitation_rate_desc
+            for threshold, category in categories:
+                if rate > threshold:
+                    return category
 
-        for data_point in data:
-            if not isinstance(data_point, Mapping) and not callable(
-                getattr(data_point, "get", None)
-            ):
-                _LOGGER.debug(
-                    "Skipping non-mapping data point in precipitation rate desc (type=%s): %r",
-                    type(data_point).__name__,
-                    data_point,
-                )
-                continue
-
-            ts = _as_float(_safe_get(data_point, "timestamp"))
-            if ts is not None and ts <= current_ts < ts + 300:
-                current_precipitation_rate = (
-                    _as_float(_safe_get(data_point, "precipitationrate")) or 0.0
-                )
-
-                raw_type = _safe_get(data_point, "precipitationtype")
-                current_precipitation_type: str = (
-                    raw_type if isinstance(raw_type, str) else self.NO_PRECIPITATION
-                )
-
-                categories = self.PRECIPITATION_RAIN_CATEGORIES
-                if current_precipitation_type in ("snow", "wet snow"):
-                    categories = self.PRECIPITATION_SNOW_CATEGORIES
-                elif current_precipitation_type in ("mix", "mix of rain and snow"):
-                    categories = self.PRECIPITATION_RAIN_SNOW_CATEGORIES
-
-                # Log the found precipitation type and rate for debugging
-                _LOGGER.debug(
-                    "[BUIENALARM ENTITY] Found precipitation type: %s with rate: %s",
-                    current_precipitation_type,
-                    current_precipitation_rate,
-                )
-
-                for threshold, category in categories:
-                    if current_precipitation_rate > threshold:
-                        current_precipitation_rate_desc = category
-                        _LOGGER.debug(
-                            "[BUIENALARM ENTITY] Current precipitation rate description: %s",
-                            current_precipitation_rate_desc,
-                        )
-                        return current_precipitation_rate_desc  # Early return if found
-
-        return current_precipitation_rate_desc
+        return self.NO_PRECIPITATION
 
     def get_current_precipitation_type(self) -> str:
         """Get the type of current precipitation (rain, snow, etc.)."""
-        precipitation_data: object = self.data.get("data", [])
-        current_ts: float = datetime.now(timezone.utc).timestamp()
-        current_type: str = self.NO_PRECIPITATION
-
-        if not isinstance(precipitation_data, list):
-            return current_type
-
-        for data_point in precipitation_data:
-            if not isinstance(data_point, Mapping) and not callable(
-                getattr(data_point, "get", None)
-            ):
-                _LOGGER.debug(
-                    "Skipping non-mapping data point in precipitation type (type=%s): %r",
-                    type(data_point).__name__,
-                    data_point,
-                )
-                continue
-
-            timestamp = _as_float(_safe_get(data_point, "timestamp"))
-            if timestamp is not None and timestamp <= current_ts < timestamp + 300:
-                current_rate = (
-                    _as_float(_safe_get(data_point, "precipitationrate")) or 0.0
-                )
-
-                if current_rate > 0:
-                    current_type = _safe_get(data_point, "precipitationtype")
+        point = self._get_current_data_point()
+        if point is not None:
+            rate = _as_float(_safe_get(point, "precipitationrate")) or 0.0
+            if rate > 0:
+                raw_type = _safe_get(point, "precipitationtype")
+                if isinstance(raw_type, str):
+                    current_type = raw_type.strip().lower()
                     if current_type == "rain":
                         return "Regen"
                     elif current_type == "freezing rain":
                         return "Ijzel"
                     elif current_type in ("snow", "wet snow"):
                         return "Sneeuw"
-                    elif (
-                        current_type == "mix" or current_type == "mix of rain and snow"
-                    ):
+                    elif current_type in ("mix", "mix of rain and snow"):
                         return "Mix van regen en sneeuw"
-                    return "Onbekend"
+                return "Onbekend"
 
-        return current_type if isinstance(current_type, str) else self.NO_PRECIPITATION
+        return self.NO_PRECIPITATION
 
     def get_next_precipitation(self) -> int | None:
         """
