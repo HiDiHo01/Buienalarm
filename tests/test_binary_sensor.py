@@ -720,3 +720,39 @@ async def test_binary_sensors_recover_after_failed_and_stale_updates(
                 state = hass.states.get(entity_id)
                 assert state is not None
                 assert state.state == expected_state
+
+
+@pytest.mark.asyncio
+async def test_binary_sensor_user_sample_payload(
+    hass: HomeAssistant,
+    freezer: FrozenDateTimeFactory,
+    user_sample_payload: dict[str, object],
+) -> None:
+    """Test binary sensors with the user-provided sample dataset."""
+    freezer.move_to("2026-10-11T23:00:00Z")
+    with patch(
+        "custom_components.buienalarm.api.BuienalarmApiClient.async_get_data",
+        return_value=user_sample_payload,
+    ):
+        entry = MockConfigEntry(
+            domain=DOMAIN,
+            title="Buienalarm User Sample Test",
+            unique_id="user_sample_binary_sensor_test",
+            data={"latitude": 52.787, "longitude": 4.798},
+        )
+        entry.add_to_hass(hass)
+
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        entity_registry = async_get_entity_registry(hass)
+
+        for key in ("precipitation_expected", "currently_raining", "currently_snowing"):
+            unique_id = f"{entry.entry_id}_{key}"
+            entity_id = entity_registry.async_get_entity_id(
+                "binary_sensor", DOMAIN, unique_id
+            )
+            assert entity_id is not None
+            state = hass.states.get(entity_id)
+            assert state is not None
+            assert state.state == "off"
