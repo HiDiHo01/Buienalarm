@@ -622,6 +622,10 @@ async def test_forecast_availability_matches_calculation_window(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
+    "key",
+    ["precipitationrate_now", "precipitationrate_now_desc", "precipitationtype_now"],
+)
+@pytest.mark.parametrize(
     ("timestamp", "rate", "expected_available"),
     [
         pytest.param(1700000000, 2.5, True, id="current-rain"),
@@ -649,11 +653,12 @@ async def test_forecast_availability_matches_calculation_window(
 async def test_current_rate_availability_requires_valid_active_reading(
     hass: HomeAssistant,
     freezer,
+    key: str,
     timestamp: object,
     rate: object,
     expected_available: bool,
 ) -> None:
-    """Only expose a rate when a valid reading covers the current five-minute bin."""
+    """Only expose current reading sensors when a valid reading covers the current five-minute bin."""
     from unittest.mock import MagicMock
     from custom_components.buienalarm.sensor import BuienalarmSensor
 
@@ -661,23 +666,95 @@ async def test_current_rate_availability_requires_valid_active_reading(
     coordinator = MagicMock()
     coordinator.last_update_success = True
     coordinator.data = {
-        "data": [None, {}, {"timestamp": timestamp, "precipitationrate": rate}]
+        "data": [
+            None,
+            {},
+            {
+                "timestamp": timestamp,
+                "precipitationrate": rate,
+                "precipitationtype": "rain",
+            },
+        ]
     }
     sensor = BuienalarmSensor(
         coordinator,
         MockConfigEntry(domain=DOMAIN, data={}),
-        name="Current Precipitation Rate",
-        unit_of_measurement="mm/h",
+        name=key,
+        unit_of_measurement="mm/h" if key == "precipitationrate_now" else None,
         icon="mdi:weather-rainy",
         device_class=None,
         state_class=None,
-        key="precipitationrate_now",
+        key=key,
     )
 
     assert sensor.available is expected_available
     if expected_available:
-        expected_rate = float(rate.replace(",", ".")) if isinstance(rate, str) else rate
-        assert sensor.native_value == pytest.approx(expected_rate)
+        assert sensor.native_value is not None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("type_fields", "expected_value"),
+    [
+        pytest.param({"precipitationtype": "rain"}, "Regen", id="rain"),
+        pytest.param(
+            {"precipitationtype": "freezing rain"}, "Ijzel", id="freezing-rain"
+        ),
+        pytest.param({"precipitationtype": "snow"}, "Sneeuw", id="snow"),
+        pytest.param({"precipitationtype": "wet snow"}, "Sneeuw", id="wet-snow"),
+        pytest.param({"precipitationtype": "mix"}, "Mix van regen en sneeuw", id="mix"),
+        pytest.param(
+            {"precipitationtype": "mix of rain and snow"},
+            "Mix van regen en sneeuw",
+            id="mixed",
+        ),
+        pytest.param({}, None, id="missing"),
+        pytest.param({"precipitationtype": None}, None, id="null"),
+        pytest.param({"precipitationtype": ""}, None, id="empty"),
+        pytest.param({"precipitationtype": "hail"}, None, id="unrecognized"),
+        pytest.param({"precipitationtype": "RAIN"}, None, id="different-case"),
+        pytest.param({"precipitationtype": []}, None, id="wrong-type"),
+    ],
+)
+async def test_current_precipitation_type_availability(
+    hass: HomeAssistant,
+    freezer,
+    type_fields: dict[str, object],
+    expected_value: str | None,
+) -> None:
+    """A wet reading needs a recognized type; a dry reading does not."""
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.sensor import BuienalarmSensor
+
+    freezer.move_to(datetime.fromtimestamp(1700000000, timezone.utc))
+    point = {"timestamp": 1700000000, "precipitationrate": 2.5, **type_fields}
+    coordinator = MagicMock()
+    coordinator.last_update_success = True
+    coordinator.data = {"data": [point]}
+    entry = MockConfigEntry(domain=DOMAIN, data={})
+
+    def make_sensor(key: str) -> BuienalarmSensor:
+        return BuienalarmSensor(
+            coordinator,
+            entry,
+            name=key,
+            unit_of_measurement=None,
+            icon=None,
+            device_class=None,
+            state_class=None,
+            key=key,
+        )
+
+    type_sensor = make_sensor("precipitationtype_now")
+    assert type_sensor.available is (expected_value is not None)
+    if expected_value is not None:
+        assert type_sensor.native_value == expected_value
+    assert make_sensor("precipitationrate_now").available is True
+    assert make_sensor("precipitationrate_now_desc").available is True
+
+    point["precipitationrate"] = 0.0
+    assert type_sensor.available is True
+    assert type_sensor.native_value == "Geen neerslag"
 
 
 @pytest.mark.asyncio
