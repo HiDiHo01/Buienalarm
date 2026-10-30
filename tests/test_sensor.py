@@ -685,6 +685,71 @@ async def test_current_rate_availability_requires_valid_active_reading(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("type_fields", "expected_value"),
+    [
+        pytest.param({"precipitationtype": "rain"}, "Regen", id="rain"),
+        pytest.param(
+            {"precipitationtype": "freezing rain"}, "Ijzel", id="freezing-rain"
+        ),
+        pytest.param({"precipitationtype": "snow"}, "Sneeuw", id="snow"),
+        pytest.param({"precipitationtype": "wet snow"}, "Sneeuw", id="wet-snow"),
+        pytest.param({"precipitationtype": "mix"}, "Mix van regen en sneeuw", id="mix"),
+        pytest.param(
+            {"precipitationtype": "mix of rain and snow"},
+            "Mix van regen en sneeuw",
+            id="mixed",
+        ),
+        pytest.param({}, None, id="missing"),
+        pytest.param({"precipitationtype": None}, None, id="null"),
+        pytest.param({"precipitationtype": ""}, None, id="empty"),
+        pytest.param({"precipitationtype": "hail"}, None, id="unrecognized"),
+        pytest.param({"precipitationtype": "RAIN"}, None, id="different-case"),
+        pytest.param({"precipitationtype": []}, None, id="wrong-type"),
+    ],
+)
+async def test_current_precipitation_type_availability(
+    hass: HomeAssistant,
+    freezer,
+    type_fields: dict[str, object],
+    expected_value: str | None,
+) -> None:
+    """A wet reading needs a recognized type; a dry reading does not."""
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.sensor import BuienalarmSensor
+
+    freezer.move_to(datetime.fromtimestamp(1700000000, timezone.utc))
+    point = {"timestamp": 1700000000, "precipitationrate": 2.5, **type_fields}
+    coordinator = MagicMock()
+    coordinator.last_update_success = True
+    coordinator.data = {"data": [point]}
+    entry = MockConfigEntry(domain=DOMAIN, data={})
+
+    def make_sensor(key: str) -> BuienalarmSensor:
+        return BuienalarmSensor(
+            coordinator,
+            entry,
+            name=key,
+            unit_of_measurement=None,
+            icon=None,
+            device_class=None,
+            state_class=None,
+            key=key,
+        )
+
+    type_sensor = make_sensor("precipitationtype_now")
+    assert type_sensor.available is (expected_value is not None)
+    if expected_value is not None:
+        assert type_sensor.native_value == expected_value
+    assert make_sensor("precipitationrate_now").available is True
+    assert make_sensor("precipitationrate_now_desc").available is True
+
+    point["precipitationrate"] = 0.0
+    assert type_sensor.available is True
+    assert type_sensor.native_value == "Geen neerslag"
+
+
+@pytest.mark.asyncio
 async def test_buienalarm_entity_missing_or_none_precipitationtype(
     hass: HomeAssistant,
 ) -> None:

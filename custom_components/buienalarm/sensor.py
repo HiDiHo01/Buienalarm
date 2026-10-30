@@ -179,7 +179,18 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
                     and rate is not None
                     and timestamp <= current_ts < timestamp + 300
                 ):
-                    return rate >= 0
+                    if rate < 0:
+                        return False
+                    if self._key == "precipitationtype_now" and rate > 0:
+                        return _safe_get(point, "precipitationtype") in (
+                            "rain",
+                            "freezing rain",
+                            "snow",
+                            "wet snow",
+                            "mix",
+                            "mix of rain and snow",
+                        )
+                    return True
             return False
 
         return True
