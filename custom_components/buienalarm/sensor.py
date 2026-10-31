@@ -168,18 +168,12 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
                     return True
             return False
 
-        if self._key == "precipitationrate_now":
-            current_ts = datetime.now(timezone.utc).timestamp()
-            for point in self.data["data"]:
-                timestamp = _as_float(_safe_get(point, "timestamp"))
-                rate = _as_float(_safe_get(point, "precipitationrate"))
-                if (
-                    timestamp is not None
-                    and rate is not None
-                    and timestamp <= current_ts < timestamp + 300
-                ):
-                    return rate >= 0
-            return False
+        if self._key in (
+            "precipitationrate_now",
+            "precipitationrate_now_desc",
+            "precipitationtype_now",
+        ):
+            return self._get_current_data_point() is not None
 
         return True
 
