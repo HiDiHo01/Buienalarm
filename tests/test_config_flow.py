@@ -16,12 +16,15 @@ from custom_components.buienalarm.const import DOMAIN
 @pytest.fixture(autouse=True)
 def mock_api_calls():
     """Mock API calls to avoid socket errors."""
-    with patch(
-        "custom_components.buienalarm.api.BuienalarmApiClient.async_get_initial_data",
-        return_value={},
-    ), patch(
-        "custom_components.buienalarm.api.BuienalarmApiClient.async_get_data",
-        return_value={"data": []},
+    with (
+        patch(
+            "custom_components.buienalarm.api.BuienalarmApiClient.async_get_initial_data",
+            return_value={},
+        ),
+        patch(
+            "custom_components.buienalarm.api.BuienalarmApiClient.async_get_data",
+            return_value={"data": []},
+        ),
     ):
         yield
 

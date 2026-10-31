@@ -32,12 +32,15 @@ def config_data() -> dict[str, float | str]:
 @pytest.fixture(autouse=True)
 def mock_api_calls():
     """Mock API calls to avoid socket error during test_async_reload_entry."""
-    with patch(
-        "custom_components.buienalarm.api.BuienalarmApiClient.async_get_initial_data",
-        return_value={},
-    ), patch(
-        "custom_components.buienalarm.api.BuienalarmApiClient.async_get_data",
-        return_value={"data": []},
+    with (
+        patch(
+            "custom_components.buienalarm.api.BuienalarmApiClient.async_get_initial_data",
+            return_value={},
+        ),
+        patch(
+            "custom_components.buienalarm.api.BuienalarmApiClient.async_get_data",
+            return_value={"data": []},
+        ),
     ):
         yield
 
