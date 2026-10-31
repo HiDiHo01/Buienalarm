@@ -2683,3 +2683,179 @@ async def test_current_readings_skip_invalid_active_points(
     assert entity.get_current_precipitation_type() == "Regen"
     assert entity.get_current_precipitation_rate_desc() == "Matige regen"
     assert entity.get_next_precipitation() == 0
+
+
+@pytest.mark.parametrize(
+    "key",
+    ["precipitationrate_now", "precipitationrate_now_desc", "precipitationtype_now"],
+)
+@pytest.mark.parametrize("valid_rate", [0.0, 2.5])
+@pytest.mark.asyncio
+async def test_current_sensor_available_after_negative_reading(
+    hass: HomeAssistant,
+    freezer: FrozenDateTimeFactory,
+    key: str,
+    valid_rate: float,
+) -> None:
+    """An invalid active reading must not hide a later usable dry or wet reading."""
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.sensor import BuienalarmSensor
+
+    freezer.move_to("2026-10-31T12:02:00Z")
+    timestamp = datetime.now(timezone.utc).timestamp()
+    coordinator = MagicMock(last_update_success=True)
+    coordinator.data = {
+        "timeseries": {
+            "data": [
+                {"timestamp": timestamp, "precipitationrate": -1.0},
+                {
+                    "timestamp": timestamp,
+                    "precipitationrate": valid_rate,
+                    "precipitationtype": "rain",
+                },
+            ]
+        }
+    }
+    sensor = BuienalarmSensor(
+        coordinator,
+        MockConfigEntry(domain=DOMAIN, data={}),
+        name="Current precipitation",
+        unit_of_measurement=None,
+        icon=None,
+        device_class=None,
+        state_class=None,
+        key=key,
+    )
+    assert sensor.available
+    expected_values = {
+        "precipitationrate_now": valid_rate,
+        "precipitationrate_now_desc": "Matige regen" if valid_rate else "Geen neerslag",
+        "precipitationtype_now": "Regen" if valid_rate else "Geen neerslag",
+    }
+    assert sensor.native_value == expected_values[key]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("gap_seconds", [0, 60])
+async def test_current_sensor_states_follow_boundaries_without_api_refresh(
+    hass: HomeAssistant,
+    freezer: FrozenDateTimeFactory,
+    gap_seconds: int,
+) -> None:
+    """Cached HA states advance, expire and recover between coordinator refreshes."""
+    from pytest_homeassistant_custom_component.common import async_fire_time_changed
+    from custom_components.buienalarm.api import BuienalarmApiClient
+
+    freezer.move_to("2026-10-31T12:02:00Z")
+    start = datetime(2026, 10, 31, 12, tzinfo=timezone.utc)
+    second_start = start + timedelta(seconds=300 + gap_seconds)
+    payload = {
+        "timeseries": {
+            "data": [
+                {"timestamp": start.timestamp(), "precipitationrate": -1.0},
+                {"timestamp": float("inf"), "precipitationrate": 1.0},
+                {"timestamp": 1e300, "precipitationrate": 1.0},
+                {
+                    "timestamp": start.timestamp(),
+                    "precipitationrate": 2.5,
+                    "precipitationtype": "rain",
+                },
+                {
+                    "timestamp": second_start.timestamp(),
+                    "precipitationrate": 0.0,
+                    "precipitationtype": "rain",
+                },
+            ]
+        }
+    }
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={"latitude": 52.0, "longitude": 5.0},
+        options={"refresh_interval": 3600},
+    )
+    entry.add_to_hass(hass)
+    with (
+        patch.object(
+            BuienalarmApiClient, "async_get_initial_data", return_value=payload
+        ),
+        patch.object(
+            BuienalarmApiClient, "async_get_data", return_value=payload
+        ) as fetch,
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+        registry = async_get_entity_registry(hass)
+        keys = [
+            "precipitationrate_now",
+            "precipitationrate_now_desc",
+            "precipitationtype_now",
+        ]
+        entity_ids = [
+            registry.async_get_entity_id("sensor", DOMAIN, f"{entry.entry_id}_{key}")
+            for key in keys
+        ]
+
+        def current_states() -> list[str]:
+            """Read the actual cached state machine values for all current sensors."""
+            return [hass.states.get(entity_id).state for entity_id in entity_ids]
+
+        assert current_states() == ["2.5", "Matige regen", "Regen"]
+        expiry = start + timedelta(seconds=300)
+        freezer.move_to(expiry)
+        async_fire_time_changed(hass, expiry)
+        await hass.async_block_till_done()
+        if gap_seconds:
+            assert current_states() == ["unavailable"] * 3
+            freezer.move_to(second_start)
+            async_fire_time_changed(hass, second_start)
+            await hass.async_block_till_done()
+        assert current_states() == ["0.0", "Geen neerslag", "Geen neerslag"]
+        final_expiry = second_start + timedelta(seconds=300)
+        freezer.move_to(final_expiry)
+        async_fire_time_changed(hass, final_expiry)
+        await hass.async_block_till_done()
+        assert current_states() == ["unavailable"] * 3
+        fetch.assert_awaited_once()
+
+        # New coordinator data replaces the timer and restores current conditions.
+        updated_payload = {
+            "timeseries": {
+                "data": [
+                    {
+                        "timestamp": final_expiry.timestamp(),
+                        "precipitationrate": 2.5,
+                        "precipitationtype": "rain",
+                    }
+                ]
+            }
+        }
+        entry.runtime_data.async_set_updated_data(updated_payload)
+        await hass.async_block_till_done()
+        assert current_states() == ["2.5", "Matige regen", "Regen"]
+
+        replacement_start = final_expiry + timedelta(seconds=60)
+        freezer.move_to(replacement_start)
+        updated_payload["timeseries"]["data"][0][
+            "timestamp"
+        ] = replacement_start.timestamp()
+        entry.runtime_data.async_set_updated_data(updated_payload)
+        await hass.async_block_till_done()
+        with patch(
+            "custom_components.buienalarm.sensor.BuienalarmSensor.async_write_ha_state"
+        ) as old_timer_write:
+            old_expiry = final_expiry + timedelta(seconds=300)
+            freezer.move_to(old_expiry)
+            async_fire_time_changed(hass, old_expiry)
+            await hass.async_block_till_done()
+            old_timer_write.assert_not_called()
+        assert current_states() == ["2.5", "Matige regen", "Regen"]
+        assert await hass.config_entries.async_unload(entry.entry_id)
+        await hass.async_block_till_done()
+        with patch(
+            "custom_components.buienalarm.sensor.BuienalarmSensor.async_write_ha_state"
+        ) as write_state:
+            after_unload = replacement_start + timedelta(seconds=300)
+            freezer.move_to(after_unload)
+            async_fire_time_changed(hass, after_unload)
+            await hass.async_block_till_done()
+            write_state.assert_not_called()

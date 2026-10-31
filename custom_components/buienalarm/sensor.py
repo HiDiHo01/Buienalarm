@@ -1,5 +1,5 @@
 # sensor.py
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import datetime, timezone
 import logging
 import math
@@ -7,7 +7,8 @@ from typing import Final
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.const import CONF_NAME
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.event import async_track_point_in_utc_time
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import StateType
 
@@ -16,6 +17,9 @@ from .coordinator import BuienalarmConfigEntry, BuienalarmDataUpdateCoordinator
 from .entity import BuienalarmEntity, _as_float, _safe_get
 
 _LOGGER = logging.getLogger(__name__)
+_CURRENT_SENSOR_KEYS: Final = frozenset(
+    {"precipitationrate_now", "precipitationrate_now_desc", "precipitationtype_now"}
+)
 
 
 async def async_setup_entry(
@@ -91,6 +95,7 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
         self._device_class = device_class
         self._state_class = state_class
         self._key = key
+        self._cancel_current_update: Callable[[], None] | None = None
         self._attr_translation_key = translation_key or key
         self._attr_entity_registry_enabled_default = enabled_by_default
         self._attr_device_info = coordinator.device_info
@@ -168,24 +173,64 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
                     return True
             return False
 
-        if self._key in (
-            "precipitationrate_now",
-            "precipitationrate_now_desc",
-            "precipitationtype_now",
-        ):
-            current_ts = datetime.now(timezone.utc).timestamp()
-            for point in self.data["data"]:
-                timestamp = _as_float(_safe_get(point, "timestamp"))
-                rate = _as_float(_safe_get(point, "precipitationrate"))
-                if (
-                    timestamp is not None
-                    and rate is not None
-                    and timestamp <= current_ts < timestamp + 300
-                ):
-                    return rate >= 0
-            return False
+        if self._key in _CURRENT_SENSOR_KEYS:
+            return self._get_current_data_point() is not None
 
         return True
+
+    async def async_added_to_hass(self) -> None:
+        """Register current-condition boundary updates and their cleanup."""
+        await super().async_added_to_hass()
+        if self._key in _CURRENT_SENSOR_KEYS:
+            self.async_on_remove(self._cancel_current_boundary_update)
+            self._schedule_current_boundary_update()
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Replace the boundary timer when the coordinator publishes new data."""
+        if self._key in _CURRENT_SENSOR_KEYS:
+            self._schedule_current_boundary_update()
+        super()._handle_coordinator_update()
+
+    @callback
+    def _cancel_current_boundary_update(self) -> None:
+        """Cancel the pending boundary callback, including during entity removal."""
+        if self._cancel_current_update is not None:
+            self._cancel_current_update()
+            self._cancel_current_update = None
+
+    @callback
+    def _schedule_current_boundary_update(self) -> None:
+        """Refresh cached state at the next valid forecast start or expiry."""
+        self._cancel_current_boundary_update()
+        forecast = self.data.get("data")
+        if not self.coordinator.last_update_success or not isinstance(forecast, list):
+            return
+        current_ts = datetime.now(timezone.utc).timestamp()
+        next_boundary: float | None = None
+        for point in forecast:
+            timestamp = _as_float(_safe_get(point, "timestamp"))
+            rate = _as_float(_safe_get(point, "precipitationrate"))
+            if timestamp is None or rate is None or rate < 0:
+                continue
+            for boundary in (timestamp, timestamp + 300):
+                if current_ts < boundary <= 253402300799 and (
+                    next_boundary is None or boundary < next_boundary
+                ):
+                    next_boundary = boundary
+        if next_boundary is not None:
+            self._cancel_current_update = async_track_point_in_utc_time(
+                self.hass,
+                self._async_current_boundary_reached,
+                datetime.fromtimestamp(next_boundary, timezone.utc),
+            )
+
+    @callback
+    def _async_current_boundary_reached(self, now: datetime) -> None:
+        """Reevaluate current conditions without fetching the API again."""
+        self._cancel_current_update = None
+        self._schedule_current_boundary_update()
+        self.async_write_ha_state()
 
     @property
     def native_value(self) -> StateType:
