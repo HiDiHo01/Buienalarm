@@ -340,21 +340,47 @@ async def test_buienalarm_sensor_availability(hass: HomeAssistant) -> None:
         state_class=None,
         key="precipitationrate_now",
     )
+    desc_sensor = BuienalarmSensor(
+        coordinator,
+        entry,
+        name="Precipitation Description",
+        unit_of_measurement=None,
+        icon="mdi:weather-cloudy-alert",
+        device_class=None,
+        state_class=None,
+        key="precipitationrate_now_desc",
+    )
+    type_sensor = BuienalarmSensor(
+        coordinator,
+        entry,
+        name="Precipitation Type",
+        unit_of_measurement=None,
+        icon="mdi:weather-partly-rainy",
+        device_class=None,
+        state_class=None,
+        key="precipitationtype_now",
+    )
 
     # When payload contains both nowcastmessage and data
     coordinator.data = {"nowcastmessage": {"nl": "Regen verwacht"}, "data": []}
     assert nowcast_sensor.available is True
     assert rate_sensor.available is False
+    assert desc_sensor.available is False
+    assert type_sensor.available is False
 
     # When payload contains only nowcastmessage (data missing or invalid)
     coordinator.data = {"nowcastmessage": {"nl": "Regen verwacht"}}
     assert nowcast_sensor.available is True
     assert rate_sensor.available is False
+    assert desc_sensor.available is False
+    assert type_sensor.available is False
 
     # When payload contains only data (nowcastmessage missing or invalid)
     coordinator.data = {"data": []}
     assert nowcast_sensor.available is False
     assert rate_sensor.available is False
+    assert desc_sensor.available is False
+    assert type_sensor.available is False
 
     # When coordinator data is a custom Mapping (UserDict)
     coordinator.data = UserDict(
@@ -362,6 +388,8 @@ async def test_buienalarm_sensor_availability(hass: HomeAssistant) -> None:
     )
     assert nowcast_sensor.available is True
     assert rate_sensor.available is False
+    assert desc_sensor.available is False
+    assert type_sensor.available is False
 
     # When coordinator data wraps timeseries with valid payload
     coordinator.data = {
@@ -369,6 +397,8 @@ async def test_buienalarm_sensor_availability(hass: HomeAssistant) -> None:
     }
     assert nowcast_sensor.available is True
     assert rate_sensor.available is False
+    assert desc_sensor.available is False
+    assert type_sensor.available is False
 
     # A wrapped payload with a valid current reading is available.
     coordinator.data = UserDict(
@@ -391,6 +421,8 @@ async def test_buienalarm_sensor_availability(hass: HomeAssistant) -> None:
     )
     assert nowcast_sensor.available is True
     assert rate_sensor.available is True
+    assert desc_sensor.available is True
+    assert type_sensor.available is True
     assert rate_sensor.native_value == pytest.approx(2.5)
 
     # When payload is missing required forecast fields
@@ -678,6 +710,63 @@ async def test_current_rate_availability_requires_valid_active_reading(
     if expected_available:
         expected_rate = float(rate.replace(",", ".")) if isinstance(rate, str) else rate
         assert sensor.native_value == pytest.approx(expected_rate)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "key",
+    ["precipitationrate_now", "precipitationrate_now_desc", "precipitationtype_now"],
+)
+@pytest.mark.parametrize(
+    ("timestamp", "rate", "expected_available"),
+    [
+        pytest.param(1700000000, 2.5, True, id="current-rain"),
+        pytest.param(1700000000, 0.0, True, id="current-dry"),
+        pytest.param(1699999701, 2.5, True, id="inside-bin"),
+        pytest.param(1699999700, 2.5, False, id="bin-end-exclusive"),
+        pytest.param(1699999400, 2.5, False, id="stale"),
+        pytest.param(1700000001, 2.5, False, id="future"),
+        pytest.param(None, 2.5, False, id="missing-timestamp"),
+        pytest.param(1700000000, None, False, id="missing-rate"),
+        pytest.param(1700000000, -1.0, False, id="negative-rate"),
+    ],
+)
+async def test_current_condition_sensors_availability_requires_active_reading(
+    hass: HomeAssistant,
+    freezer: FrozenDateTimeFactory,
+    key: str,
+    timestamp: object,
+    rate: object,
+    expected_available: bool,
+) -> None:
+    """All current-reading sensors require a valid active reading to be available."""
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.sensor import BuienalarmSensor
+
+    freezer.move_to(datetime.fromtimestamp(1700000000, timezone.utc))
+    coordinator = MagicMock()
+    coordinator.last_update_success = True
+    coordinator.data = {
+        "data": [
+            {
+                "timestamp": timestamp,
+                "precipitationrate": rate,
+                "precipitationtype": "rain",
+            }
+        ]
+    }
+    sensor = BuienalarmSensor(
+        coordinator,
+        MockConfigEntry(domain=DOMAIN, data={}),
+        name="Test Sensor",
+        unit_of_measurement=None,
+        icon=None,
+        device_class=None,
+        state_class=None,
+        key=key,
+    )
+
+    assert sensor.available is expected_available
 
 
 @pytest.mark.asyncio
