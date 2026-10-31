@@ -9,11 +9,6 @@ This is a custom component for Home Assistant that integrates with Buienalarm to
 - Supports custom locations by latitude and longitude.
 - Fully configurable through the Home Assistant UI.
 
-Current precipitation rate, description and type follow the active five-minute
-forecast reading. They update at forecast boundaries between API refreshes and
-become unavailable when no valid reading covers the current time. These local
-state updates do not make additional API requests.
-
 ## Installation
 
 ### Manual Installation
