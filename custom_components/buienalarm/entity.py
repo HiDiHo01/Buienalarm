@@ -81,7 +81,7 @@ def _as_float(value: object) -> float | None:
         try:
             res = float(value.replace(",", "."))
             return res if math.isfinite(res) else None
-        except (ValueError, OverflowError):
+        except ValueError, OverflowError:
             return None
     return None
 
@@ -549,7 +549,7 @@ class BuienalarmEntity(CoordinatorEntity):
 
             try:
                 ts_float = float(timestamp)
-            except (ValueError, TypeError, OverflowError):
+            except ValueError, TypeError, OverflowError:
                 _LOGGER.debug(
                     "Skipping invalid timestamp in precipitation entry: %r", timestamp
                 )
@@ -563,7 +563,7 @@ class BuienalarmEntity(CoordinatorEntity):
 
             try:
                 data_point_time = datetime.fromtimestamp(ts_float, tz=timezone.utc)
-            except (ValueError, OverflowError, OSError):
+            except ValueError, OverflowError, OSError:
                 _LOGGER.debug(
                     "Skipping invalid timestamp in precipitation entry: %r", timestamp
                 )
@@ -576,7 +576,7 @@ class BuienalarmEntity(CoordinatorEntity):
             else:
                 try:
                     precip_rate = float(raw_rate)
-                except (ValueError, TypeError):
+                except ValueError, TypeError:
                     precip_rate = 0.0
 
             last_time = data_point_time  # Update on every valid future or active point
@@ -915,7 +915,7 @@ class BuienalarmEntity(CoordinatorEntity):
 
             try:
                 datetime.fromtimestamp(ts, tz=timezone.utc)
-            except (ValueError, OverflowError, OSError):
+            except ValueError, OverflowError, OSError:
                 continue
 
             rate = _as_float(_safe_get(data_point, "precipitationrate")) or 0.0
@@ -994,7 +994,7 @@ class BuienalarmEntity(CoordinatorEntity):
             else:
                 try:
                     ts_float = float(timestamp)
-                except (ValueError, TypeError, OverflowError):
+                except ValueError, TypeError, OverflowError:
                     continue
 
             # Bolt performance optimization: Compare numeric timestamps directly
@@ -1011,7 +1011,7 @@ class BuienalarmEntity(CoordinatorEntity):
             # Reject unsupported timestamps before changing any rain boundaries.
             try:
                 forecast_time_utc = datetime.fromtimestamp(ts_float, tz=timezone.utc)
-            except (ValueError, OverflowError, OSError):
+            except ValueError, OverflowError, OSError:
                 continue
 
             if type(raw_rate) is bool:
@@ -1026,7 +1026,7 @@ class BuienalarmEntity(CoordinatorEntity):
             else:
                 try:
                     precipitation_rate = float(raw_rate)
-                except (ValueError, TypeError, OverflowError):
+                except ValueError, TypeError, OverflowError:
                     continue
 
             if not math.isfinite(precipitation_rate) or precipitation_rate < 0:

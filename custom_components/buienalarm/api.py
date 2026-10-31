@@ -287,7 +287,7 @@ class BuienalarmApiClient:
                     age_str = resp_headers.get("Age", "0")
                     try:
                         age_header = int(age_str)
-                    except (ValueError, TypeError):
+                    except ValueError, TypeError:
                         age_header = 0
 
                     _LOGGER.debug(
