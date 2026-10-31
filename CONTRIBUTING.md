@@ -18,7 +18,7 @@ git checkout -b my-feature-branch
 Make your changes in the appropriate files. If you're adding a new feature, please ensure that it is thoroughly tested. If you're fixing a bug, please include a test to verify the fix.
 
 - **Code style**: We follow the [PEP 8](https://peps.python.org/pep-0008/) coding standards for Python code.
-- **Formatting**: We use [black](https://black.readthedocs.io/) for Python code formatting. Please run `black .` before committing your changes.
+- **Formatting**: Follow the [Black formatting policy](AGENTS.md#formatting-policy). Run `poetry run black .` and `poetry run black --check --diff .` with the locked dependencies before committing. CI fails on differences and provides a `black-formatting-patch` artifact with a proposed correction.
 - **Testing**: Ensure that your changes pass the existing tests, and write new tests where applicable.
 
 ### 4. Test Your Changes
