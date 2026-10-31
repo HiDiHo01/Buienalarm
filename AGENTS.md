@@ -32,50 +32,59 @@ Deliver the single best, smallest complete solution. Avoid speculative assumptio
 
 ## Formatting policy
 
-Black is authoritative for Python layout. Use the stable version specified by
-`tool.black.required-version` in `pyproject.toml`, with Python 3.14 as the target
-and an 88-character line length. Keep that version, the Black package in
-`poetry.lock`, and the Black revision in `pre-commit-config.yaml` synchronized.
-Upgrade them together in a dedicated, reviewed change. Do not enable preview,
-unstable, or fast mode, change exclusions, or add `fmt: skip` / `fmt: off` merely
-to make a formatting check pass. Other formatting tools must not undo Black's
-output; keep unrelated import sorting or lint changes out of formatting commits.
+Use the formatter and import-order settings of the latest stable Home Assistant
+Core release, verified against its tagged configuration rather than guessed.
+The adopted baseline is Core **2026.10.4**: **Ruff 0.16.9**, Python 3.14,
+88 columns, and Ruff's default formatter settings. Source:
+https://github.com/home-assistant/core/blob/2026.10.4/pyproject.toml and
+https://github.com/home-assistant/core/blob/2026.10.4/.pre-commit-config.yaml.
+Copy its import-order options; adapt `known-first-party` to `custom_components`.
+This adopts formatting and import sorting, not every Core lint rule.
 
-Before committing Python changes, run from the repository root:
+Ruff owns Python layout and import ordering; do not also run Black or standalone
+isort. Use the exact development dependency in `pyproject.toml`. Keep it,
+`tool.ruff.required-version`, and `poetry.lock` synchronized. Local pre-commit
+hooks use `poetry run ruff` so they cannot install a different formatter.
+Renovate updates for Ruff are disabled and the exact pin prevents lock-file
+maintenance from silently advancing it. Upgrade the baseline together in a
+reviewed PR after checking the latest stable Core configuration. CI checks the
+configured, locked and installed versions before checking formatting.
+
+Run these commands from the repository root before committing Python changes:
 
 ```bash
 poetry install --no-root
-poetry run black .
-poetry run black --check --diff .
+poetry run ruff check --select I --fix .
+poetry run ruff format .
+poetry run ruff check --select I .
+poetry run ruff format --check --diff .
 ```
 
-If using pre-commit, explicitly select the existing configuration filename:
-`pre-commit run --config pre-commit-config.yaml black --all-files`.
-Review the resulting diff. A formatting-only correction must not change runtime
-behavior, assertions, dependencies, or unrelated files; commit it separately from
-functional changes when practical. Run the relevant regression tests after
-formatting. Formatter/parser failures require diagnosis, not suppressed checks.
+For pre-commit, explicitly select the existing configuration filename:
+`pre-commit run --config pre-commit-config.yaml ruff-check --all-files`, then
+`pre-commit run --config pre-commit-config.yaml ruff-format --all-files`.
+Review the resulting diff and run relevant regression tests. Keep formatter-only
+commits separate from functional changes when practical. Do not suppress
+formatter/parser failures, enable preview/unsafe fixes, change exclusions, or
+add formatting suppressions merely to pass checks.
 
-The `Black` CI job checks the entire repository with `--check --diff` and fails
-on formatting differences. Its result must be green before merge. Maintainers
-should require this status in the branch ruleset; a workflow change alone does
+The `Ruff` CI job checks the entire repository and must be green before merge.
+Renovate's protection preflight also requires this GitHub Actions status.
+Maintainers must add it to the active branch ruleset; changing a workflow does
 not configure branch protection. CI must not silently format packaged code.
 
-On differences, CI automatically prepares a `black-formatting-patch` artifact
-containing `black-formatting.patch`, retained for 14 days. This is a proposed
-correction for the checked commit, not a commit or an approval. After downloading
-and extracting it, check out that commit's PR branch, inspect the patch, run
-`git apply --check black-formatting.patch`, then
-`git apply black-formatting.patch`, recheck Black, run relevant tests, and commit
-the correction normally. Regenerate the patch if the branch has moved. Syntax
-or formatter failures may prevent patch generation; inspect the job log.
+On differences, CI automatically prepares a `ruff-formatting-patch` artifact
+containing `ruff-formatting.patch`, retained for 14 days. Checkout uses the
+immutable PR head SHA (or the push SHA), not a synthetic merge ref. Download
+and extract the artifact, inspect it on that PR branch, run
+`git apply --check ruff-formatting.patch`, then `git apply ruff-formatting.patch`.
+Recheck Ruff, run relevant tests, and commit the correction normally. Regenerate
+the patch if the branch moved. Syntax errors can prevent patch generation.
 
-Automatic processing is limited to generating the patch in a read-only workflow
-with `contents: read` and checkout credential persistence disabled. It must not
-push commits, force-push, merge, resolve review conversations, use secrets, or
-run PR code under `pull_request_target`. Applying a patch does not waive tests
-or review. Any future bot that writes formatting commits requires a separate
-reviewed workflow and must preserve normal CI and review requirements.
+Automatic processing only generates a proposed patch in a workflow with
+`contents: read` and checkout credential persistence disabled. It must not push,
+force-push, merge, resolve reviews, use secrets, or run PR code under
+`pull_request_target`. Applying a patch does not waive tests or review.
 
 ## Completion
 

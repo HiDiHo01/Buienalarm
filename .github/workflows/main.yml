@@ -11,14 +11,15 @@ on:
       - main
 
 jobs:
-  black:
-    name: Black
+  ruff:
+    name: Ruff
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
 
       - name: Set up Python
@@ -26,31 +27,37 @@ jobs:
         with:
           python-version: "3.14.2"
 
-      - name: Install the configured Black version
+      - name: Install the pinned formatter
         shell: bash
         run: |
-          black_version="$(python -c 'import pathlib, tomllib; print(tomllib.loads(pathlib.Path("pyproject.toml").read_text())["tool"]["black"]["required-version"])')"
-          python -m pip install --only-binary=:all: "black==$black_version"
+          ruff_version="$(python -c 'import pathlib, tomllib; print(tomllib.loads(pathlib.Path("pyproject.toml").read_text())["tool"]["poetry"]["group"]["dev"]["dependencies"]["ruff"])')"
+          python -m pip install --only-binary=:all: "ruff==$ruff_version"
+
+      - name: Verify formatter version consistency
+        run: python .github/scripts/check_formatter_versions.py
 
       - name: Check formatting
-        id: black_check
-        run: python -m black --check --diff .
+        id: ruff_check
+        run: |
+          python -m ruff check --select I --diff .
+          python -m ruff format --check --diff .
 
       - name: Prepare formatting patch
-        id: black_patch
-        if: failure() && steps.black_check.outcome == 'failure'
+        id: ruff_patch
+        if: failure() && steps.ruff_check.outcome == 'failure'
         shell: bash
         run: |
-          python -m black .
-          git diff --binary -- '*.py' '*.pyi' > "$RUNNER_TEMP/black-formatting.patch"
-          echo 'Download the black-formatting-patch artifact, review it, and apply it to the checked commit with git apply.' >> "$GITHUB_STEP_SUMMARY"
+          python -m ruff check --select I --fix .
+          python -m ruff format .
+          git diff --binary -- '*.py' '*.pyi' > "$RUNNER_TEMP/ruff-formatting.patch"
+          echo 'Download the ruff-formatting-patch artifact, review it, and apply it to the checked PR head with git apply.' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload formatting patch
-        if: failure() && steps.black_patch.outcome == 'success'
+        if: failure() && steps.ruff_patch.outcome == 'success'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: black-formatting-patch
-          path: ${{ runner.temp }}/black-formatting.patch
+          name: ruff-formatting-patch
+          path: ${{ runner.temp }}/ruff-formatting.patch
           if-no-files-found: error
           retention-days: 14
 
