@@ -24,6 +24,11 @@ homeassistant = { version = ">=2026.1", allow-prereleases = false }
 black = "^26.1.0"
 pylint = "^4.0.0"
 
+[tool.black]
+required-version = "26.10.1"
+target-version = ["py314"]
+line-length = 88
+
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
