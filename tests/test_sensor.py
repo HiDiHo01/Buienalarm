@@ -1,4 +1,3 @@
-import pytest
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone, tzinfo
 from unittest.mock import AsyncMock, patch
@@ -7,6 +6,7 @@ from freezegun.api import FrozenDateTimeFactory
 from homeassistant.const import STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry
+import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.buienalarm.const import DOMAIN, SENSORS
@@ -130,6 +130,7 @@ async def test_sensor_entities_created_and_populated(
 async def test_nowcastmessage_edge_cases(hass: HomeAssistant) -> None:
     """Test get_nowcastmessage edge cases such as missing 'nl' key, non-dict payloads, and None coordinator data."""
     from unittest.mock import MagicMock
+
     from custom_components.buienalarm.entity import BuienalarmEntity
 
     entry = MockConfigEntry(
@@ -182,6 +183,7 @@ async def test_nowcastmessage_edge_cases(hass: HomeAssistant) -> None:
 async def test_buienalarm_entity_untrusted_data_handling(hass: HomeAssistant) -> None:
     """Test BuienalarmEntity methods with untrusted, None, or malformed coordinator data."""
     from unittest.mock import MagicMock
+
     from custom_components.buienalarm.entity import BuienalarmEntity
 
     entry = MockConfigEntry(
@@ -228,6 +230,7 @@ async def test_buienalarm_entity_invalid_precipitation_rates(
     """Test BuienalarmEntity calculations with nonnumeric/invalid precipitationrate and timestamp fields."""
     from datetime import datetime, timezone
     from unittest.mock import MagicMock
+
     from custom_components.buienalarm.entity import BuienalarmEntity
 
     entry = MockConfigEntry(
@@ -309,6 +312,7 @@ async def test_buienalarm_sensor_availability(hass: HomeAssistant) -> None:
     """Test BuienalarmSensor available property returns False when required key-specific payload fields are missing or invalid."""
     from collections import UserDict
     from unittest.mock import MagicMock
+
     from custom_components.buienalarm.sensor import BuienalarmSensor
 
     entry = MockConfigEntry(
@@ -493,6 +497,7 @@ async def test_nowcast_availability_requires_dutch_message(
     """Message availability agrees with the getter even without forecast data."""
     from collections import UserDict
     from unittest.mock import MagicMock
+
     from custom_components.buienalarm.sensor import BuienalarmSensor
 
     coordinator = MagicMock()
@@ -569,6 +574,7 @@ async def test_forecast_sensor_availability_requires_usable_data(
     """Missing, invalid, or expired forecasts cannot establish a dry state."""
     from collections import UserDict
     from unittest.mock import MagicMock
+
     from custom_components.buienalarm.sensor import BuienalarmSensor
 
     freezer.move_to(datetime.fromtimestamp(1700000000, timezone.utc))
@@ -624,6 +630,7 @@ async def test_forecast_availability_matches_calculation_window(
     """Only readings accepted within each calculation's window establish data."""
     from collections import UserDict
     from unittest.mock import MagicMock
+
     from custom_components.buienalarm.sensor import BuienalarmSensor
 
     freezer.move_to(datetime.fromtimestamp(1700000000, timezone.utc))
@@ -687,6 +694,7 @@ async def test_current_rate_availability_requires_valid_active_reading(
 ) -> None:
     """Only expose a rate when a valid reading covers the current five-minute bin."""
     from unittest.mock import MagicMock
+
     from custom_components.buienalarm.sensor import BuienalarmSensor
 
     freezer.move_to(datetime.fromtimestamp(1700000000, timezone.utc))
@@ -741,6 +749,7 @@ async def test_current_condition_sensors_availability_requires_active_reading(
 ) -> None:
     """All current-reading sensors require a valid active reading to be available."""
     from unittest.mock import MagicMock
+
     from custom_components.buienalarm.sensor import BuienalarmSensor
 
     freezer.move_to(datetime.fromtimestamp(1700000000, timezone.utc))
@@ -776,6 +785,7 @@ async def test_buienalarm_entity_missing_or_none_precipitationtype(
     """Test get_current_precipitation and get_current_precipitation_type when precipitationtype is None or missing."""
     from datetime import datetime, timezone
     from unittest.mock import MagicMock
+
     from custom_components.buienalarm.entity import BuienalarmEntity
 
     entry = MockConfigEntry(
@@ -1033,6 +1043,7 @@ async def test_schagen_neerslag_verwacht_entity_id_and_precipitation_data(
 ) -> None:
     """Verify sensor.schagen_neerslag_verwacht is preserved via migration and has precipitation_data attribute."""
     from datetime import datetime, timezone
+
     from homeassistant.helpers.entity_registry import (
         async_get as async_get_entity_registry,
     )
@@ -1111,6 +1122,7 @@ async def test_active_5min_bin_included_in_periods_duration_totals(
     """Verify that an active 5-minute forecast bin (started 2 min ago) is included in calculations."""
     from datetime import datetime, timedelta, timezone
     from unittest.mock import MagicMock
+
     from custom_components.buienalarm.entity import BuienalarmEntity
 
     entry = MockConfigEntry(
@@ -1179,6 +1191,7 @@ async def test_buienalarm_entity_malformed_non_mapping_list_items(
     from collections import UserDict
     from datetime import datetime, timezone
     from unittest.mock import MagicMock
+
     from custom_components.buienalarm.entity import BuienalarmEntity
 
     class RaisingGetItem:
@@ -1239,6 +1252,7 @@ async def test_data_points_as_list_skips_entries_without_valid_time_sources(
     """Verify data_points_as_list skips entries where neither timestamp nor time yields a valid datetime."""
     from datetime import datetime, timezone
     from unittest.mock import MagicMock
+
     from custom_components.buienalarm.entity import BuienalarmEntity
 
     entry = MockConfigEntry(
@@ -1287,6 +1301,7 @@ async def test_boolean_timestamps_and_rates_rejected(hass: HomeAssistant) -> Non
     """Verify boolean values in timestamp or precipitationrate fields are safely rejected."""
     from datetime import datetime, timezone
     from unittest.mock import MagicMock
+
     from custom_components.buienalarm.entity import BuienalarmEntity
 
     entry = MockConfigEntry(
@@ -1398,6 +1413,7 @@ async def test_dynamic_sensor_icons(hass: HomeAssistant) -> None:
     """Test dynamic icon computation for precipitation rate and precipitation type sensors."""
     from datetime import datetime, timezone
     from unittest.mock import MagicMock
+
     from custom_components.buienalarm.sensor import BuienalarmSensor
 
     entry = MockConfigEntry(
@@ -1567,6 +1583,7 @@ async def test_current_precipitation_icons_require_valid_current_interval(
 ) -> None:
     """Unknown current conditions retain the configured icon instead of sunny."""
     from unittest.mock import MagicMock
+
     from custom_components.buienalarm.sensor import BuienalarmSensor
 
     freezer.move_to("2023-11-14T22:13:20Z")  # 1700000000
@@ -1598,6 +1615,7 @@ async def test_current_precipitation_icons_require_valid_current_interval(
 async def test_buienalarm_entity_unique_id_attribute(hass: HomeAssistant) -> None:
     """Verify BuienalarmEntity sets _attr_unique_id correctly without property override conflicts."""
     from unittest.mock import MagicMock
+
     from custom_components.buienalarm.entity import BuienalarmEntity
 
     entry = MockConfigEntry(
@@ -1635,6 +1653,7 @@ async def test_precipitation_periods_split_at_invalid_rate(
 ) -> None:
     """Unknown bins separate rain periods without contributing to their averages."""
     from unittest.mock import MagicMock
+
     from custom_components.buienalarm.entity import BuienalarmEntity
 
     freezer.move_to("2026-10-22T12:00:00Z")
@@ -1674,6 +1693,7 @@ async def test_precipitation_periods_handles_custom_mapping_data_points(
     from collections import UserDict
     from datetime import datetime, timezone
     from unittest.mock import MagicMock
+
     from custom_components.buienalarm.entity import BuienalarmEntity
 
     entry = MockConfigEntry(
@@ -1743,6 +1763,7 @@ async def test_precipitation_periods_handles_custom_mapping_data_points(
 async def test_timing_sensor_dynamic_icons(hass, key, value, expected):
     """Timing sensor icons follow validated forecast state."""
     from unittest.mock import MagicMock, patch
+
     from custom_components.buienalarm.sensor import BuienalarmSensor
 
     entry = MockConfigEntry(
@@ -1797,6 +1818,7 @@ async def test_timing_sensor_dynamic_icons(hass, key, value, expected):
 async def test_timing_sensor_icon_fallback_for_invalid_forecast(hass, forecast):
     """Do not report clear skies from missing or malformed forecast data."""
     from unittest.mock import MagicMock, patch
+
     from custom_components.buienalarm.sensor import BuienalarmSensor
 
     entry = MockConfigEntry(
@@ -1858,6 +1880,7 @@ async def test_timing_icons_temporal_and_bounds_validation(
 ):
     """Verify icon evaluation behavior for out-of-bounds, expired, future, and boundary timestamps."""
     from unittest.mock import MagicMock, patch
+
     from custom_components.buienalarm.sensor import BuienalarmSensor
 
     freezer.move_to("2026-10-22T12:00:00Z")
@@ -1900,6 +1923,7 @@ async def test_buienalarm_entity_wet_snow_and_mix_precipitation_type_handling(
     """Verify get_current_precipitation_type and get_current_precipitation_rate_desc handle wet snow and mix correctly."""
     from datetime import datetime, timezone
     from unittest.mock import MagicMock
+
     from custom_components.buienalarm.entity import BuienalarmEntity
 
     entry = MockConfigEntry(
@@ -2025,6 +2049,7 @@ async def test_calculate_total_precipitation_rate_non_finite_values_and_window_b
     """Keep invalid windows unknown and exclude bins starting at end_time."""
     from datetime import datetime, timezone
     from unittest.mock import MagicMock
+
     from custom_components.buienalarm.entity import BuienalarmEntity
 
     freezer.move_to("2026-10-22T12:00:00Z")
@@ -2104,6 +2129,7 @@ async def test_total_precipitation_rate_distinguishes_missing_and_zero(
 ) -> None:
     """Keep missing rates unknown while exposing valid dry forecasts as zero."""
     from unittest.mock import MagicMock
+
     from custom_components.buienalarm.entity import BuienalarmEntity
 
     freezer.move_to("2026-10-22T12:00:00Z")
@@ -2135,6 +2161,7 @@ async def test_total_precipitation_rate_weights_partial_bins(
 ) -> None:
     """Weight only the portions of five-minute bins overlapping the window."""
     from unittest.mock import MagicMock
+
     from custom_components.buienalarm.entity import BuienalarmEntity
 
     freezer.move_to("2026-10-22T12:00:00Z")
@@ -2173,6 +2200,7 @@ async def test_precipitation_periods_skip_non_finite_timestamps(
     """Skip non-finite timestamps without losing later valid rain periods."""
     from datetime import timedelta
     from unittest.mock import MagicMock
+
     from custom_components.buienalarm.entity import BuienalarmEntity
 
     freezer.move_to("2026-10-22T12:00:00Z")
@@ -2215,6 +2243,7 @@ async def test_buienalarm_entity_oversized_integer_overflow_handling(
     """Verify get_rain_start_time_and_duration and get_mycastmessage handle oversized integer overflow gracefully."""
     from datetime import datetime, timezone
     from unittest.mock import MagicMock
+
     from custom_components.buienalarm.entity import BuienalarmEntity
 
     entry = MockConfigEntry(
@@ -2281,6 +2310,7 @@ async def test_mycastmessage_skips_unconvertible_timestamps(
 ) -> None:
     """Reject platform-invalid timestamps before they alter valid rain boundaries."""
     from unittest.mock import MagicMock
+
     from custom_components.buienalarm.sensor import BuienalarmSensor
 
     freezer.move_to("2026-10-24T12:00:00Z")
@@ -2357,6 +2387,7 @@ async def test_mycastmessage_unknown_without_convertible_future_points(
 ) -> None:
     """Unconvertible future timestamps cannot turn an expired forecast into dry data."""
     from unittest.mock import MagicMock
+
     from custom_components.buienalarm.sensor import BuienalarmSensor
 
     freezer.move_to("2026-10-24T12:00:00Z")
@@ -2445,6 +2476,7 @@ async def test_mycastmessage_invalid_rates_do_not_establish_boundaries(
     """Invalid rates establish neither dry forecasts nor rain-stop or end times."""
     from collections import UserDict
     from unittest.mock import MagicMock
+
     from custom_components.buienalarm.sensor import BuienalarmSensor
 
     freezer.move_to("2026-10-24T12:00:00Z")
@@ -2508,6 +2540,7 @@ async def test_get_precipitation_duration_when_currently_dry_and_rain_upcoming(
 ) -> None:
     """Verify get_precipitation_duration calculates upcoming rain duration when currently dry."""
     from unittest.mock import MagicMock
+
     from custom_components.buienalarm.entity import BuienalarmEntity
 
     entry = MockConfigEntry(
@@ -2570,6 +2603,7 @@ async def test_precipitation_type_string_normalization(
 ) -> None:
     """Verify precipitationtype string normalization handles whitespace and case variations."""
     from unittest.mock import MagicMock
+
     from custom_components.buienalarm.entity import BuienalarmEntity
 
     entry = MockConfigEntry(
@@ -2603,6 +2637,7 @@ async def test_precipitation_periods_disabled_by_default(
 ) -> None:
     """Verify precipitation_periods entity registry disabled default is set to False."""
     from unittest.mock import MagicMock
+
     from custom_components.buienalarm.sensor import BuienalarmSensor
 
     entry = MockConfigEntry(
@@ -2656,6 +2691,7 @@ async def test_current_readings_skip_invalid_active_points(
 ) -> None:
     """Retain a valid current reading after an invalid point in the same bin."""
     from unittest.mock import MagicMock
+
     from custom_components.buienalarm.entity import BuienalarmEntity
 
     freezer.move_to("2026-10-23T12:00:00Z")

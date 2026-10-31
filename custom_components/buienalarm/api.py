@@ -8,12 +8,12 @@ filtering on the `[API]` tag.
 """
 
 import asyncio
+from collections.abc import Mapping
+from datetime import datetime, timezone
 import json
 import logging
 import random
 import socket
-from collections.abc import Mapping
-from datetime import datetime, timezone
 from typing import Any, Final, cast
 
 import aiohttp

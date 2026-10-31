@@ -1,14 +1,13 @@
+import asyncio
 import logging
 from unittest.mock import AsyncMock, MagicMock
-import pytest
+
+from aiohttp import ClientTimeout
 from homeassistant.core import HomeAssistant
+import pytest
 
 from custom_components.buienalarm.api import BuienalarmApiClient
 from custom_components.buienalarm.exceptions import ApiError
-
-
-import asyncio
-from aiohttp import ClientTimeout
 
 
 @pytest.mark.asyncio

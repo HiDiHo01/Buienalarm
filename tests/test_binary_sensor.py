@@ -2,17 +2,17 @@
 
 from datetime import datetime, timezone
 import json
-import pytest
 from unittest.mock import AsyncMock, Mock, patch
 
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry
 from homeassistant.helpers.update_coordinator import UpdateFailed
+import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.buienalarm.const import DOMAIN
 from custom_components.buienalarm.binary_sensor import async_setup_entry
+from custom_components.buienalarm.const import DOMAIN
 from custom_components.buienalarm.coordinator import BuienalarmDataUpdateCoordinator
 from custom_components.buienalarm.sensor_types import BINARY_SENSOR_DESCRIPTIONS
 

@@ -1,8 +1,8 @@
 """Buienalarm integration initialization."""
 
 # __init__.py
-import logging
 from datetime import timedelta
+import logging
 
 import aiohttp
 from homeassistant.config_entries import ConfigEntry

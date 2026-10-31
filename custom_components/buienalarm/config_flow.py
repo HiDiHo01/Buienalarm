@@ -20,16 +20,12 @@ import logging
 import math
 from typing import Any, Final
 
-import voluptuous as vol
 from homeassistant import config_entries, exceptions
-from homeassistant.const import (
-    CONF_LATITUDE,
-    CONF_LONGITUDE,
-    CONF_NAME,
-)
+from homeassistant.const import CONF_LATITUDE, CONF_LONGITUDE, CONF_NAME
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
+import voluptuous as vol
 
 from .const import DOMAIN, NAME
 
@@ -290,9 +286,7 @@ class BuienalarmOptionsFlow(config_entries.OptionsFlow):
         )
 
     # --------------------------------------------------------------
-    def _options_schema(
-        self, user_input: dict[str, Any] | None = None
-    ) -> vol.Schema:  # noqa: D401
+    def _options_schema(self, user_input: dict[str, Any] | None = None) -> vol.Schema:  # noqa: D401
         """Return schema for the options form."""
         options = user_input if user_input is not None else self._entry.options
         data = self._entry.data

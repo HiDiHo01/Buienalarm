@@ -2,11 +2,11 @@
 
 # entity.py
 
+from collections.abc import Mapping
+from datetime import datetime, timedelta, timezone
 import logging
 import math
 import re
-from collections.abc import Mapping
-from datetime import datetime, timedelta, timezone
 from typing import Callable, Final
 
 from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
@@ -1172,9 +1172,9 @@ class BuienalarmEntity(CoordinatorEntity):
             len(precipitation_data),
         )
 
-        precipitation_periods_internal: list[tuple[datetime, datetime, list[float]]] = (
-            []
-        )
+        precipitation_periods_internal: list[
+            tuple[datetime, datetime, list[float]]
+        ] = []
         in_precipitation = False
         precipitation_start: datetime | None = None
         current_rates: list[float] = []
