@@ -74,6 +74,28 @@ def _dump_json(data: object) -> str:
         return repr(data)
 
 
+def _validate_nowcast_payload(data: object) -> None:
+    """Require a non-empty forecast list of objects before accepting an update.
+
+    Individual measurements and optional messages remain validated by their
+    consuming entities; this guard checks the shared response structure.
+    """
+    if not isinstance(data, dict):
+        _LOGGER.error(
+            "Invalid response format: expected dict, got %s", type(data).__name__
+        )
+        raise ApiError("Invalid response format: expected dictionary")
+
+    forecast = data.get("data")
+    if not isinstance(forecast, list) or not forecast:
+        _LOGGER.error("Invalid nowcast response: expected a non-empty data list")
+        raise ApiError("Invalid nowcast response: expected a non-empty data list")
+
+    if any(not isinstance(point, dict) for point in forecast):
+        _LOGGER.error("Invalid nowcast response: data entries must be dictionaries")
+        raise ApiError("Invalid nowcast response: data entries must be dictionaries")
+
+
 # -----------------------------------------------------------------------------
 #  API Client
 # -----------------------------------------------------------------------------
@@ -284,13 +306,7 @@ class BuienalarmApiClient:
                     except TypeError:
                         data = await resp.json()
 
-                    if not isinstance(data, dict):
-                        _LOGGER.error(
-                            "[API%s]   Invalid response format: expected dict, got %s",
-                            self._sfx,
-                            type(data).__name__,
-                        )
-                        raise ApiError("Invalid response format: expected dictionary")
+                    _validate_nowcast_payload(data)
 
                     age_str = resp_headers.get("Age", "0")
                     try:
