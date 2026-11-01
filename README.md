@@ -40,28 +40,6 @@ or
 2. Click **Add Integration**.
 3. Search for **Buienalarm** and follow the configuration prompts.
 
-### Precipitation notifications
-
-`notification_limit` sets the precipitation-intensity threshold in **mm/h**.
-With `0`, any positive current or forecast precipitation produces a persistent
-Home Assistant notification. With a value above `0`, the forecast intensity must
-be **strictly greater** than that value; an equal value does not trigger it.
-
-The notification shows the precipitation type (including snow or mixed
-precipitation), intensity and forecast-bin start time in Home Assistant's local
-time zone. Intensity is a rate, not accumulated rainfall in millimetres. The
-earliest qualifying, unexpired five-minute bin is selected, including upcoming
-precipitation. Notification text follows Home Assistant's configured language
-(English or Dutch, with English fallback).
-
-There is one notification per location. Forecast changes update that notification
-instead of adding more. An unchanged forecast does not recreate a dismissed
-notification. The notification is removed when no qualifying forecast remains,
-data becomes unavailable, or the integration is unloaded. Expired bins are
-reevaluated even when the configured refresh interval is longer than five minutes.
-Options override the initial configuration and take effect through the existing
-reload flow.
-
 ### Example apexcharts-card
 
 <img src="https://github.com/HiDiHo01/Buienalarm/blob/main/images/buienalarm%20card.png">

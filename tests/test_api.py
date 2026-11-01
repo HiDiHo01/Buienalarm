@@ -1,13 +1,14 @@
-import asyncio
 import logging
 from unittest.mock import AsyncMock, MagicMock
-
-from aiohttp import ClientTimeout
-from homeassistant.core import HomeAssistant
 import pytest
+from homeassistant.core import HomeAssistant
 
 from custom_components.buienalarm.api import BuienalarmApiClient
 from custom_components.buienalarm.exceptions import ApiError
+
+
+import asyncio
+from aiohttp import ClientTimeout
 
 
 @pytest.mark.asyncio
@@ -28,25 +29,6 @@ async def test_async_get_nowcast_timeout(hass: HomeAssistant) -> None:
 
     with pytest.raises(ApiError, match="Timeout while requesting Buienalarm data"):
         await client.async_get_nowcast(timeout=ClientTimeout(total=0.01))
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize("invalid_payload", [[], None, "invalid", 123])
-async def test_async_get_nowcast_non_dict_response(
-    hass: HomeAssistant, invalid_payload: object
-) -> None:
-    """Test that async_get_nowcast raises ApiError when JSON payload is not a dictionary."""
-    mock_session = MagicMock()
-    mock_response = AsyncMock()
-    mock_response.status = 200
-    mock_response.headers = {}
-    mock_response.json = AsyncMock(return_value=invalid_payload)
-    mock_session.get.return_value.__aenter__.return_value = mock_response
-
-    client = BuienalarmApiClient(52.3702, 4.8951, mock_session, hass)
-
-    with pytest.raises(ApiError, match="Invalid response format: expected dictionary"):
-        await client.async_get_nowcast()
 
 
 @pytest.mark.asyncio

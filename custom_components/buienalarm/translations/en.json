@@ -16,7 +16,7 @@
                     "name": "Name for this location.",
                     "latitude": "Latitude coordinate of the location.",
                     "longitude": "Longitude coordinate of the location.",
-                    "notification_limit": "Persistent notification when current or forecast precipitation intensity is above this value in mm/h. Set to 0 for any positive intensity.",
+                    "notification_limit": "Minimum precipitation intensity to trigger notifications in mm/h (set to 0 to trigger on any rain).",
                     "refresh_interval": "Data refresh interval in seconds (minimum 60 seconds, 300 seconds recommended)."
                 }
             }
@@ -51,7 +51,7 @@
                     "name": "Name for this location.",
                     "latitude": "Latitude coordinate of the location.",
                     "longitude": "Longitude coordinate of the location.",
-                    "notification_limit": "Persistent notification when current or forecast precipitation intensity is above this value in mm/h. Set to 0 for any positive intensity.",
+                    "notification_limit": "Minimum precipitation intensity to trigger notifications in mm/h (set to 0 to trigger on any rain).",
                     "refresh_interval": "Data refresh interval in seconds (minimum 60 seconds, 300 seconds recommended)."
                 }
             }
@@ -106,15 +106,5 @@
                 "name": "Precipitation periods"
             }
         }
-    },
-    "common": {
-        "precipitation_notification_title": "Buienalarm – {location}",
-        "precipitation_notification_message": "Precipitation: {precipitation_type}\nIntensity: {rate} mm/h\nForecast interval starts: {start}.",
-        "precipitation_type_rain": "Rain",
-        "precipitation_type_freezing_rain": "Freezing rain",
-        "precipitation_type_snow": "Snow",
-        "precipitation_type_wet_snow": "Wet snow",
-        "precipitation_type_mix": "Mixed rain and snow",
-        "precipitation_type_unknown": "Unknown type"
     }
 }

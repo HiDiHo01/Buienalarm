@@ -18,7 +18,7 @@ git checkout -b my-feature-branch
 Make your changes in the appropriate files. If you're adding a new feature, please ensure that it is thoroughly tested. If you're fixing a bug, please include a test to verify the fix.
 
 - **Code style**: We follow the [PEP 8](https://peps.python.org/pep-0008/) coding standards for Python code.
-- **Formatting**: Follow the [Home Assistant formatting policy](AGENTS.md#formatting-policy). With locked dependencies, run `poetry run ruff check --select I --fix .`, then `poetry run ruff format .`. Check with `poetry run ruff check --select I .` and `poetry run ruff format --check --diff .`. CI rejects differences and provides a `ruff-formatting-patch` artifact based on the PR head.
+- **Formatting**: We use [black](https://black.readthedocs.io/) for Python code formatting. Please run `black .` before committing your changes.
 - **Testing**: Ensure that your changes pass the existing tests, and write new tests where applicable.
 
 ### 4. Test Your Changes

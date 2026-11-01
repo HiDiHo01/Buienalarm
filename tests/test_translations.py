@@ -102,25 +102,25 @@ def test_sensors_have_matching_translations():
         binary_sensor_translations = entity_data["binary_sensor"]
         for bs in BINARY_SENSOR_DESCRIPTIONS:
             translation_key = bs.translation_key or bs.key
-            assert translation_key in binary_sensor_translations, (
-                f"Missing binary_sensor translation key '{translation_key}' in {lang}.json"
-            )
+            assert (
+                translation_key in binary_sensor_translations
+            ), f"Missing binary_sensor translation key '{translation_key}' in {lang}.json"
             assert "name" in binary_sensor_translations[translation_key]
 
         sensor_translations = entity_data["sensor"]
         for s in SENSOR_DESCRIPTIONS:
             translation_key = s.translation_key or s.key
-            assert translation_key in sensor_translations, (
-                f"Missing sensor translation key '{translation_key}' in {lang}.json"
-            )
+            assert (
+                translation_key in sensor_translations
+            ), f"Missing sensor translation key '{translation_key}' in {lang}.json"
             assert "name" in sensor_translations[translation_key]
 
         sensor_translations = data.get("entity", {}).get("sensor", {})
 
         for key in sensor_keys:
-            assert key in sensor_translations, (
-                f"Sensor key '{key}' missing in {lang}.json entity.sensor translations"
-            )
-            assert "name" in sensor_translations[key], (
-                f"Sensor key '{key}' missing 'name' in {lang}.json"
-            )
+            assert (
+                key in sensor_translations
+            ), f"Sensor key '{key}' missing in {lang}.json entity.sensor translations"
+            assert (
+                "name" in sensor_translations[key]
+            ), f"Sensor key '{key}' missing 'name' in {lang}.json"
