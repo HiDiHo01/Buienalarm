@@ -284,6 +284,28 @@ class BuienalarmApiClient:
                     except TypeError:
                         data = await resp.json()
 
+                    if not isinstance(data, dict):
+                        _LOGGER.error(
+                            "[API%s]   Invalid response format: expected dict, got %s",
+                            self._sfx,
+                            type(data).__name__,
+                        )
+                        raise ApiError("Invalid response format: expected dictionary")
+
+                    forecast_data = data.get("data")
+                    if (
+                        not isinstance(forecast_data, list)
+                        or not forecast_data
+                        or not all(isinstance(item, dict) for item in forecast_data)
+                    ):
+                        _LOGGER.error(
+                            "[API%s]   Invalid nowcast structure: expected non-empty list of dictionaries in 'data'",
+                            self._sfx,
+                        )
+                        raise ApiError(
+                            "Invalid nowcast structure: expected non-empty list of dictionaries in 'data'"
+                        )
+
                     age_str = resp_headers.get("Age", "0")
                     try:
                         age_header = int(age_str)
