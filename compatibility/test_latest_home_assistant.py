@@ -1,12 +1,12 @@
 """Exercise real Home Assistant APIs independently of the versioned pytest helper."""
 
+from datetime import datetime, timezone
 import importlib
+from importlib.metadata import version
 import logging
+from pathlib import Path
 import tempfile
 import unittest
-from datetime import datetime, timezone
-from importlib.metadata import version
-from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 from aiohttp import ClientSession, TCPConnector, ThreadedResolver

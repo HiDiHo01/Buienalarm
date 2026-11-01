@@ -6,7 +6,7 @@
         "@HiDiHo01"
     ],
     "config_flow": true,
-    "dependencies": [],
+    "dependencies": ["persistent_notification"],
     "documentation": "https://github.com/HiDiHo01/Buienalarm",
     "iot_class": "cloud_polling",
     "issue_tracker": "https://github.com/HiDiHo01/Buienalarm/issues",

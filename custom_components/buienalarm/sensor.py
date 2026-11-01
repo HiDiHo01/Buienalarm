@@ -48,6 +48,7 @@ async def async_setup_entry(
             state_class=sensor_data["state_class"],
             key=sensor_data["key"],
             translation_key=sensor_data.get("translation_key", sensor_data["key"]),
+            enabled_by_default=sensor_data.get("enabled_by_default", True),
         )
         for sensor_data in SENSORS
     ]
@@ -73,6 +74,7 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
         state_class: str | None,
         key: str,
         translation_key: str | None = None,
+        enabled_by_default: bool = True,
     ) -> None:
         """Initialize the sensor."""
         _LOGGER.debug("[SENSOR ENTITY] __init__ for %s", key)
@@ -90,6 +92,7 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
         self._state_class = state_class
         self._key = key
         self._attr_translation_key = translation_key or key
+        self._attr_entity_registry_enabled_default = enabled_by_default
         self._attr_device_info = coordinator.device_info
         _LOGGER.debug(
             "[SENSOR ENTITY] Initialized sensor with translation key: %s",
@@ -153,7 +156,7 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
                     continue
                 try:
                     rate = float(rate)
-                except (TypeError, ValueError, OverflowError):
+                except TypeError, ValueError, OverflowError:
                     continue
                 if (
                     0 <= timestamp <= 253402300799
@@ -165,18 +168,12 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
                     return True
             return False
 
-        if self._key == "precipitationrate_now":
-            current_ts = datetime.now(timezone.utc).timestamp()
-            for point in self.data["data"]:
-                timestamp = _as_float(_safe_get(point, "timestamp"))
-                rate = _as_float(_safe_get(point, "precipitationrate"))
-                if (
-                    timestamp is not None
-                    and rate is not None
-                    and timestamp <= current_ts < timestamp + 300
-                ):
-                    return rate >= 0
-            return False
+        if self._key in (
+            "precipitationrate_now",
+            "precipitationrate_now_desc",
+            "precipitationtype_now",
+        ):
+            return self._get_current_data_point() is not None
 
         return True
 
@@ -276,7 +273,7 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
             if self._key == "next_precipitation":
                 return "mdi:weather-pouring" if val == 0 else "mdi:clock-start"
             return "mdi:weather-pouring" if val > 0 else "mdi:weather-sunny"
-        elif self._key == "precipitationtype_now":
+        elif self._key in ("precipitationtype_now", "precipitationrate_now_desc"):
             val = self.native_value
             if isinstance(val, str):
                 val_lower = val.lower()
@@ -285,7 +282,9 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
                 if any(k in val_lower for k in ("rain", "regen", "mix", "motregen")):
                     return "mdi:weather-pouring"
                 if any(k in val_lower for k in ("geen", "none", "droog")):
-                    return "mdi:weather-sunny"
+                    # The text also defaults to dry when no current reading exists.
+                    if self._get_current_data_point() is not None:
+                        return "mdi:weather-sunny"
         return self._icon
 
     @property
