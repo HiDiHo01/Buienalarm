@@ -1,20 +1,19 @@
 """Test initialization of the Buienalarm integration."""
 
 from datetime import timedelta
-import pytest
 from unittest.mock import AsyncMock, patch
 
 from homeassistant.const import CONF_LATITUDE, CONF_LONGITUDE
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
-
+import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.buienalarm import (
     async_migrate_entity_unique_ids,
+    async_reload_entry,
     async_setup_entry,
     async_unload_entry,
-    async_reload_entry,
 )
 from custom_components.buienalarm.const import DOMAIN, PLATFORMS
 
@@ -32,12 +31,15 @@ def config_data() -> dict[str, float | str]:
 @pytest.fixture(autouse=True)
 def mock_api_calls():
     """Mock API calls to avoid socket error during test_async_reload_entry."""
-    with patch(
-        "custom_components.buienalarm.api.BuienalarmApiClient.async_get_initial_data",
-        return_value={},
-    ), patch(
-        "custom_components.buienalarm.api.BuienalarmApiClient.async_get_data",
-        return_value={"data": []},
+    with (
+        patch(
+            "custom_components.buienalarm.api.BuienalarmApiClient.async_get_initial_data",
+            return_value={},
+        ),
+        patch(
+            "custom_components.buienalarm.api.BuienalarmApiClient.async_get_data",
+            return_value={"data": []},
+        ),
     ):
         yield
 

@@ -29,10 +29,10 @@ const protection_guard = workflow.jobs.renovate.steps.find(
 ).run;
 
 const dependency_cases = [
-  ["black patch", "poetry", "black", "26.1.0", "patch", true],
+  ["ruff patch", "poetry", "ruff", "0.16.9", "patch", false],
   ["pytest minor", "poetry", "pytest", "9.0.0", "minor", true],
   ["tool major", "poetry", "pytest", "9.0.0", "major", false],
-  ["pre-1.0 tool", "poetry", "black", "0.9.0", "minor", false],
+  ["pre-1.0 tool", "poetry", "pytest", "0.9.0", "minor", false],
   ["runtime patch", "poetry", "homeassistant", "2026.10.1", "patch", false],
   ["test baseline patch", "poetry", "pytest-homeassistant-custom-component", "0.13.372", "patch", false],
   ["unlisted dependency", "poetry", "aiohttp", "3.14.4", "patch", false],
@@ -43,8 +43,8 @@ const dependency_cases = [
   ["immutable pin", "github-actions", "hacs/action", "1.0.0", "pinDigest", true],
   ["Python patch", "pyenv", "python", "3.14.2", "patch", false],
   ["runner patch", "regex", "renovate", "44.181.5", "patch", false],
-  ["lock refresh", "poetry", "black", "26.1.0", "lockFileMaintenance", false],
-  ["dependency rollback", "poetry", "black", "26.1.0", "rollback", false]
+  ["lock refresh", "poetry", "ruff", "0.16.9", "lockFileMaintenance", false],
+  ["dependency rollback", "poetry", "ruff", "0.16.9", "rollback", false]
 ];
 
 for (const [description, manager, package_name, current_version, update_type, expected] of dependency_cases) {
@@ -62,6 +62,22 @@ for (const [description, manager, package_name, current_version, update_type, ex
     assert.equal(result.automerge, expected);
     assert.equal(result.platformAutomerge, false);
     assert.equal(result.ignoreTests, false);
+  });
+}
+
+for (const update_type of ["patch", "minor", "major", "lockFileMaintenance"]) {
+  test(`Ruff ${update_type} updates require a coordinated manual change`, async () => {
+    const result = await apply_package_rules({
+      ...repository_config,
+      manager: "poetry",
+      depName: "ruff",
+      packageName: "ruff",
+      currentVersion: "0.16.9",
+      versioning: "pep440",
+      updateType: update_type
+    });
+    assert.equal(result.enabled, false);
+    assert.equal(result.automerge, false);
   });
 }
 
@@ -106,7 +122,7 @@ for (const package_name of ["homeassistant", "pytest-homeassistant-custom-compon
   });
 }
 
-const required_checks = ["build (3.14.2)", "Validate", "Validate Renovate configuration"];
+const required_checks = ["Ruff", "build (3.14.2)", "Validate", "Validate Renovate configuration"];
 const protection_rule = {
   ruleset_id: 123,
   type: "required_status_checks",
@@ -118,6 +134,15 @@ const protection_rule = {
 const protection_cases = [
   ["required CI protection", [protection_rule], 0, true],
   ["missing CI protection", [], 0, false],
+  ["formatter is not required", [{
+    ...protection_rule,
+    parameters: {
+      ...protection_rule.parameters,
+      required_status_checks: protection_rule.parameters.required_status_checks.filter(
+        (check) => check.context !== "Ruff"
+      )
+    }
+  }], 0, false],
   ["missing required check", [{
     ...protection_rule,
     parameters: {

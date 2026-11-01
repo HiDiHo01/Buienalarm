@@ -159,7 +159,7 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
                     continue
                 try:
                     rate = float(rate)
-                except (TypeError, ValueError, OverflowError):
+                except TypeError, ValueError, OverflowError:
                     continue
                 if (
                     0 <= timestamp <= 253402300799
