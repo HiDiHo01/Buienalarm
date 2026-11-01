@@ -2,11 +2,11 @@
 
 # entity.py
 
+from collections.abc import Mapping
+from datetime import datetime, timedelta, timezone
 import logging
 import math
 import re
-from collections.abc import Mapping
-from datetime import datetime, timedelta, timezone
 from typing import Callable, Final
 
 from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
@@ -81,7 +81,7 @@ def _as_float(value: object) -> float | None:
         try:
             res = float(value.replace(",", "."))
             return res if math.isfinite(res) else None
-        except (ValueError, OverflowError):
+        except ValueError, OverflowError:
             return None
     return None
 
@@ -549,7 +549,7 @@ class BuienalarmEntity(CoordinatorEntity):
 
             try:
                 ts_float = float(timestamp)
-            except (ValueError, TypeError, OverflowError):
+            except ValueError, TypeError, OverflowError:
                 _LOGGER.debug(
                     "Skipping invalid timestamp in precipitation entry: %r", timestamp
                 )
@@ -563,7 +563,7 @@ class BuienalarmEntity(CoordinatorEntity):
 
             try:
                 data_point_time = datetime.fromtimestamp(ts_float, tz=timezone.utc)
-            except (ValueError, OverflowError, OSError):
+            except ValueError, OverflowError, OSError:
                 _LOGGER.debug(
                     "Skipping invalid timestamp in precipitation entry: %r", timestamp
                 )
@@ -576,7 +576,7 @@ class BuienalarmEntity(CoordinatorEntity):
             else:
                 try:
                     precip_rate = float(raw_rate)
-                except (ValueError, TypeError):
+                except ValueError, TypeError:
                     precip_rate = 0.0
 
             last_time = data_point_time  # Update on every valid future or active point
@@ -896,41 +896,30 @@ class BuienalarmEntity(CoordinatorEntity):
         now_ts: float = datetime.now(timezone.utc).timestamp()
 
         for data_point in precip_data:
-            if not isinstance(data_point, Mapping) and not callable(
-                getattr(data_point, "get", None)
-            ):
-                _LOGGER.debug(
-                    "Skipping non-mapping data point in next precipitation (type=%s): %r",
-                    type(data_point).__name__,
-                    data_point,
-                )
-                continue
-
-            # Forecast points are 5‑minute bins.
             ts = _as_float(_safe_get(data_point, "timestamp"))
-
-            # Skip if timestamp is missing or malformed or in the past
             if ts is None or ts < now_ts:
                 continue
 
-            try:
-                datetime.fromtimestamp(ts, tz=timezone.utc)
-            except (ValueError, OverflowError, OSError):
+            rate = _as_float(_safe_get(data_point, "precipitationrate"))
+            if rate is None or rate <= 0:
                 continue
 
-            rate = _as_float(_safe_get(data_point, "precipitationrate")) or 0.0
+            # Only wet bins need platform datetime validation; dry scans stay numeric.
+            try:
+                datetime.fromtimestamp(ts, tz=timezone.utc)
+            except ValueError, OverflowError, OSError:
+                continue
 
-            if rate > 0:
-                # Found the first future bin with precipitation
-                delta_minutes: int = int(round((ts - now_ts) / 60))
-                _LOGGER.debug(
-                    "[BUIENALARM ENTITY] Next precipitation for %s in %d min (rate=%.2f mm/h)",
-                    self.sensor_key,
-                    delta_minutes,
-                    rate,
-                )
-                # Avoid returning negative minutes due to clock skew or rounding
-                return max(delta_minutes, 0)
+            # Found the first future bin with precipitation
+            delta_minutes: int = int(round((ts - now_ts) / 60))
+            _LOGGER.debug(
+                "[BUIENALARM ENTITY] Next precipitation for %s in %d min (rate=%.2f mm/h)",
+                self.sensor_key,
+                delta_minutes,
+                rate,
+            )
+            # Avoid returning negative minutes due to clock skew or rounding
+            return max(delta_minutes, 0)
 
         # No future precipitation found in dataset
         _LOGGER.debug(
@@ -994,7 +983,7 @@ class BuienalarmEntity(CoordinatorEntity):
             else:
                 try:
                     ts_float = float(timestamp)
-                except (ValueError, TypeError, OverflowError):
+                except ValueError, TypeError, OverflowError:
                     continue
 
             # Bolt performance optimization: Compare numeric timestamps directly
@@ -1011,7 +1000,7 @@ class BuienalarmEntity(CoordinatorEntity):
             # Reject unsupported timestamps before changing any rain boundaries.
             try:
                 forecast_time_utc = datetime.fromtimestamp(ts_float, tz=timezone.utc)
-            except (ValueError, OverflowError, OSError):
+            except ValueError, OverflowError, OSError:
                 continue
 
             if type(raw_rate) is bool:
@@ -1026,7 +1015,7 @@ class BuienalarmEntity(CoordinatorEntity):
             else:
                 try:
                     precipitation_rate = float(raw_rate)
-                except (ValueError, TypeError, OverflowError):
+                except ValueError, TypeError, OverflowError:
                     continue
 
             if not math.isfinite(precipitation_rate) or precipitation_rate < 0:
@@ -1172,9 +1161,9 @@ class BuienalarmEntity(CoordinatorEntity):
             len(precipitation_data),
         )
 
-        precipitation_periods_internal: list[tuple[datetime, datetime, list[float]]] = (
-            []
-        )
+        precipitation_periods_internal: list[
+            tuple[datetime, datetime, list[float]]
+        ] = []
         in_precipitation = False
         precipitation_start: datetime | None = None
         current_rates: list[float] = []
