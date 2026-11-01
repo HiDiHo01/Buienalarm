@@ -405,7 +405,7 @@ class BuienalarmEntity(CoordinatorEntity):
 
         try:
             return int(val)
-        except (ValueError, TypeError, OverflowError):
+        except ValueError, TypeError, OverflowError:
             return None
 
     def timestamp_to_local(self, timestamp: float) -> datetime:

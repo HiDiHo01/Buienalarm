@@ -2727,6 +2727,7 @@ async def test_cache_age_sensor(
 ) -> None:
     """Verify cache_age sensor value and availability."""
     from unittest.mock import MagicMock
+
     from custom_components.buienalarm.sensor import BuienalarmSensor
 
     entry = MockConfigEntry(
