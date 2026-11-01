@@ -131,4 +131,13 @@ SENSORS: Final[list[dict[str, object]]] = [
         "state_class": None,
         "enabled_by_default": False,
     },
+    {
+        "name": "Cache leeftijd",
+        "icon": "mdi:timer-outline",
+        "key": "cache_age",
+        "translation_key": "cache_age",
+        "unit_of_measurement": UnitOfTime.SECONDS,
+        "device_class": SensorDeviceClass.DURATION,
+        "state_class": SensorStateClass.MEASUREMENT,
+    },
 ]

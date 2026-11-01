@@ -2683,3 +2683,57 @@ async def test_current_readings_skip_invalid_active_points(
     assert entity.get_current_precipitation_type() == "Regen"
     assert entity.get_current_precipitation_rate_desc() == "Matige regen"
     assert entity.get_next_precipitation() == 0
+
+
+@pytest.mark.asyncio
+async def test_cache_age_sensor(
+    hass: HomeAssistant,
+) -> None:
+    """Verify cache_age sensor value and availability."""
+    from unittest.mock import MagicMock
+    from custom_components.buienalarm.sensor import BuienalarmSensor
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Cache Age Test",
+        unique_id="test_cache_age",
+        data={"latitude": 52.3702, "longitude": 4.8952},
+    )
+
+    coordinator = MagicMock()
+    coordinator.last_update_success = True
+    coordinator.data = {
+        "timeseries": {"data": []},
+        "cache_age": 42,
+    }
+
+    sensor = BuienalarmSensor(
+        coordinator,
+        entry,
+        name="Cache leeftijd",
+        unit_of_measurement="s",
+        icon="mdi:timer-outline",
+        device_class="duration",
+        state_class="measurement",
+        key="cache_age",
+        translation_key="cache_age",
+    )
+
+    assert sensor.available is True
+    assert sensor.native_value == 42
+
+    # Malformed / missing cache_age
+    coordinator.data = {"timeseries": {"data": []}, "cache_age": None}
+    assert sensor.available is False
+    assert sensor.native_value is None
+
+    coordinator.data = {"timeseries": {"data": []}, "cache_age": "invalid"}
+    assert sensor.available is False
+    assert sensor.native_value is None
+
+    coordinator.data = None
+    assert sensor.available is False
+    assert sensor.native_value is None
+
+    coordinator.last_update_success = False
+    assert sensor.available is False

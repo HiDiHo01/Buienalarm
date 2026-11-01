@@ -104,6 +104,9 @@
             },
             "precipitation_periods": {
                 "name": "Neerslag periodes"
+            },
+            "cache_age": {
+                "name": "Cache leeftijd"
             }
         }
     }

@@ -104,6 +104,9 @@
             },
             "precipitation_periods": {
                 "name": "Precipitation periods"
+            },
+            "cache_age": {
+                "name": "Cache age"
             }
         }
     }
