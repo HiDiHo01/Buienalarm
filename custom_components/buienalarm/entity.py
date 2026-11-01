@@ -896,41 +896,30 @@ class BuienalarmEntity(CoordinatorEntity):
         now_ts: float = datetime.now(timezone.utc).timestamp()
 
         for data_point in precip_data:
-            if not isinstance(data_point, Mapping) and not callable(
-                getattr(data_point, "get", None)
-            ):
-                _LOGGER.debug(
-                    "Skipping non-mapping data point in next precipitation (type=%s): %r",
-                    type(data_point).__name__,
-                    data_point,
-                )
-                continue
-
-            # Forecast points are 5‑minute bins.
             ts = _as_float(_safe_get(data_point, "timestamp"))
-
-            # Skip if timestamp is missing or malformed or in the past
             if ts is None or ts < now_ts:
                 continue
 
+            rate = _as_float(_safe_get(data_point, "precipitationrate"))
+            if rate is None or rate <= 0:
+                continue
+
+            # Only wet bins need platform datetime validation; dry scans stay numeric.
             try:
                 datetime.fromtimestamp(ts, tz=timezone.utc)
             except ValueError, OverflowError, OSError:
                 continue
 
-            rate = _as_float(_safe_get(data_point, "precipitationrate")) or 0.0
-
-            if rate > 0:
-                # Found the first future bin with precipitation
-                delta_minutes: int = int(round((ts - now_ts) / 60))
-                _LOGGER.debug(
-                    "[BUIENALARM ENTITY] Next precipitation for %s in %d min (rate=%.2f mm/h)",
-                    self.sensor_key,
-                    delta_minutes,
-                    rate,
-                )
-                # Avoid returning negative minutes due to clock skew or rounding
-                return max(delta_minutes, 0)
+            # Found the first future bin with precipitation
+            delta_minutes: int = int(round((ts - now_ts) / 60))
+            _LOGGER.debug(
+                "[BUIENALARM ENTITY] Next precipitation for %s in %d min (rate=%.2f mm/h)",
+                self.sensor_key,
+                delta_minutes,
+                rate,
+            )
+            # Avoid returning negative minutes due to clock skew or rounding
+            return max(delta_minutes, 0)
 
         # No future precipitation found in dataset
         _LOGGER.debug(
