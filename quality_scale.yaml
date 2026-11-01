@@ -39,7 +39,7 @@ rules:
     comment: "There are no service actions that can raise action-specific failures."
   config-entry-unloading:
     status: todo
-    comment: "Precipitation-notification listener/timer cleanup is tested; full integration unloading compliance remains unaudited."
+    comment: "Precipitation-notification listener/timer/translation-task cleanup is tested; full integration unloading compliance remains unaudited."
   docs-configuration-parameters: todo
   docs-installation-parameters: todo
   entity-unavailable: todo

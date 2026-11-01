@@ -1,5 +1,6 @@
 """Exercise threshold notifications through real Home Assistant lifecycle APIs."""
 
+from asyncio import CancelledError, Event as AsyncEvent, timeout
 from collections.abc import Generator
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, patch
@@ -8,6 +9,7 @@ from freezegun.api import FrozenDateTimeFactory
 from homeassistant.components import persistent_notification
 from homeassistant.components.persistent_notification import Notification, UpdateType
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.translation import async_get_translations
 from homeassistant.helpers.update_coordinator import UpdateFailed
 import pytest
 from pytest_homeassistant_custom_component.common import (
@@ -344,3 +346,172 @@ async def test_option_changes_reload_threshold_without_duplicate_subscriptions(
     entry.runtime_data.async_set_updated_data({"data": [_point(2.5)]})
     await hass.async_block_till_done()
     assert len(notifications) == count
+
+
+@pytest.mark.asyncio
+async def test_notifications_follow_core_language_changes(
+    hass: HomeAssistant,
+    freezer: FrozenDateTimeFactory,
+    forecast_api: AsyncMock,
+    notifications: NotificationEvents,
+) -> None:
+    """Translate an existing notification without reloads or more weather requests."""
+    freezer.move_to("2026-11-01T12:00:00Z")
+    entry = await _setup(hass, forecast_api, [_point(2.5)])
+    coordinator = entry.runtime_data
+    notification_id = f"buienalarm_precipitation_{entry.entry_id}"
+
+    for language, expected_kind, expected_units in (
+        ("nl", "Regen", "mm/u"),
+        ("fr", "Rain", "mm/h"),
+    ):
+        await hass.config.async_update(language=language)
+        await hass.async_block_till_done(wait_background_tasks=True)
+        assert notifications[-1][0] == UpdateType.UPDATED
+        assert set(notifications[-1][1]) == {notification_id}
+        message = notifications[-1][1][notification_id]["message"]
+        assert expected_kind in message
+        assert f"2.5 {expected_units}" in message
+        assert entry.runtime_data is coordinator
+
+    count = len(notifications)
+    await hass.config.async_update(location_name="Another home")
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert len(notifications) == count
+    forecast_api.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_initial_notification_uses_language_changed_during_setup(
+    hass: HomeAssistant,
+    freezer: FrozenDateTimeFactory,
+    forecast_api: AsyncMock,
+    notifications: NotificationEvents,
+) -> None:
+    """Use the current language if core settings change while setup awaits resources."""
+    freezer.move_to("2026-11-01T12:00:00Z")
+
+    async def change_language_during_load(
+        translation_hass: HomeAssistant,
+        language: str,
+        category: str,
+        integrations: set[str],
+    ) -> dict[str, str]:
+        """Change the core language before the original English request completes."""
+        if language == "en":
+            await translation_hass.config.async_update(language="nl")
+        return await async_get_translations(
+            translation_hass, language, category, integrations
+        )
+
+    with patch(
+        "custom_components.buienalarm.notifications.async_get_translations",
+        side_effect=change_language_during_load,
+    ):
+        await _setup(hass, forecast_api, [_point()])
+    assert len(notifications) == 1
+    message = next(iter(notifications[0][1].values()))["message"]
+    assert "Regen" in message
+    assert "2.5 mm/u" in message
+
+
+@pytest.mark.asyncio
+async def test_unload_cancels_translation_refresh_and_removes_language_listener(
+    hass: HomeAssistant,
+    freezer: FrozenDateTimeFactory,
+    forecast_api: AsyncMock,
+    notifications: NotificationEvents,
+) -> None:
+    """Cancel in-flight translation work and never recreate alerts after unload."""
+    freezer.move_to("2026-11-01T12:00:00Z")
+    entry = await _setup(hass, forecast_api, [_point()])
+    load_started = AsyncEvent()
+    load_cancelled = AsyncEvent()
+    release_load = AsyncEvent()
+
+    async def delayed_translations(
+        translation_hass: HomeAssistant,
+        language: str,
+        category: str,
+        integrations: set[str],
+    ) -> dict[str, str]:
+        """Hold the translation request until config-entry cleanup cancels it."""
+        load_started.set()
+        try:
+            await release_load.wait()
+        except CancelledError:
+            load_cancelled.set()
+            raise
+        return await async_get_translations(
+            translation_hass, language, category, integrations
+        )
+
+    with patch(
+        "custom_components.buienalarm.notifications.async_get_translations",
+        side_effect=delayed_translations,
+    ) as translations:
+        await hass.config.async_update(language="nl")
+        async with timeout(5):
+            await load_started.wait()
+        assert await hass.config_entries.async_unload(entry.entry_id)
+        await hass.async_block_till_done(wait_background_tasks=True)
+        assert load_cancelled.is_set()
+        assert notifications[-1][0] == UpdateType.REMOVED
+        count = len(notifications)
+
+        await hass.config.async_update(language="fr")
+        await hass.async_block_till_done(wait_background_tasks=True)
+        translations.assert_awaited_once()
+        assert len(notifications) == count
+
+
+@pytest.mark.asyncio
+async def test_outdated_translation_load_cannot_restore_previous_language(
+    hass: HomeAssistant,
+    freezer: FrozenDateTimeFactory,
+    forecast_api: AsyncMock,
+    notifications: NotificationEvents,
+) -> None:
+    """Keep the latest language if an earlier translation request finishes last."""
+    freezer.move_to("2026-11-01T12:00:00Z")
+    entry = await _setup(hass, forecast_api, [_point()])
+    dutch_started = AsyncEvent()
+    release_dutch = AsyncEvent()
+    french_loaded = AsyncEvent()
+
+    async def reordered_translations(
+        translation_hass: HomeAssistant,
+        language: str,
+        category: str,
+        integrations: set[str],
+    ) -> dict[str, str]:
+        """Delay Dutch while allowing the newer French fallback to finish."""
+        if language == "nl":
+            dutch_started.set()
+            await release_dutch.wait()
+        result = await async_get_translations(
+            translation_hass, language, category, integrations
+        )
+        if language == "fr":
+            french_loaded.set()
+        return result
+
+    with patch(
+        "custom_components.buienalarm.notifications.async_get_translations",
+        side_effect=reordered_translations,
+    ):
+        await hass.config.async_update(language="nl")
+        async with timeout(5):
+            await dutch_started.wait()
+        await hass.config.async_update(language="fr")
+        async with timeout(5):
+            await french_loaded.wait()
+        release_dutch.set()
+        await hass.async_block_till_done(wait_background_tasks=True)
+
+    assert len(notifications) == 1
+    entry.runtime_data.async_set_updated_data({"data": [_point(3.5)]})
+    await hass.async_block_till_done()
+    message = next(iter(notifications[-1][1].values()))["message"]
+    assert "Rain" in message
+    assert "3.5 mm/h" in message
