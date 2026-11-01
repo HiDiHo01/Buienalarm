@@ -311,14 +311,16 @@ class BuienalarmEntity(CoordinatorEntity):
                 )
                 continue
 
+            ts = _as_float(ts)
             parsed_time: datetime | None = None
 
-            # Attempt derivation from numeric timestamp first
-            if isinstance(ts, (int, float)) and not isinstance(ts, bool):
+            # Normalize numeric strings with the same parser as precipitation periods.
+            if ts is not None:
                 try:
-                    parsed_time = datetime.fromtimestamp(float(ts), tz=timezone.utc)
-                except (ValueError, TypeError, OverflowError) as exc:
+                    parsed_time = datetime.fromtimestamp(ts, tz=timezone.utc)
+                except (ValueError, OverflowError, OSError) as exc:
                     _LOGGER.debug("Invalid numeric timestamp %r: %s", ts, exc)
+                    ts = None
 
             # Fallback to ISO time string if timestamp missing or invalid
             if parsed_time is None and isinstance(iso_time, str):
@@ -338,7 +340,7 @@ class BuienalarmEntity(CoordinatorEntity):
                 continue
 
             # If timestamp was missing but ISO time was present, compute numeric timestamp
-            if ts is None or isinstance(ts, bool) or not isinstance(ts, (int, float)):
+            if ts is None:
                 ts = int(parsed_time.timestamp())
 
             results.append(
@@ -1210,15 +1212,7 @@ class BuienalarmEntity(CoordinatorEntity):
                     raw_precipitation,
                 )
 
-            try:
-                data_time = datetime.fromtimestamp(ts, tz=timezone.utc)
-            except (ValueError, OverflowError, OSError):
-                _LOGGER.warning(
-                    "[BUIENALARM ENTITY] Ongeldige timestamp op index %d: %s",
-                    i,
-                    raw_timestamp,
-                )
-                continue
+            data_time = datetime.fromtimestamp(ts, tz=timezone.utc)
 
             last_valid_time = data_time
 
