@@ -5,8 +5,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from homeassistant.components import persistent_notification
-from homeassistant.const import CONF_NAME
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.const import CONF_NAME, EVENT_CORE_CONFIG_UPDATE
+from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.helpers.event import async_track_point_in_utc_time
 from homeassistant.helpers.translation import async_get_translations
 from homeassistant.util import dt as dt_util
@@ -90,14 +90,44 @@ class PrecipitationNotifications:
         self._entry = entry
         self._coordinator = coordinator
         self._translations = translations
+        self._language = hass.config.language
+        self._closed = False
         self._notification_id = f"{DOMAIN}_precipitation_{entry.entry_id}"
         self._last_notification: tuple[str, str] | None = None
         self._cancel_expiry: Callable[[], None] | None = None
         self._unsubscribe = coordinator.async_add_listener(self.async_update)
+        self._unsubscribe_config = hass.bus.async_listen(
+            EVENT_CORE_CONFIG_UPDATE, self._async_core_config_updated
+        )
+
+    @callback
+    def _async_core_config_updated(self, _event: Event) -> None:
+        """Refresh translations only when the configured language changes."""
+        language = self._hass.config.language
+        if self._closed or language == self._language:
+            return
+        self._entry.async_create_background_task(
+            self._hass,
+            self._async_update_language(language),
+            f"{DOMAIN} notification translations",
+        )
+
+    async def _async_update_language(self, language: str) -> None:
+        """Apply current translations without reviving an unloaded entry."""
+        translations = await async_get_translations(
+            self._hass, language, "common", {DOMAIN}
+        )
+        if self._closed or language != self._hass.config.language:
+            return
+        self._translations = translations
+        self._language = language
+        self.async_update()
 
     @callback
     def async_update(self) -> None:
         """Update or dismiss the notification without making additional API requests."""
+        if self._closed:
+            return
         if self._cancel_expiry is not None:
             self._cancel_expiry()
             self._cancel_expiry = None
@@ -162,6 +192,8 @@ class PrecipitationNotifications:
     @callback
     def async_close(self) -> None:
         """Release the coordinator subscription and expiry timer when unloading."""
+        self._closed = True
+        self._unsubscribe_config()
         self._unsubscribe()
         if self._cancel_expiry is not None:
             self._cancel_expiry()
@@ -175,9 +207,12 @@ async def async_setup_precipitation_notifications(
     coordinator: BuienalarmDataUpdateCoordinator,
 ) -> None:
     """Load translated messages and start notifications after successful setup."""
-    translations = await async_get_translations(
-        hass, hass.config.language, "common", {DOMAIN}
-    )
+    # A core language change can arrive while the initial resources are loading.
+    while True:
+        language = hass.config.language
+        translations = await async_get_translations(hass, language, "common", {DOMAIN})
+        if language == hass.config.language:
+            break
     notifications = PrecipitationNotifications(hass, entry, coordinator, translations)
     entry.async_on_unload(notifications.async_close)
     notifications.async_update()

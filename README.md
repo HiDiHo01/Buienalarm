@@ -52,7 +52,8 @@ precipitation), intensity and forecast-bin start time in Home Assistant's local
 time zone. Intensity is a rate, not accumulated rainfall in millimetres. The
 earliest qualifying, unexpired five-minute bin is selected, including upcoming
 precipitation. Notification text follows Home Assistant's configured language
-(English or Dutch, with English fallback).
+(English or Dutch, with English fallback). Changing Home Assistant's language
+updates the notification without reloading the integration.
 
 There is one notification per location. Forecast changes update that notification
 instead of adding more. An unchanged forecast does not recreate a dismissed
