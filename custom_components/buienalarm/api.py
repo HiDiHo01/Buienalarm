@@ -8,12 +8,12 @@ filtering on the `[API]` tag.
 """
 
 import asyncio
-from collections.abc import Mapping
-from datetime import datetime, timezone
 import json
 import logging
 import random
 import socket
+from collections.abc import Mapping
+from datetime import datetime, timezone
 from typing import Any, Final, cast
 
 import aiohttp
@@ -284,18 +284,10 @@ class BuienalarmApiClient:
                     except TypeError:
                         data = await resp.json()
 
-                    if not isinstance(data, dict):
-                        _LOGGER.error(
-                            "[API%s]   Invalid response format: expected dict, got %s",
-                            self._sfx,
-                            type(data).__name__,
-                        )
-                        raise ApiError("Invalid response format: expected dictionary")
-
                     age_str = resp_headers.get("Age", "0")
                     try:
                         age_header = int(age_str)
-                    except ValueError, TypeError:
+                    except (ValueError, TypeError):
                         age_header = 0
 
                     _LOGGER.debug(

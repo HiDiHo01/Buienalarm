@@ -7,20 +7,15 @@ repos:
       - id: check-yaml
       - id: check-added-large-files
 
-  - repo: local
+  - repo: https://github.com/psf/black
+    rev: 24.4.2
     hooks:
-      - id: ruff-check
-        name: Ruff import sorting (locked Poetry environment)
-        entry: poetry run ruff check --select I --fix
-        language: system
-        types_or: [python, pyi]
-        require_serial: true
-      - id: ruff-format
-        name: Ruff formatting (locked Poetry environment)
-        entry: poetry run ruff format
-        language: system
-        types_or: [python, pyi]
-        require_serial: true
+      - id: black
+
+  - repo: https://github.com/PyCQA/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
 
   - repo: https://github.com/pycqa/flake8
     rev: 4.0.1
