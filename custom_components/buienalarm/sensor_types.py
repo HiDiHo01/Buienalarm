@@ -79,6 +79,14 @@ SENSOR_KEYS: list[dict] = [
         "icon": "mdi:weather-rainy",
         "enabled_by_default": False,
     },
+    {
+        "key": "cache_age",
+        "name": "Cache Age",
+        "icon": "mdi:timer-outline",
+        "native_unit_of_measurement": UnitOfTime.SECONDS,
+        "device_class": SensorDeviceClass.DURATION,
+        "state_class": SensorStateClass.MEASUREMENT,
+    },
 ]
 
 BINARY_SENSOR_DESCRIPTIONS: Final[tuple[BinarySensorEntityDescription, ...]] = (

@@ -105,6 +105,7 @@ class BuienalarmEntity(CoordinatorEntity):
         "precipitationtype_now": "get_current_precipitation_type",
         "next_precipitation": "get_next_precipitation",
         "precipitation_periods": "_get_precipitation_periods_count",
+        "cache_age": "get_cache_age",
     }
 
     def __init__(
@@ -391,6 +392,21 @@ class BuienalarmEntity(CoordinatorEntity):
             )
 
         return nowcastmessage_data
+
+    def get_cache_age(self) -> int | None:
+        """Return the API response cache age in seconds, or None if unavailable."""
+        coordinator_data = self.coordinator.data
+        if not isinstance(coordinator_data, Mapping):
+            return None
+
+        val = coordinator_data.get("cache_age")
+        if val is None or isinstance(val, bool):
+            return None
+
+        try:
+            return int(val)
+        except ValueError, TypeError, OverflowError:
+            return None
 
     def timestamp_to_local(self, timestamp: float) -> datetime:
         """Convert a Unix timestamp to local time."""

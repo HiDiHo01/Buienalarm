@@ -117,6 +117,9 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
             )
             return False
 
+        if self._key == "cache_age":
+            return self.get_cache_age() is not None
+
         if self._key == "nowcastmessage":
             nowcastmessage = self.data.get("nowcastmessage")
             if (
