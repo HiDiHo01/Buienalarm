@@ -37,7 +37,7 @@ _LOGGER: Final[logging.Logger] = logging.getLogger(__name__)
 DEFAULT_LATITUDE: Final[float] = 52.7875
 DEFAULT_LONGITUDE: Final[float] = 4.79861
 DEFAULT_REFRESH_INTERVAL: Final[int] = 300  # seconds (5 min)
-DEFAULT_NOTIFICATION_LIMIT: Final[int] = 0  # mm/h – notify on any positive intensity
+DEFAULT_NOTIFICATION_LIMIT: Final[int] = 0  # mm/h – notify on any value
 
 _COORDINATE_SELECTOR: Final[selector.NumberSelector] = selector.NumberSelector(
     selector.NumberSelectorConfig(

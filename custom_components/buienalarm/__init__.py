@@ -28,7 +28,6 @@ from .const import (
     VERSION,
 )
 from .coordinator import BuienalarmConfigEntry, BuienalarmDataUpdateCoordinator
-from .notifications import async_setup_precipitation_notifications
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -287,8 +286,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: BuienalarmConfigEntry) -
     # Forward to platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     _LOGGER.debug("[INIT_SETUP_ENTRY] Forwarded setup to platforms: %s", PLATFORMS)
-
-    await async_setup_precipitation_notifications(hass, entry, coordinator)
 
     # Register reload listener
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
