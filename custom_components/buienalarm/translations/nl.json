@@ -16,8 +16,8 @@
                     "name": "Naam voor deze locatie.",
                     "latitude": "Breedtegraad van de locatie.",
                     "longitude": "Lengtegraad van de locatie.",
-                    "notification_limit": "Minimale neerslagintensiteit om meldingen te activeren (mm/u).",
-                    "refresh_interval": "Dataverversingsinterval in seconden (minimaal 300 seconden aanbevolen)."
+                    "notification_limit": "Blijvende melding als de actuele of verwachte neerslagintensiteit boven deze waarde in mm/u ligt. Stel in op 0 voor elke positieve intensiteit.",
+                    "refresh_interval": "Dataverversingsinterval in seconden (minimaal 60 seconden, 300 seconden aanbevolen)."
                 }
             }
         },
@@ -51,8 +51,8 @@
                     "name": "Naam voor deze locatie.",
                     "latitude": "Breedtegraad van de locatie.",
                     "longitude": "Lengtegraad van de locatie.",
-                    "notification_limit": "Minimale neerslagintensiteit om meldingen te activeren (mm/u).",
-                    "refresh_interval": "Dataverversingsinterval in seconden (minimaal 300 seconden aanbevolen)."
+                    "notification_limit": "Blijvende melding als de actuele of verwachte neerslagintensiteit boven deze waarde in mm/u ligt. Stel in op 0 voor elke positieve intensiteit.",
+                    "refresh_interval": "Dataverversingsinterval in seconden (minimaal 60 seconden, 300 seconden aanbevolen)."
                 }
             }
         },
@@ -109,5 +109,15 @@
                 "name": "Cache leeftijd"
             }
         }
+    },
+    "common": {
+        "precipitation_notification_title": "Buienalarm – {location}",
+        "precipitation_notification_message": "Neerslag: {precipitation_type}\nIntensiteit: {rate} mm/u\nVerwachtingsinterval begint: {start}.",
+        "precipitation_type_rain": "Regen",
+        "precipitation_type_freezing_rain": "Ijzel",
+        "precipitation_type_snow": "Sneeuw",
+        "precipitation_type_wet_snow": "Natte sneeuw",
+        "precipitation_type_mix": "Mix van regen en sneeuw",
+        "precipitation_type_unknown": "Onbekend type"
     }
 }
