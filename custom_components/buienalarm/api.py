@@ -8,12 +8,12 @@ filtering on the `[API]` tag.
 """
 
 import asyncio
-from collections.abc import Mapping
-from datetime import datetime, timezone
 import json
 import logging
 import random
 import socket
+from collections.abc import Mapping
+from datetime import datetime, timezone
 from typing import Any, Final, cast
 
 import aiohttp
@@ -72,28 +72,6 @@ def _dump_json(data: object) -> str:
     except (TypeError, ValueError) as err:
         _LOGGER.debug("Failed to serialize JSON: %s", err)
         return repr(data)
-
-
-def _validate_nowcast_payload(data: object) -> None:
-    """Require a non-empty forecast list of objects before accepting an update.
-
-    Individual measurements and optional messages remain validated by their
-    consuming entities; this guard checks the shared response structure.
-    """
-    if not isinstance(data, dict):
-        _LOGGER.error(
-            "Invalid response format: expected dict, got %s", type(data).__name__
-        )
-        raise ApiError("Invalid response format: expected dictionary")
-
-    forecast = data.get("data")
-    if not isinstance(forecast, list) or not forecast:
-        _LOGGER.error("Invalid nowcast response: expected a non-empty data list")
-        raise ApiError("Invalid nowcast response: expected a non-empty data list")
-
-    if any(not isinstance(point, dict) for point in forecast):
-        _LOGGER.error("Invalid nowcast response: data entries must be dictionaries")
-        raise ApiError("Invalid nowcast response: data entries must be dictionaries")
 
 
 # -----------------------------------------------------------------------------
@@ -306,12 +284,10 @@ class BuienalarmApiClient:
                     except TypeError:
                         data = await resp.json()
 
-                    _validate_nowcast_payload(data)
-
                     age_str = resp_headers.get("Age", "0")
                     try:
                         age_header = int(age_str)
-                    except ValueError, TypeError:
+                    except (ValueError, TypeError):
                         age_header = 0
 
                     _LOGGER.debug(

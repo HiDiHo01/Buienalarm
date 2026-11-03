@@ -129,6 +129,5 @@ SENSORS: Final[list[dict[str, object]]] = [
         "unit_of_measurement": None,
         "device_class": None,
         "state_class": None,
-        "enabled_by_default": False,
     },
 ]

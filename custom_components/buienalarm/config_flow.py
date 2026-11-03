@@ -20,12 +20,16 @@ import logging
 import math
 from typing import Any, Final
 
+import voluptuous as vol
 from homeassistant import config_entries, exceptions
-from homeassistant.const import CONF_LATITUDE, CONF_LONGITUDE, CONF_NAME
+from homeassistant.const import (
+    CONF_LATITUDE,
+    CONF_LONGITUDE,
+    CONF_NAME,
+)
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
-import voluptuous as vol
 
 from .const import DOMAIN, NAME
 
@@ -37,7 +41,7 @@ _LOGGER: Final[logging.Logger] = logging.getLogger(__name__)
 DEFAULT_LATITUDE: Final[float] = 52.7875
 DEFAULT_LONGITUDE: Final[float] = 4.79861
 DEFAULT_REFRESH_INTERVAL: Final[int] = 300  # seconds (5 min)
-DEFAULT_NOTIFICATION_LIMIT: Final[int] = 0  # mm/h – notify on any positive intensity
+DEFAULT_NOTIFICATION_LIMIT: Final[int] = 0  # mm/h – notify on any value
 
 _COORDINATE_SELECTOR: Final[selector.NumberSelector] = selector.NumberSelector(
     selector.NumberSelectorConfig(
@@ -70,7 +74,7 @@ def _is_valid_coordinates(latitude: float | str, longitude: float | str) -> bool
     try:
         lat: float = float(str(latitude).replace(",", "."))
         lon: float = float(str(longitude).replace(",", "."))
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         return False
 
     return -90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0
@@ -97,14 +101,14 @@ def _parse_int_option(value: Any, min_value: int) -> int | None:
     if isinstance(value, str):
         try:
             dec = Decimal(value)
-        except InvalidOperation, TypeError, ValueError:
+        except (InvalidOperation, TypeError, ValueError):
             return None
         if not dec.is_finite() or dec < min_value or dec % 1 != 0:
             return None
         return int(dec)
     try:
         val_float = float(value)
-    except TypeError, ValueError, OverflowError:
+    except (TypeError, ValueError, OverflowError):
         return None
 
     if (
@@ -150,7 +154,7 @@ def _validate_flow_input(
     try:
         lat_float = float(latitude_raw) if not errors else 0.0
         lon_float = float(longitude_raw) if not errors else 0.0
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         errors["base"] = "invalid_coordinates"
         lat_float = 0.0
         lon_float = 0.0
@@ -286,7 +290,9 @@ class BuienalarmOptionsFlow(config_entries.OptionsFlow):
         )
 
     # --------------------------------------------------------------
-    def _options_schema(self, user_input: dict[str, Any] | None = None) -> vol.Schema:  # noqa: D401
+    def _options_schema(
+        self, user_input: dict[str, Any] | None = None
+    ) -> vol.Schema:  # noqa: D401
         """Return schema for the options form."""
         options = user_input if user_input is not None else self._entry.options
         data = self._entry.data
