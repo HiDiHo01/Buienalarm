@@ -1,12 +1,12 @@
-import sys
-import os
 import json
+import os
 from pathlib import Path
+import sys
 from typing import Final
-
-import pytest
-from aiohttp import ClientTimeout
 from unittest.mock import AsyncMock, patch
+
+from aiohttp import ClientTimeout
+import pytest
 
 try:
     import pycares

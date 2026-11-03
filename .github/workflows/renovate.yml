@@ -100,7 +100,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          required_checks='["build (3.14.2)", "Validate", "Validate Renovate configuration"]'
+          required_checks='["Ruff", "build (3.14.2)", "Validate", "Validate Renovate configuration"]'
           rules="$(gh api "repos/${GH_REPO}/rules/branches/main?per_page=100" --paginate | jq -s 'add')"
           # GitHub Actions has integration ID 15368 on github.com.
           ruleset_ids="$(jq -r --argjson required "$required_checks" '

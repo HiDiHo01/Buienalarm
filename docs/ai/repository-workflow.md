@@ -17,6 +17,9 @@ When working on GitHub repositories:
 
 Do not assume that pushing, publishing, releasing, or merging is authorized merely because code changes were requested.
 
+For formatter commands, corrective CI patches and version upgrades, use the
+canonical [formatting policy](../../AGENTS.md#formatting-policy).
+
 ## 22. Required workflow for every task
 
 Follow this sequence:

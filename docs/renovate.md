@@ -21,20 +21,26 @@ checks CI on an up-to-date branch, and uses squash merges within the window.
 
 | Update | Automatic merge |
 | --- | --- |
-| Stable `black`, `pylint`, `pytest`, `pytest-asyncio` minor/patch releases | After passing CI and a release age of at least three days |
+| Stable `pylint`, `pytest`, `pytest-asyncio` minor/patch releases | After passing CI and a release age of at least three days |
 | Stable GitHub Actions minor/patch releases | After passing CI and a release age of at least three days |
 | Stable, versioned GitHub Actions digest changes and immutable digest pins | After passing CI |
 | Unversioned or pre-1.0 GitHub Actions | Manual review |
 | Home Assistant and its custom-component test plugin | Checked daily, grouped together, manual review |
+| Ruff formatter baseline | Updates disabled; manually coordinate the exact dependency, configuration and lockfile with the latest stable Home Assistant |
 | Python 3.14 patch releases | Manual review; other Python series are excluded |
 | Renovate runner upgrades | Manual review |
 | Major, replacement, rollback, and lock-file maintenance updates | Manual review |
 
 Lock-file maintenance runs on Monday within the same window. Existing Poetry
-ranges are retained except the four listed development tools, which bump their
+ranges are retained except the three listed development tools, which bump their
 lower bounds so Renovate can target the reviewed version. Poetry's range-based
 lock updates have limitations; inspect the resulting lock diff and CI for every
 manual baseline or maintenance update.
+
+The exact Ruff pin prevents lock-file maintenance from changing the formatter.
+Its local commit hooks use the locked Poetry environment. The `Ruff` CI job
+rejects dependency/configuration/lockfile/installed-version mismatches. See the
+[formatting policy](../AGENTS.md#formatting-policy).
 
 The Home Assistant group refreshes the root and `test_dependencies/poetry.lock` files within
 open-ended stable-version requirements. The test plugin's upstream pin is
@@ -74,6 +80,7 @@ scheduled version updates over from Dependabot.
    status checks, and **Require branches to be up to date before merging**. Each required
    check must use **GitHub Actions** as its expected source. A single required-check
    rule must contain at least:
+   - `Ruff`
    - `build (3.14.2)`
    - `Validate`
    - `Validate Renovate configuration`

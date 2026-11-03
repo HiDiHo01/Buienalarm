@@ -30,17 +30,23 @@
     {
       "description": "Bump the lower bounds of explicitly managed development tools",
       "matchManagers": ["poetry"],
-      "matchPackageNames": ["black", "pylint", "pytest", "pytest-asyncio"],
+      "matchPackageNames": ["pylint", "pytest", "pytest-asyncio"],
       "rangeStrategy": "bump"
     },
     {
       "description": "Automerge mature Python development tools after CI and a three-day release age",
       "matchManagers": ["poetry"],
-      "matchPackageNames": ["black", "pylint", "pytest", "pytest-asyncio"],
+      "matchPackageNames": ["pylint", "pytest", "pytest-asyncio"],
       "matchUpdateTypes": ["minor", "patch"],
       "matchCurrentVersion": ">=1.0.0",
       "minimumReleaseAge": "3 days",
       "automerge": true
+    },
+    {
+      "description": "Upgrade the Home Assistant formatter baseline and its configuration together by manual review",
+      "matchPackageNames": ["ruff"],
+      "enabled": false,
+      "automerge": false
     },
     {
       "description": "Automerge mature GitHub Actions minor and patch releases after CI and a three-day release age",

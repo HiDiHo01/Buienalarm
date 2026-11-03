@@ -11,6 +11,56 @@ on:
       - main
 
 jobs:
+  ruff:
+    name: Ruff
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14.2"
+
+      - name: Install the pinned formatter
+        shell: bash
+        run: |
+          ruff_version="$(python -c 'import pathlib, tomllib; print(tomllib.loads(pathlib.Path("pyproject.toml").read_text())["tool"]["poetry"]["group"]["dev"]["dependencies"]["ruff"])')"
+          python -m pip install --only-binary=:all: "ruff==$ruff_version"
+
+      - name: Verify formatter version consistency
+        run: python .github/scripts/check_formatter_versions.py
+
+      - name: Check formatting
+        id: ruff_check
+        run: |
+          python -m ruff check --select I --diff .
+          python -m ruff format --check --diff .
+
+      - name: Prepare formatting patch
+        id: ruff_patch
+        if: failure() && steps.ruff_check.outcome == 'failure'
+        shell: bash
+        run: |
+          python -m ruff check --select I --fix .
+          python -m ruff format .
+          git diff --binary -- '*.py' '*.pyi' > "$RUNNER_TEMP/ruff-formatting.patch"
+          echo 'Download the ruff-formatting-patch artifact, review it, and apply it to the checked PR head with git apply.' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload formatting patch
+        if: failure() && steps.ruff_patch.outcome == 'success'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: ruff-formatting-patch
+          path: ${{ runner.temp }}/ruff-formatting.patch
+          if-no-files-found: error
+          retention-days: 14
+
   build:
     runs-on: ubuntu-latest
 
@@ -90,9 +140,6 @@ jobs:
           path: debug-logs/
           if-no-files-found: warn
           retention-days: 14
-
-      - name: 🎨 Format code (Black)
-        run: poetry run black .
 
       - name: 📦 Build integration package
         run: poetry build

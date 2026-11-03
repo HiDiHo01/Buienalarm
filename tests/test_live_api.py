@@ -1,11 +1,11 @@
 """Opt-in live smoke test for the Buienalarm API and period parsing."""
 
-import os
 from collections.abc import Mapping
+import os
 
 import aiohttp
-import pytest
 from homeassistant.core import HomeAssistant
+import pytest
 
 from custom_components.buienalarm.api import BuienalarmApiClient
 from custom_components.buienalarm.binary_sensor import (

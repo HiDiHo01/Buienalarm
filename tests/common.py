@@ -1,11 +1,11 @@
 # tests/common.py
+from typing import Any
+from uuid import uuid4
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import entity_registry as er
-
-from typing import Any
-from uuid import uuid4
 
 from custom_components.buienalarm.const import DOMAIN
 
