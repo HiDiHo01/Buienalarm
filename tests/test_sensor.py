@@ -2721,6 +2721,184 @@ async def test_current_readings_skip_invalid_active_points(
     assert entity.get_next_precipitation() == 0
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("rate", "precipitation_type", "description_available", "type_state"),
+    [
+        pytest.param(1.5, None, False, "Onbekend", id="missing-type"),
+        pytest.param(1.5, "hail", False, "Onbekend", id="unrecognized-type"),
+        pytest.param(1.5, " SNOW ", True, "Sneeuw", id="normalized-snow"),
+        pytest.param(0.0, None, True, "Geen neerslag", id="dry-reading"),
+    ],
+)
+async def test_current_wet_description_requires_recognized_type(
+    hass: HomeAssistant,
+    freezer: FrozenDateTimeFactory,
+    rate: float,
+    precipitation_type: str | None,
+    description_available: bool,
+    type_state: str,
+) -> None:
+    """A valid wet rate needs a recognized type only for its description."""
+    from unittest.mock import MagicMock
+
+    from custom_components.buienalarm.sensor import BuienalarmSensor
+
+    freezer.move_to("2026-10-23T12:00:00Z")
+    coordinator = MagicMock()
+    coordinator.last_update_success = True
+    coordinator.data = {
+        "data": [
+            {
+                "timestamp": datetime.now(timezone.utc).timestamp(),
+                "precipitationrate": rate,
+                "precipitationtype": precipitation_type,
+            }
+        ]
+    }
+    entry = MockConfigEntry(domain=DOMAIN, data={})
+    sensors = {
+        key: BuienalarmSensor(
+            coordinator,
+            entry,
+            name=key,
+            unit_of_measurement=None,
+            icon=None,
+            device_class=None,
+            state_class=None,
+            key=key,
+        )
+        for key in (
+            "precipitationrate_now",
+            "precipitationrate_now_desc",
+            "precipitationtype_now",
+        )
+    }
+
+    assert sensors["precipitationrate_now"].available is True
+    assert sensors["precipitationrate_now"].native_value == pytest.approx(rate)
+    assert sensors["precipitationrate_now_desc"].available is description_available
+    assert sensors["precipitationtype_now"].available is True
+    assert sensors["precipitationtype_now"].native_value == type_state
+    if precipitation_type == " SNOW ":
+        assert sensors["precipitationrate_now_desc"].native_value == "Lichte sneeuw"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("timestamp", "rate", "expected_available"),
+    [
+        pytest.param(1699999700, 1.2, False, id="expired-bin"),
+        pytest.param(1700000300, "1,2", True, id="future-comma-rate"),
+        pytest.param(1700000000, 0.0, True, id="current-dry-bin"),
+        pytest.param(1700000000, None, False, id="missing-rate"),
+        pytest.param(1700000000, float("nan"), False, id="nonfinite-rate"),
+    ],
+)
+async def test_timing_and_period_sensors_require_usable_forecast(
+    hass: HomeAssistant,
+    freezer: FrozenDateTimeFactory,
+    timestamp: int,
+    rate: object,
+    expected_available: bool,
+) -> None:
+    """Timing and period sensors must reject expired or invalid forecast bins."""
+    from unittest.mock import MagicMock
+
+    from custom_components.buienalarm.sensor import BuienalarmSensor
+
+    freezer.move_to(datetime.fromtimestamp(1700000000, timezone.utc))
+    coordinator = MagicMock()
+    coordinator.last_update_success = True
+    points = [{"timestamp": timestamp, "precipitationrate": rate}]
+    if timestamp == 1700000300 and rate == "1,2":
+        points.append({"timestamp": 1700000600, "precipitationrate": 0.0})
+    coordinator.data = {"data": points}
+    entry = MockConfigEntry(domain=DOMAIN, data={})
+    for key in (
+        "next_precipitation",
+        "precipitation_duration",
+        "precipitation_periods",
+    ):
+        sensor = BuienalarmSensor(
+            coordinator,
+            entry,
+            name=key,
+            unit_of_measurement=None,
+            icon=None,
+            device_class=None,
+            state_class=None,
+            key=key,
+        )
+        assert sensor.available is expected_available, key
+        coordinator.last_update_success = False
+        assert sensor.available is False, key
+        coordinator.last_update_success = True
+        if timestamp == 1700000300 and rate == "1,2":
+            if key == "next_precipitation":
+                assert sensor.native_value == 5
+            elif key == "precipitation_duration":
+                assert sensor.native_value == 5
+            elif key == "precipitation_periods":
+                assert sensor.native_value == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "timeseries", [{}, None, {"data": []}], ids=["empty", "null", "empty-data"]
+)
+async def test_cache_age_available_without_forecast_data(
+    hass: HomeAssistant,
+    timeseries: object,
+) -> None:
+    """An HTTP cache age measurement is independent of forecast content."""
+    from unittest.mock import MagicMock
+
+    from custom_components.buienalarm.sensor import BuienalarmSensor
+
+    coordinator = MagicMock()
+    coordinator.last_update_success = True
+    coordinator.device_info = {}
+    coordinator.data = {"timeseries": timeseries, "cache_age": 42}
+    entry = MockConfigEntry(domain=DOMAIN, data={})
+    sensor = BuienalarmSensor(
+        coordinator,
+        entry,
+        name="Cache age",
+        unit_of_measurement="s",
+        icon="mdi:timer-outline",
+        device_class="duration",
+        state_class="measurement",
+        key="cache_age",
+        enabled_by_default=False,
+    )
+
+    assert sensor.available is True
+    assert sensor.native_value == 42
+    assert sensor.get_data("cache_age") == 42
+
+    coordinator.data["cache_age"] = -1
+    assert sensor.available is False
+    assert sensor.native_value is None
+    coordinator.data["cache_age"] = True
+    assert sensor.available is False
+    assert sensor.native_value is None
+    coordinator.data["cache_age"] = 2.5
+    assert sensor.available is False
+    assert sensor.native_value is None
+
+
+def test_cache_age_sensor_is_disabled_by_default() -> None:
+    """Keep cache metadata opt-in in both sensor-description registries."""
+    cache_sensor = next(item for item in SENSORS if item["key"] == "cache_age")
+    cache_description = next(
+        item for item in SENSOR_DESCRIPTIONS if item.key == "cache_age"
+    )
+
+    assert cache_sensor["enabled_by_default"] is False
+    assert cache_description.entity_registry_enabled_default is False
+    assert cache_sensor["unit_of_measurement"] == "s"
+
 @pytest.mark.parametrize(
     ("active_rate", "expected_rate"),
     [

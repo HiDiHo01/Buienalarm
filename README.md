@@ -63,6 +63,28 @@ reevaluated even when the configured refresh interval is longer than five minute
 Options override the initial configuration and take effect through the existing
 reload flow.
 
+### Sensor availability
+
+Current precipitation rate, type and description require a valid reading
+covering the current five-minute interval. A positive rate without a recognized
+precipitation type leaves the description unavailable; the numeric rate and
+the existing unknown-type fallback remain available. Future-only readings
+do not establish the current rain or snow binary sensor state.
+
+Forecast timing and period sensors require at least one unexpired, valid
+five-minute interval. Empty, malformed and expired forecasts are unavailable,
+while a valid zero rate is retained as a dry measurement. Comma-decimal API
+rates remain supported.
+
+### API cache age sensor
+
+The **Cache age** sensor is disabled by default; enable it in Home Assistant's
+entity settings if needed. It reports the HTTP `Age` response-header value in
+seconds at the moment the forecast was fetched, not the elapsed time since
+the last integration update. A missing, malformed or negative `Age` header
+makes the sensor unavailable; a real `Age: 0` is valid. The sensor reads
+response metadata independently of the forecast measurements.
+
 ### Example apexcharts-card
 
 <img src="https://github.com/HiDiHo01/Buienalarm/blob/main/images/buienalarm%20card.png">

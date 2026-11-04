@@ -17,6 +17,17 @@ from .entity import BuienalarmEntity, _as_float, _safe_get
 
 _LOGGER = logging.getLogger(__name__)
 
+_RECOGNIZED_PRECIPITATION_TYPES: Final[frozenset[str]] = frozenset(
+    {
+        "rain",
+        "freezing rain",
+        "snow",
+        "wet snow",
+        "mix",
+        "mix of rain and snow",
+    }
+)
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -110,6 +121,9 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
                 type(self.coordinator.data).__name__,
             )
             return False
+        if self._key == "cache_age":
+            return self.get_cache_age() is not None
+
         if not self.data or not isinstance(self.data, Mapping):
             _LOGGER.debug(
                 "[SENSOR ENTITY] Unwrapped payload is not a Mapping or empty: %s",
@@ -173,7 +187,40 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
             "precipitationrate_now_desc",
             "precipitationtype_now",
         ):
-            return self._get_current_data_point() is not None
+            current_point = self._get_current_data_point()
+            if current_point is None:
+                return False
+            if self._key != "precipitationrate_now_desc":
+                return True
+
+            rate = _as_float(_safe_get(current_point, "precipitationrate"))
+            if rate is None or rate <= 0:
+                return True
+            precipitation_type = _safe_get(current_point, "precipitationtype")
+            return (
+                isinstance(precipitation_type, str)
+                and precipitation_type.strip().lower()
+                in _RECOGNIZED_PRECIPITATION_TYPES
+            )
+
+        if self._key in (
+            "next_precipitation",
+            "precipitation_duration",
+            "precipitation_periods",
+        ):
+            current_ts = datetime.now(timezone.utc).timestamp()
+            for point in self.data["data"]:
+                timestamp = _as_float(_safe_get(point, "timestamp"))
+                rate = _as_float(_safe_get(point, "precipitationrate"))
+                if (
+                    timestamp is not None
+                    and rate is not None
+                    and 0 <= timestamp <= 253402300799
+                    and current_ts < timestamp + 300
+                    and rate >= 0
+                ):
+                    return True
+            return False
 
         return True
 

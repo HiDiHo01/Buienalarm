@@ -6,7 +6,7 @@ import logging
 from unittest.mock import MagicMock
 
 from freezegun.api import FrozenDateTimeFactory
-from homeassistant.const import STATE_UNKNOWN
+from homeassistant.const import STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_component import EntityComponent
 import pytest
@@ -78,12 +78,12 @@ async def test_period_and_point_attributes_agree_on_numeric_timestamps(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("timestamp", [1e300, 1e20])
-async def test_out_of_range_period_timestamp_never_reports_zero(
+async def test_out_of_range_period_timestamp_is_unavailable(
     hass: HomeAssistant,
     freezer: FrozenDateTimeFactory,
     timestamp: float,
 ) -> None:
-    """Retained finite timestamps outside datetime's range produce unknown state."""
+    """Out-of-range forecast timestamps make the sensor unavailable."""
     freezer.move_to("2026-11-01T12:00:00Z")
     coordinator = MagicMock()
     coordinator.last_update_success = True
@@ -94,13 +94,39 @@ async def test_out_of_range_period_timestamp_never_reports_zero(
     }
     sensor = _sensor(coordinator, "precipitation_periods")
 
-    with pytest.raises((ValueError, OverflowError, OSError)):
-        sensor._get_precipitation_periods_count()
-    assert sensor.get_data("precipitation_periods") is None
-    assert sensor.native_value is None
+    assert sensor.available is False
+    assert sensor._get_precipitation_periods_count() == 0
+    assert sensor.native_value == 0
     component = EntityComponent(logging.getLogger(__name__), "sensor", hass)
     await component.async_add_entities([sensor])
-    assert hass.states.get(sensor.entity_id).state == STATE_UNKNOWN
+    assert hass.states.get(sensor.entity_id).state == STATE_UNAVAILABLE
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("wrapped", [False, True])
+async def test_out_of_range_period_does_not_discard_valid_forecast(
+    hass: HomeAssistant,
+    freezer: FrozenDateTimeFactory,
+    wrapped: bool,
+) -> None:
+    """Ignore an unrepresentable bin without losing preceding valid precipitation."""
+    freezer.move_to("2026-11-01T12:00:00Z")
+    now_ts = datetime.now(timezone.utc).timestamp()
+    periods = [
+        {"timestamp": now_ts, "precipitationrate": 2.0},
+        {"timestamp": now_ts + 300, "precipitationrate": 0.0},
+        {"timestamp": 1e20, "precipitationrate": 1.0},
+    ]
+    coordinator = MagicMock()
+    coordinator.last_update_success = True
+    coordinator.data = (
+        {"timeseries": {"data": periods}} if wrapped else {"data": periods}
+    )
+    sensor = _sensor(coordinator, "precipitation_periods")
+
+    assert sensor.available is True
+    assert sensor.native_value == 1
+    assert sensor.get_precipitation_periods_as_dict()[0]["duration"] == 5
 
 
 @pytest.mark.asyncio

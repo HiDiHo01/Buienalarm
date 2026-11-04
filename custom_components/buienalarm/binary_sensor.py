@@ -74,11 +74,8 @@ class BuienalarmBinarySensor(
             return
 
         periods = _get_precipitation_periods(data)
-        self._attr_available = (
-            self.coordinator.last_update_success and periods is not None
-        )
-
         if periods is None:
+            self._attr_available = False
             self._attr_is_on = None
             return
 
@@ -86,26 +83,50 @@ class BuienalarmBinarySensor(
 
         match self.entity_description.key:
             case "precipitation_expected":
-                # Bolt optimization: short-circuit timestamp check before rate evaluation to skip historical points
+                self._attr_available = any(
+                    _has_unexpired_period(period, current_ts) for period in periods
+                )
+                if not self._attr_available:
+                    self._attr_is_on = None
+                    return
                 self._attr_is_on = any(
-                    (_as_float(period.get("timestamp")) or 0.0) + 300 > current_ts
+                    _has_unexpired_period(period, current_ts)
                     and _is_precipitation_period(period)
                     for period in periods
                 )
             case "currently_raining":
+                self._attr_available = any(
+                    _has_active_period(period, current_ts) for period in periods
+                ) and not any(
+                    _has_unclassified_current_precipitation(period, current_ts)
+                    for period in periods
+                )
+                if not self._attr_available:
+                    self._attr_is_on = None
+                    return
                 self._attr_is_on = any(
                     _is_current_precipitation_period(period, current_ts)
                     and _is_rain_period(period)
                     for period in periods
                 )
             case "currently_snowing":
+                self._attr_available = any(
+                    _has_active_period(period, current_ts) for period in periods
+                ) and not any(
+                    _has_unclassified_current_precipitation(period, current_ts)
+                    for period in periods
+                )
+                if not self._attr_available:
+                    self._attr_is_on = None
+                    return
                 self._attr_is_on = any(
                     _is_current_precipitation_period(period, current_ts)
                     and _is_snow_period(period)
                     for period in periods
                 )
             case _:
-                self._attr_is_on = False
+                self._attr_available = False
+                self._attr_is_on = None
 
     @property
     @override
@@ -197,19 +218,41 @@ def _is_snow_period(period: Mapping[str, object]) -> bool:
     )
 
 
+def _has_active_period(
+    period: Mapping[str, object],
+    current_ts: float,
+) -> bool:
+    """Return whether a valid forecast bin covers the current time."""
+    timestamp = _as_float(period.get("timestamp"))
+    return timestamp is not None and timestamp <= current_ts < timestamp + 300
+
+
+def _has_unexpired_period(
+    period: Mapping[str, object],
+    current_ts: float,
+) -> bool:
+    """Return whether a forecast bin has not yet expired."""
+    timestamp = _as_float(period.get("timestamp"))
+    return timestamp is not None and timestamp + 300 > current_ts
+
+
 def _is_current_precipitation_period(
     period: Mapping[str, object],
     current_ts: float,
 ) -> bool:
-    """Return whether a period covers the current time and indicates precipitation."""
-    timestamp = _as_float(period.get("timestamp"))
-    if timestamp is None:
-        return False
+    """Return whether the current bin represents precipitation."""
+    return _has_active_period(period, current_ts) and _is_precipitation_period(period)
 
-    # Bolt optimization: compare float epoch timestamps directly [timestamp, timestamp + 300)
-    # to avoid instantiating datetime and timedelta objects in loop iterations (~25x faster).
-    return timestamp <= current_ts < timestamp + 300 and _is_precipitation_period(
-        period
+
+def _has_unclassified_current_precipitation(
+    period: Mapping[str, object],
+    current_ts: float,
+) -> bool:
+    """Identify wet current bins whose precipitation type is indeterminate."""
+    return (
+        _is_current_precipitation_period(period, current_ts)
+        and not _is_rain_period(period)
+        and not _is_snow_period(period)
     )
 
 
