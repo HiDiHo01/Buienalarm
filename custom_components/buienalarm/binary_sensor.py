@@ -97,6 +97,9 @@ class BuienalarmBinarySensor(
             case "currently_raining":
                 self._attr_available = any(
                     _has_active_period(period, current_ts) for period in periods
+                ) and not any(
+                    _has_unclassified_current_precipitation(period, current_ts)
+                    for period in periods
                 )
                 if not self._attr_available:
                     self._attr_is_on = None
@@ -109,6 +112,9 @@ class BuienalarmBinarySensor(
             case "currently_snowing":
                 self._attr_available = any(
                     _has_active_period(period, current_ts) for period in periods
+                ) and not any(
+                    _has_unclassified_current_precipitation(period, current_ts)
+                    for period in periods
                 )
                 if not self._attr_available:
                     self._attr_is_on = None
@@ -236,6 +242,18 @@ def _is_current_precipitation_period(
 ) -> bool:
     """Return whether the current bin represents precipitation."""
     return _has_active_period(period, current_ts) and _is_precipitation_period(period)
+
+
+def _has_unclassified_current_precipitation(
+    period: Mapping[str, object],
+    current_ts: float,
+) -> bool:
+    """Identify wet current bins whose precipitation type is indeterminate."""
+    return (
+        _is_current_precipitation_period(period, current_ts)
+        and not _is_rain_period(period)
+        and not _is_snow_period(period)
+    )
 
 
 async def async_setup_entry(

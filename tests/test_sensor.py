@@ -2810,7 +2810,10 @@ async def test_timing_and_period_sensors_require_usable_forecast(
     freezer.move_to(datetime.fromtimestamp(1700000000, timezone.utc))
     coordinator = MagicMock()
     coordinator.last_update_success = True
-    coordinator.data = {"data": [{"timestamp": timestamp, "precipitationrate": rate}]}
+    points = [{"timestamp": timestamp, "precipitationrate": rate}]
+    if timestamp == 1700000300 and rate == "1,2":
+        points.append({"timestamp": 1700000600, "precipitationrate": 0.0})
+    coordinator.data = {"data": points}
     entry = MockConfigEntry(domain=DOMAIN, data={})
     for key in (
         "next_precipitation",
@@ -2833,6 +2836,8 @@ async def test_timing_and_period_sensors_require_usable_forecast(
         coordinator.last_update_success = True
         if timestamp == 1700000300 and rate == "1,2":
             if key == "next_precipitation":
+                assert sensor.native_value == 5
+            elif key == "precipitation_duration":
                 assert sensor.native_value == 5
             elif key == "precipitation_periods":
                 assert sensor.native_value == 1

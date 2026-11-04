@@ -574,7 +574,14 @@ async def test_binary_sensors_freezing_rain_now(hass: HomeAssistant) -> None:
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("precipitation_type", "expected_rain_state", "expected_snow_state"),
-    [("rain", "on", "off"), ("snow", "off", "on"), (None, "off", "off")],
+    [
+        ("rain", "on", "off"),
+        ("snow", "off", "on"),
+        (" SNOW ", "off", "on"),
+        (None, "unavailable", "unavailable"),
+        ("hail", "unavailable", "unavailable"),
+        ("unknown", "unavailable", "unavailable"),
+    ],
 )
 async def test_binary_sensor_dynamic_icons(
     hass: HomeAssistant,
