@@ -300,3 +300,73 @@ async def test_async_get_initial_data_invalid_json(hass: HomeAssistant) -> None:
 
     with pytest.raises(ApiError, match="Invalid JSON"):
         await client.async_get_initial_data()
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("header", "expected_age"),
+    [
+        pytest.param("0", 0, id="zero-is-valid"),
+        pytest.param("42", 42, id="positive-age"),
+        pytest.param(" 5 ", 5, id="surrounding-whitespace"),
+        pytest.param("0007", 7, id="leading-zeros"),
+        pytest.param(None, None, id="missing-header"),
+        pytest.param("", None, id="empty-header"),
+        pytest.param("invalid", None, id="malformed-header"),
+        pytest.param("-1", None, id="negative-age"),
+        pytest.param("+5", None, id="explicit-sign"),
+        pytest.param("1.5", None, id="fractional-age"),
+        pytest.param("١٢", None, id="non-ascii-digits"),
+        pytest.param("1" * 5000, None, id="oversized-integer"),
+    ],
+)
+async def test_cache_age_header_through_coordinator_and_sensor(
+    hass: HomeAssistant,
+    header: str | None,
+    expected_age: int | None,
+) -> None:
+    """Propagate only valid HTTP Age metadata to the disabled-by-default sensor."""
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+    from custom_components.buienalarm.const import DOMAIN
+    from custom_components.buienalarm.coordinator import BuienalarmDataUpdateCoordinator
+    from custom_components.buienalarm.sensor import BuienalarmSensor
+
+    mock_session = MagicMock()
+    mock_response = AsyncMock()
+    mock_response.status = 200
+    mock_response.headers = {} if header is None else {"Age": header}
+    mock_response.json = AsyncMock(
+        return_value={"data": [{"timestamp": 1700000000, "precipitationrate": 0.0}]}
+    )
+    mock_session.get.return_value.__aenter__.return_value = mock_response
+
+    entry = MockConfigEntry(
+        domain=DOMAIN, data={"latitude": 52.3702, "longitude": 4.8951}
+    )
+    entry.add_to_hass(hass)
+    api_client = BuienalarmApiClient(52.3702, 4.8951, mock_session, hass)
+    coordinator = BuienalarmDataUpdateCoordinator(hass, api_client, {}, entry)
+
+    await coordinator.async_refresh()
+
+    assert coordinator.last_update_success is True
+    assert coordinator.data is not None
+    assert coordinator.data["cache_age"] == expected_age
+    assert "data" in coordinator.data["timeseries"]
+
+    sensor = BuienalarmSensor(
+        coordinator,
+        entry,
+        name="Cache age",
+        unit_of_measurement="s",
+        icon="mdi:timer-outline",
+        device_class="duration",
+        state_class="measurement",
+        key="cache_age",
+        enabled_by_default=False,
+    )
+    assert sensor.available is (expected_age is not None)
+    assert sensor.native_value == expected_age
+
+    coordinator.last_update_success = False
+    assert sensor.available is False

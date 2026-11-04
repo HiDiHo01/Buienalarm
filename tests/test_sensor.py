@@ -2719,3 +2719,59 @@ async def test_current_readings_skip_invalid_active_points(
     assert entity.get_current_precipitation_type() == "Regen"
     assert entity.get_current_precipitation_rate_desc() == "Matige regen"
     assert entity.get_next_precipitation() == 0
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "timeseries", [{}, None, {"data": []}], ids=["empty", "null", "empty-data"]
+)
+async def test_cache_age_available_without_forecast_data(
+    hass: HomeAssistant,
+    timeseries: object,
+) -> None:
+    """An HTTP cache age measurement is independent of forecast content."""
+    from unittest.mock import MagicMock
+
+    from custom_components.buienalarm.sensor import BuienalarmSensor
+
+    coordinator = MagicMock()
+    coordinator.last_update_success = True
+    coordinator.device_info = {}
+    coordinator.data = {"timeseries": timeseries, "cache_age": 42}
+    entry = MockConfigEntry(domain=DOMAIN, data={})
+    sensor = BuienalarmSensor(
+        coordinator,
+        entry,
+        name="Cache age",
+        unit_of_measurement="s",
+        icon="mdi:timer-outline",
+        device_class="duration",
+        state_class="measurement",
+        key="cache_age",
+        enabled_by_default=False,
+    )
+
+    assert sensor.available is True
+    assert sensor.native_value == 42
+    assert sensor.get_data("cache_age") == 42
+
+    coordinator.data["cache_age"] = -1
+    assert sensor.available is False
+    assert sensor.native_value is None
+    coordinator.data["cache_age"] = True
+    assert sensor.available is False
+    assert sensor.native_value is None
+    coordinator.data["cache_age"] = 2.5
+    assert sensor.available is False
+    assert sensor.native_value is None
+
+
+def test_cache_age_sensor_is_disabled_by_default() -> None:
+    """Keep cache metadata opt-in in both sensor-description registries."""
+    cache_sensor = next(item for item in SENSORS if item["key"] == "cache_age")
+    cache_description = next(
+        item for item in SENSOR_DESCRIPTIONS if item.key == "cache_age"
+    )
+
+    assert cache_sensor["enabled_by_default"] is False
+    assert cache_description.entity_registry_enabled_default is False
+    assert cache_sensor["unit_of_measurement"] == "s"
