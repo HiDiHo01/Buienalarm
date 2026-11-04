@@ -63,6 +63,19 @@ reevaluated even when the configured refresh interval is longer than five minute
 Options override the initial configuration and take effect through the existing
 reload flow.
 
+### Sensor availability
+
+Current precipitation rate, type and description require a valid reading
+covering the current five-minute interval. A positive rate without a recognized
+precipitation type leaves the description unavailable; the numeric rate and
+the existing unknown-type fallback remain available. Future-only readings
+do not establish the current rain or snow binary sensor state.
+
+Forecast timing and period sensors require at least one unexpired, valid
+five-minute interval. Empty, malformed and expired forecasts are unavailable,
+while a valid zero rate is retained as a dry measurement. Comma-decimal API
+rates remain supported.
+
 ### Example apexcharts-card
 
 <img src="https://github.com/HiDiHo01/Buienalarm/blob/main/images/buienalarm%20card.png">
