@@ -776,9 +776,7 @@ async def test_binary_sensors_require_period_coverage(
             "precipitation_expected": expected_forecast_state,
             "currently_raining": expected_rain_state,
             "currently_snowing": (
-                "unavailable"
-                if expected_rain_state == "unavailable"
-                else "off"
+                "unavailable" if expected_rain_state == "unavailable" else "off"
             ),
         }
         for key, expected_state in expected_states.items():

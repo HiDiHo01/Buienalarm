@@ -2810,11 +2810,13 @@ async def test_timing_and_period_sensors_require_usable_forecast(
     freezer.move_to(datetime.fromtimestamp(1700000000, timezone.utc))
     coordinator = MagicMock()
     coordinator.last_update_success = True
-    coordinator.data = {
-        "data": [{"timestamp": timestamp, "precipitationrate": rate}]
-    }
+    coordinator.data = {"data": [{"timestamp": timestamp, "precipitationrate": rate}]}
     entry = MockConfigEntry(domain=DOMAIN, data={})
-    for key in ("next_precipitation", "precipitation_duration", "precipitation_periods"):
+    for key in (
+        "next_precipitation",
+        "precipitation_duration",
+        "precipitation_periods",
+    ):
         sensor = BuienalarmSensor(
             coordinator,
             entry,
