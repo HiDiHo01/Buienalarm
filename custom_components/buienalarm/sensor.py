@@ -110,6 +110,9 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
                 type(self.coordinator.data).__name__,
             )
             return False
+        if self._key == "cache_age":
+            return self.get_cache_age() is not None
+
         if not self.data or not isinstance(self.data, Mapping):
             _LOGGER.debug(
                 "[SENSOR ENTITY] Unwrapped payload is not a Mapping or empty: %s",
