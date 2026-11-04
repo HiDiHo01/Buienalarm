@@ -2899,6 +2899,7 @@ def test_cache_age_sensor_is_disabled_by_default() -> None:
     assert cache_description.entity_registry_enabled_default is False
     assert cache_sensor["unit_of_measurement"] == "s"
 
+
 @pytest.mark.parametrize(
     ("active_rate", "expected_rate"),
     [
