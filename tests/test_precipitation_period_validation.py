@@ -6,7 +6,7 @@ import logging
 from unittest.mock import MagicMock
 
 from freezegun.api import FrozenDateTimeFactory
-from homeassistant.const import STATE_UNKNOWN
+from homeassistant.const import STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_component import EntityComponent
 import pytest
@@ -83,7 +83,7 @@ async def test_out_of_range_period_timestamp_never_reports_zero(
     freezer: FrozenDateTimeFactory,
     timestamp: float,
 ) -> None:
-    """Retained finite timestamps outside datetime's range produce unknown state."""
+    """Out-of-range forecast timestamps make the sensor unavailable."""
     freezer.move_to("2026-11-01T12:00:00Z")
     coordinator = MagicMock()
     coordinator.last_update_success = True
@@ -100,7 +100,7 @@ async def test_out_of_range_period_timestamp_never_reports_zero(
     assert sensor.native_value is None
     component = EntityComponent(logging.getLogger(__name__), "sensor", hass)
     await component.async_add_entities([sensor])
-    assert hass.states.get(sensor.entity_id).state == STATE_UNKNOWN
+    assert hass.states.get(sensor.entity_id).state == STATE_UNAVAILABLE
 
 
 @pytest.mark.asyncio
