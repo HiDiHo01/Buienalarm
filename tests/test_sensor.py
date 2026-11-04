@@ -2720,6 +2720,7 @@ async def test_current_readings_skip_invalid_active_points(
     assert entity.get_current_precipitation_rate_desc() == "Matige regen"
     assert entity.get_next_precipitation() == 0
 
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "timeseries", [{}, None, {"data": []}], ids=["empty", "null", "empty-data"]

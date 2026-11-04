@@ -301,6 +301,7 @@ async def test_async_get_initial_data_invalid_json(hass: HomeAssistant) -> None:
     with pytest.raises(ApiError, match="Invalid JSON"):
         await client.async_get_initial_data()
 
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("header", "expected_age"),
