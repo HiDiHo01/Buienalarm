@@ -308,11 +308,19 @@ class BuienalarmApiClient:
 
                     _validate_nowcast_payload(data)
 
-                    age_str = resp_headers.get("Age", "0")
-                    try:
-                        age_header = int(age_str)
-                    except ValueError, TypeError:
-                        age_header = 0
+                    # Missing or malformed cache metadata must not imply freshness.
+                    raw_age = resp_headers.get("Age")
+                    age_header: int | None = None
+                    if isinstance(raw_age, str):
+                        normalized_age = raw_age.strip()
+                        if normalized_age.isascii() and normalized_age.isdecimal():
+                            try:
+                                age_header = int(normalized_age)
+                            except ValueError:
+                                _LOGGER.debug(
+                                    "[API%s] Cache Age header exceeds integer limits",
+                                    self._sfx,
+                                )
 
                     _LOGGER.debug(
                         "[API%s]   Cache Age header: %s", self._sfx, age_header
