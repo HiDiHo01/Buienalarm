@@ -2719,3 +2719,53 @@ async def test_current_readings_skip_invalid_active_points(
     assert entity.get_current_precipitation_type() == "Regen"
     assert entity.get_current_precipitation_rate_desc() == "Matige regen"
     assert entity.get_next_precipitation() == 0
+
+
+@pytest.mark.parametrize(
+    ("active_rate", "expected_rate"),
+    [
+        pytest.param("2,5", 2.5, id="valid-comma-decimal"),
+        pytest.param(-2.5, None, id="invalid-active-rate"),
+    ],
+)
+def test_current_point_exact_dict_and_mapping_parity(
+    freezer: FrozenDateTimeFactory,
+    active_rate: str | float,
+    expected_rate: float | None,
+) -> None:
+    """Match the selected point and precipitation rate across lookup paths."""
+    from collections import UserDict
+    from unittest.mock import MagicMock
+
+    from custom_components.buienalarm.entity import BuienalarmEntity
+
+    freezer.move_to("2026-10-23T12:00:00Z")
+    now_ts = datetime.now(timezone.utc).timestamp()
+    points = [
+        {"timestamp": now_ts - 300, "precipitationrate": 7.0},
+        {"timestamp": now_ts + 300, "precipitationrate": 8.0},
+        {"timestamp": now_ts, "precipitationrate": -1.0},
+        {"timestamp": now_ts, "precipitationrate": active_rate},
+    ]
+    selected_points: list[object | None] = []
+    rates: list[float] = []
+
+    for point_type in (dict, UserDict):
+        coordinator = MagicMock()
+        coordinator.data = {"data": [point_type(point) for point in points]}
+        entity = BuienalarmEntity(
+            coordinator,
+            MockConfigEntry(domain=DOMAIN, data={}),
+            "precipitationrate_now",
+        )
+        selected_points.append(entity._get_current_data_point())
+        rates.append(entity.get_current_precipitation())
+
+    assert selected_points[0] == selected_points[1]
+    assert rates[0] == rates[1]
+    if expected_rate is None:
+        assert selected_points == [None, None]
+        assert rates == [0.0, 0.0]
+    else:
+        assert selected_points[0] == points[-1]
+        assert rates[0] == pytest.approx(expected_rate)
