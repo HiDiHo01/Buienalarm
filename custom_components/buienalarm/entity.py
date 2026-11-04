@@ -587,15 +587,8 @@ class BuienalarmEntity(CoordinatorEntity):
                 )
                 continue
 
-            # Bolt optimization: Skip raw_rate parsing for historical data points
-            raw_rate = _safe_get(entry, "precipitationrate", 0)
-            if isinstance(raw_rate, bool):
-                precip_rate = 0.0
-            else:
-                try:
-                    precip_rate = float(raw_rate)
-                except ValueError, TypeError:
-                    precip_rate = 0.0
+            # An invalid rate ends an active event; valid comma decimals remain wet.
+            precip_rate = _as_float(_safe_get(entry, "precipitationrate")) or 0.0
 
             last_time = data_point_time  # Update on every valid future or active point
 
@@ -1145,8 +1138,8 @@ class BuienalarmEntity(CoordinatorEntity):
         added to that final timestamp, so an open period with one point lasts
         zero minutes. Return an empty list for missing or non-list data, or when
         there are no precipitation periods. Invalid rates end active periods
-        at the unknown bin's timestamp. Non-finite timestamps are skipped;
-        conversion errors for retained finite timestamps propagate.
+        at the unknown bin's timestamp. Non-finite or out-of-range timestamps
+        are skipped; platform conversion errors for in-range timestamps propagate.
 
         Returns:
             A list of dictionaries per period:
@@ -1157,9 +1150,9 @@ class BuienalarmEntity(CoordinatorEntity):
                   mm/h, rounded to two decimal places.
 
         Raises:
-            ValueError: A retained timestamp is outside datetime's range.
-            OverflowError: A retained timestamp exceeds datetime conversion limits.
-            OSError: The system cannot convert a retained timestamp.
+            ValueError: The platform rejects an in-range timestamp.
+            OverflowError: The platform cannot convert an in-range timestamp.
+            OSError: The platform cannot convert an in-range timestamp.
         """
         precipitation_data: object = self.data.get("data", [])
         now_utc = datetime.now(timezone.utc)
@@ -1219,6 +1212,13 @@ class BuienalarmEntity(CoordinatorEntity):
 
             if ts + 300 <= now_ts:
                 continue  # negeer historische data
+
+            if ts > 253402300799:
+                _LOGGER.debug(
+                    "Skipping precipitation entry with out-of-range timestamp at index %d",
+                    i,
+                )
+                continue
 
             precipitation_rate = _as_float(raw_precipitation)
             if precipitation_rate is None:

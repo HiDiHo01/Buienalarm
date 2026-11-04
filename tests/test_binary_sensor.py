@@ -338,8 +338,8 @@ async def test_binary_sensor_precipitation_expected_unclassified_type(
         snow_id = entity_registry.async_get_entity_id(
             "binary_sensor", DOMAIN, f"{entry.entry_id}_currently_snowing"
         )
-        assert hass.states.get(rain_id).state == "off"
-        assert hass.states.get(snow_id).state == "off"
+        assert hass.states.get(rain_id).state == "unavailable"
+        assert hass.states.get(snow_id).state == "unavailable"
 
 
 @pytest.mark.asyncio
@@ -574,7 +574,14 @@ async def test_binary_sensors_freezing_rain_now(hass: HomeAssistant) -> None:
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("precipitation_type", "expected_rain_state", "expected_snow_state"),
-    [("rain", "on", "off"), ("snow", "off", "on"), (None, "off", "off")],
+    [
+        ("rain", "on", "off"),
+        ("snow", "off", "on"),
+        (" SNOW ", "off", "on"),
+        (None, "unavailable", "unavailable"),
+        ("hail", "unavailable", "unavailable"),
+        ("unknown", "unavailable", "unavailable"),
+    ],
 )
 async def test_binary_sensor_dynamic_icons(
     hass: HomeAssistant,
@@ -722,3 +729,68 @@ async def test_binary_sensors_recover_after_failed_and_stale_updates(
                 state = hass.states.get(entity_id)
                 assert state is not None
                 assert state.state == expected_state
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("offset", "rate", "expected_forecast_state", "expected_rain_state"),
+    [
+        pytest.param(-300, 1.5, "unavailable", "unavailable", id="expired"),
+        pytest.param(-299, 0.0, "off", "off", id="active-before-end"),
+        pytest.param(0, 0.0, "off", "off", id="current-dry"),
+        pytest.param(0, 1.5, "on", "on", id="current-wet"),
+        pytest.param(300, 1.5, "on", "unavailable", id="future-only"),
+    ],
+)
+async def test_binary_sensors_require_period_coverage(
+    hass: HomeAssistant,
+    freezer: FrozenDateTimeFactory,
+    offset: int,
+    rate: float,
+    expected_forecast_state: str,
+    expected_rain_state: str,
+) -> None:
+    """An upcoming forecast must not establish a current rain or snow state."""
+    freezer.move_to("2026-10-23T12:00:00Z")
+    now_ts = datetime.now(timezone.utc).timestamp()
+    forecast = {
+        "data": [
+            {
+                "timestamp": now_ts + offset,
+                "precipitationrate": rate,
+                "precipitationtype": "rain",
+            }
+        ]
+    }
+
+    with patch(
+        "custom_components.buienalarm.api.BuienalarmApiClient.async_get_data",
+        return_value=forecast,
+    ):
+        entry = MockConfigEntry(
+            domain=DOMAIN,
+            title="Buienalarm Forecast Coverage",
+            unique_id=f"test_period_coverage_{offset}_{rate}",
+            data={"latitude": 52.3702, "longitude": 4.8952},
+        )
+        entry.add_to_hass(hass)
+
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        registry = async_get_entity_registry(hass)
+        expected_states = {
+            "precipitation_expected": expected_forecast_state,
+            "currently_raining": expected_rain_state,
+            "currently_snowing": (
+                "unavailable" if expected_rain_state == "unavailable" else "off"
+            ),
+        }
+        for key, expected_state in expected_states.items():
+            entity_id = registry.async_get_entity_id(
+                "binary_sensor", DOMAIN, f"{entry.entry_id}_{key}"
+            )
+            assert entity_id is not None
+            state = hass.states.get(entity_id)
+            assert state is not None
+            assert state.state == expected_state
