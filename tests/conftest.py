@@ -56,7 +56,7 @@ def nowcast_payload() -> dict:
 
 
 @pytest.fixture(scope="session")
-def user_sample_payload() -> dict:
+def user_sample_payload() -> dict[str, object]:
     """Return the user provided sample Buienalarm JSON fixture as a dict."""
     return json.loads(_USER_SAMPLE_FIXTURE.read_text(encoding="utf-8"))
 
