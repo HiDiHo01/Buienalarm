@@ -73,6 +73,43 @@ def mock_api_calls():
 
 
 @pytest.mark.asyncio
+async def test_binary_sensors_user_provided_data(
+    hass: HomeAssistant,
+    freezer: FrozenDateTimeFactory,
+    user_sample_payload: dict[str, object],
+) -> None:
+    """Test binary sensors with user provided sample data payload."""
+    freezer.move_to("2026-10-11T23:00:00Z")
+
+    with patch(
+        "custom_components.buienalarm.api.BuienalarmApiClient.async_get_data",
+        return_value=user_sample_payload,
+    ):
+        entry = MockConfigEntry(
+            domain=DOMAIN,
+            title="Buienalarm Test User Data",
+            unique_id="test_user_data_binary",
+            data={"latitude": 52.787, "longitude": 4.798},
+        )
+        entry.add_to_hass(hass)
+
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        entity_registry = async_get_entity_registry(hass)
+
+        for key in ("precipitation_expected", "currently_raining", "currently_snowing"):
+            unique_id = f"{entry.entry_id}_{key}"
+            entity_id = entity_registry.async_get_entity_id(
+                "binary_sensor", DOMAIN, unique_id
+            )
+            assert entity_id is not None, f"Entity ID missing for {key}"
+            state = hass.states.get(entity_id)
+            assert state is not None, f"State missing for {entity_id}"
+            assert state.state == "off", f"Expected off for {key}, got {state.state}"
+
+
+@pytest.mark.asyncio
 async def test_binary_sensors_no_precipitation(hass: HomeAssistant) -> None:
     """Test binary sensors when there is no precipitation or only historical rain."""
     now_ts = datetime.now(timezone.utc).timestamp()
