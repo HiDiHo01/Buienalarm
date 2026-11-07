@@ -1,7 +1,7 @@
 """Binary sensors for Buienalarm rain detection."""
 
 from collections.abc import Mapping
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Final, override
 
 from homeassistant.components.binary_sensor import (
@@ -81,52 +81,18 @@ class BuienalarmBinarySensor(
 
         current_ts = datetime.now(timezone.utc).timestamp()
 
-        # Bolt performance optimization: Evaluate availability and state in a single-pass loop
-        # over periods instead of multiple generator expressions and redundant key lookups (~4.3x faster).
-        match self.entity_description.key:
-            case "precipitation_expected":
-                has_unexpired = False
-                has_precip = False
-                for period in periods:
-                    ts = _as_float(period.get("timestamp"))
-                    if ts is not None and ts + 300 > current_ts:
-                        has_unexpired = True
-                        if _is_precipitation_period(period):
-                            has_precip = True
-                            break
-                if not has_unexpired:
-                    self._attr_available = False
-                    self._attr_is_on = None
-                    return
-                self._attr_available = True
-                self._attr_is_on = has_precip
-            case "currently_raining" | "currently_snowing" as key:
-                has_active = False
-                has_unclassified = False
-                is_target_active = False
-                target_snow = key == "currently_snowing"
-                for period in periods:
-                    ts = _as_float(period.get("timestamp"))
-                    if ts is not None and ts <= current_ts < ts + 300:
-                        has_active = True
-                        if _is_precipitation_period(period):
-                            rain = _is_rain_period(period)
-                            snow = _is_snow_period(period)
-                            if not rain and not snow:
-                                has_unclassified = True
-                            if target_snow and snow:
-                                is_target_active = True
-                            elif not target_snow and rain:
-                                is_target_active = True
-                if not has_active or has_unclassified:
-                    self._attr_available = False
-                    self._attr_is_on = None
-                    return
-                self._attr_available = True
-                self._attr_is_on = is_target_active
-            case _:
-                self._attr_available = False
-                self._attr_is_on = None
+        key = self.entity_description.key
+        if key == "precipitation_expected":
+            available, is_on = _evaluate_expected_precipitation(periods, current_ts)
+        elif key in ("currently_raining", "currently_snowing"):
+            available, is_on = _evaluate_current_precipitation(
+                periods, current_ts, snow=key == "currently_snowing"
+            )
+        else:
+            available, is_on = False, None
+
+        self._attr_available = available
+        self._attr_is_on = is_on
 
     @property
     @override
@@ -218,42 +184,52 @@ def _is_snow_period(period: Mapping[str, object]) -> bool:
     )
 
 
-def _has_active_period(
-    period: Mapping[str, object],
+
+def _evaluate_expected_precipitation(
+    periods: list[Mapping[str, object]],
     current_ts: float,
-) -> bool:
-    """Return whether a valid forecast bin covers the current time."""
-    timestamp = _as_float(period.get("timestamp"))
-    return timestamp is not None and timestamp <= current_ts < timestamp + 300
+) -> tuple[bool, bool | None]:
+    """Evaluate forecast availability and wet intervals in one pass."""
+    has_unexpired = False
+    for period in periods:
+        timestamp = _as_float(period.get("timestamp"))
+        if timestamp is None or timestamp + 300 <= current_ts:
+            continue
+
+        has_unexpired = True
+        if _is_precipitation_period(period):
+            return True, True
+
+    return has_unexpired, False if has_unexpired else None
 
 
-def _has_unexpired_period(
-    period: Mapping[str, object],
+def _evaluate_current_precipitation(
+    periods: list[Mapping[str, object]],
     current_ts: float,
-) -> bool:
-    """Return whether a forecast bin has not yet expired."""
-    timestamp = _as_float(period.get("timestamp"))
-    return timestamp is not None and timestamp + 300 > current_ts
+    *,
+    snow: bool,
+) -> tuple[bool, bool | None]:
+    """Evaluate active rain or snow, leaving ambiguous precipitation unavailable."""
+    has_active = False
+    is_target_active = False
+    for period in periods:
+        timestamp = _as_float(period.get("timestamp"))
+        if timestamp is None or not timestamp <= current_ts < timestamp + 300:
+            continue
 
+        has_active = True
+        if not _is_precipitation_period(period):
+            continue
 
-def _is_current_precipitation_period(
-    period: Mapping[str, object],
-    current_ts: float,
-) -> bool:
-    """Return whether the current bin represents precipitation."""
-    return _has_active_period(period, current_ts) and _is_precipitation_period(period)
+        is_rain = _is_rain_period(period)
+        is_snow = _is_snow_period(period)
+        if not (is_rain or is_snow):
+            return False, None
 
+        if is_snow if snow else is_rain:
+            is_target_active = True
 
-def _has_unclassified_current_precipitation(
-    period: Mapping[str, object],
-    current_ts: float,
-) -> bool:
-    """Identify wet current bins whose precipitation type is indeterminate."""
-    return (
-        _is_current_precipitation_period(period, current_ts)
-        and not _is_rain_period(period)
-        and not _is_snow_period(period)
-    )
+    return has_active, is_target_active if has_active else None
 
 
 async def async_setup_entry(
