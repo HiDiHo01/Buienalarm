@@ -11,7 +11,10 @@ from homeassistant.helpers.update_coordinator import UpdateFailed
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.buienalarm.binary_sensor import async_setup_entry
+from custom_components.buienalarm.binary_sensor import (
+    BuienalarmBinarySensor,
+    async_setup_entry,
+)
 from custom_components.buienalarm.const import DOMAIN
 from custom_components.buienalarm.coordinator import BuienalarmDataUpdateCoordinator
 from custom_components.buienalarm.sensor_types import BINARY_SENSOR_DESCRIPTIONS
@@ -831,3 +834,74 @@ async def test_binary_sensors_require_period_coverage(
             state = hass.states.get(entity_id)
             assert state is not None
             assert state.state == expected_state
+
+
+@pytest.mark.parametrize(
+    ("forecast_bins", "expected_states"),
+    [
+        pytest.param(
+            [(0, 2.0, "rain"), (0, 1.5, "unknown")],
+            ("on", "unavailable", "unavailable"),
+            id="classified-before-unclassified",
+        ),
+        pytest.param(
+            [(0, 1.5, "unknown"), (0, 2.0, "snow")],
+            ("on", "unavailable", "unavailable"),
+            id="unclassified-before-classified",
+        ),
+        pytest.param(
+            [(0, 0.0, "unknown"), (300, 2.0, "snow")],
+            ("on", "off", "off"),
+            id="dry-active-and-wet-future",
+        ),
+        pytest.param(
+            [(-300, 3.0, "rain"), (0, 0.0, "snow")],
+            ("off", "off", "off"),
+            id="expired-wet-and-dry-active",
+        ),
+        pytest.param(
+            [(0, 1.0, "mix")],
+            ("on", "on", "on"),
+            id="mixed-precipitation",
+        ),
+        pytest.param(
+            [(300, 2.0, "rain")],
+            ("on", "unavailable", "unavailable"),
+            id="future-only",
+        ),
+    ],
+)
+def test_binary_sensors_single_pass_multi_period_precedence(
+    freezer: FrozenDateTimeFactory,
+    forecast_bins: list[tuple[int, float, str]],
+    expected_states: tuple[str, str, str],
+) -> None:
+    """Unknown active precipitation overrides classified rain/snow in any order."""
+    freezer.move_to("2026-10-23T12:00:00Z")
+    current_ts = datetime.now(timezone.utc).timestamp()
+    coordinator = Mock(spec=BuienalarmDataUpdateCoordinator)
+    coordinator.last_update_success = True
+    coordinator.device_info = {}
+    coordinator.data = {
+        "data": [
+            {
+                "timestamp": current_ts + offset,
+                "precipitationrate": rate,
+                "precipitationtype": precipitation_type,
+            }
+            for offset, rate, precipitation_type in forecast_bins
+        ]
+    }
+    entry = MockConfigEntry(domain=DOMAIN, data={})
+
+    actual_states: list[str] = []
+    for description in BINARY_SENSOR_DESCRIPTIONS:
+        sensor = BuienalarmBinarySensor(coordinator, entry, description)
+        if not sensor.available:
+            actual_states.append("unavailable")
+        elif sensor.is_on:
+            actual_states.append("on")
+        else:
+            actual_states.append("off")
+
+    assert tuple(actual_states) == expected_states
