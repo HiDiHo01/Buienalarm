@@ -184,7 +184,6 @@ def _is_snow_period(period: Mapping[str, object]) -> bool:
     )
 
 
-
 def _evaluate_expected_precipitation(
     periods: list[Mapping[str, object]],
     current_ts: float,
