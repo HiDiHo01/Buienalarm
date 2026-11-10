@@ -359,3 +359,68 @@ def test_validate_flow_input_invalid_types_and_values(
 
     errors, _, _, _, _ = _validate_flow_input(user_input)
     assert errors == {"base": expected_error}
+
+
+@pytest.mark.asyncio
+async def test_config_flow_preserves_input_on_error(hass: HomeAssistant) -> None:
+    """Test that config flow preserves submitted user input values when validation fails."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_USER}
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "user"
+
+    result2 = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_NAME: "My Custom Spot",
+            CONF_LATITUDE: 999.0,
+            CONF_LONGITUDE: 4.9,
+            "notification_limit": 5,
+            "refresh_interval": 450,
+        },
+    )
+
+    assert result2["type"] == FlowResultType.FORM
+    assert result2["errors"] == {"base": "invalid_coordinates"}
+
+    defaults = result2["data_schema"]({})
+    assert defaults[CONF_NAME] == "My Custom Spot"
+    assert defaults[CONF_LATITUDE] == 999.0
+    assert defaults[CONF_LONGITUDE] == 4.9
+    assert defaults["notification_limit"] == 5
+    assert defaults["refresh_interval"] == 450
+
+
+@pytest.mark.asyncio
+async def test_config_flow_duplicate_aborts(hass: HomeAssistant) -> None:
+    """Test that config flow aborts if the unique ID is already configured."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            CONF_NAME: "Existing Location",
+            CONF_LATITUDE: 52.3,
+            CONF_LONGITUDE: 4.9,
+        },
+        unique_id="52.3_4.9",
+    )
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_USER}
+    )
+    assert result["type"] == FlowResultType.FORM
+
+    result2 = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_NAME: "Duplicate Location",
+            CONF_LATITUDE: 52.3,
+            CONF_LONGITUDE: 4.9,
+            "notification_limit": 0,
+            "refresh_interval": 300,
+        },
+    )
+
+    assert result2["type"] == FlowResultType.ABORT
+    assert result2["reason"] == "already_configured"
