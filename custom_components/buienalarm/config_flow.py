@@ -208,12 +208,16 @@ class BuienalarmConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     },
                 )
 
-        return self._show_form(errors)
+        return self._show_form(errors, user_input)
 
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
-    def _show_form(self, errors: dict[str, str] | None = None) -> FlowResult:
+    def _show_form(
+        self,
+        errors: dict[str, str] | None = None,
+        user_input: dict[str, Any] | None = None,
+    ) -> FlowResult:
         """Return the form definition for the *user* step."""
         default_lat, default_lon = _get_default_coordinates(self.hass)
 
@@ -230,6 +234,9 @@ class BuienalarmConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 ): _REFRESH_INTERVAL_SCHEMA,
             }
         )
+        if user_input:
+            data_schema = self.add_suggested_values_to_schema(data_schema, user_input)
+
         return self.async_show_form(
             step_id="user",
             data_schema=data_schema,
