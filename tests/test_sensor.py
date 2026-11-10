@@ -1,6 +1,6 @@
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone, tzinfo
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.const import STATE_UNKNOWN
@@ -10,6 +10,10 @@ import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.buienalarm.const import DOMAIN, SENSORS
+from custom_components.buienalarm.coordinator import BuienalarmDataUpdateCoordinator
+from custom_components.buienalarm.sensor import (
+    async_setup_entry as async_setup_sensor_entry,
+)
 from custom_components.buienalarm.sensor_types import SENSOR_DESCRIPTIONS
 
 
@@ -2948,3 +2952,41 @@ def test_current_point_exact_dict_and_mapping_parity(
     else:
         assert selected_points[0] == points[-1]
         assert rates[0] == pytest.approx(expected_rate)
+
+
+async def test_setup_uses_runtime_coordinator(hass: HomeAssistant) -> None:
+    """Set up every sensor entity using only the entry's runtime coordinator."""
+    entry = MockConfigEntry(domain=DOMAIN)
+    coordinator = Mock(spec=BuienalarmDataUpdateCoordinator)
+    coordinator.data = {}
+    coordinator.device_info = {}
+    coordinator.last_update_success = True
+    entry.runtime_data = coordinator
+    async_add_entities = Mock()
+
+    await async_setup_sensor_entry(hass, entry, async_add_entities)
+
+    async_add_entities.assert_called_once()
+    entities = list(async_add_entities.call_args.args[0])
+    assert len(entities) == len(SENSORS)
+    assert all(entity.coordinator is coordinator for entity in entities)
+
+
+@pytest.mark.parametrize("runtime_unset", [True, False])
+async def test_setup_rejects_legacy_coordinator(
+    hass: HomeAssistant, runtime_unset: bool
+) -> None:
+    """Keep the explicit error when runtime data is missing despite legacy data."""
+    entry = MockConfigEntry(domain=DOMAIN)
+    if not runtime_unset:
+        entry.runtime_data = None
+    hass.data[DOMAIN] = {entry.entry_id: Mock(spec=BuienalarmDataUpdateCoordinator)}
+    async_add_entities = Mock()
+
+    with pytest.raises(RuntimeError) as exc_info:
+        await async_setup_sensor_entry(hass, entry, async_add_entities)
+
+    assert str(exc_info.value) == (
+        f"Buienalarm coordinator is not available for config entry {entry.entry_id}"
+    )
+    async_add_entities.assert_not_called()

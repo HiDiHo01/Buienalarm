@@ -11,7 +11,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import StateType
 
-from .const import ATTR_ATTRIBUTION, DOMAIN, SENSORS
+from .const import ATTR_ATTRIBUTION, SENSORS
 from .coordinator import BuienalarmConfigEntry, BuienalarmDataUpdateCoordinator
 from .entity import BuienalarmEntity, _as_float, _safe_get
 
@@ -39,10 +39,8 @@ async def async_setup_entry(
         "[SENSOR SETUP] Setting up Buienalarm sensors for %s", config_entry.unique_id
     )
 
-    coordinator: BuienalarmDataUpdateCoordinator | None = getattr(
-        config_entry, "runtime_data", None
-    ) or hass.data.get(DOMAIN, {}).get(config_entry.entry_id)
-    if not coordinator:
+    coordinator = getattr(config_entry, "runtime_data", None)
+    if coordinator is None:
         raise RuntimeError(
             "Buienalarm coordinator is not available for config entry "
             f"{config_entry.entry_id}"
