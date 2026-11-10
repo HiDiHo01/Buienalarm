@@ -384,12 +384,16 @@ async def test_config_flow_preserves_input_on_error(hass: HomeAssistant) -> None
     assert result2["type"] == FlowResultType.FORM
     assert result2["errors"] == {"base": "invalid_coordinates"}
 
-    defaults = result2["data_schema"]({})
-    assert defaults[CONF_NAME] == "My Custom Spot"
-    assert defaults[CONF_LATITUDE] == 999.0
-    assert defaults[CONF_LONGITUDE] == 4.9
-    assert defaults["notification_limit"] == 5
-    assert defaults["refresh_interval"] == 450
+    schema = result2["data_schema"]
+    suggested = {
+        key.schema: (key.description or {}).get("suggested_value")
+        for key in schema.schema
+    }
+    assert suggested[CONF_NAME] == "My Custom Spot"
+    assert suggested[CONF_LATITUDE] == 999.0
+    assert suggested[CONF_LONGITUDE] == 4.9
+    assert suggested["notification_limit"] == 5
+    assert suggested["refresh_interval"] == 450
 
 
 @pytest.mark.asyncio

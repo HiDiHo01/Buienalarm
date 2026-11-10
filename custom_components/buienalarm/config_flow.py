@@ -221,31 +221,23 @@ class BuienalarmConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     ) -> FlowResult:
         """Return the form definition for the *user* step."""
         default_lat, default_lon = _get_default_coordinates(self.hass)
-        values = user_input or {}
 
         data_schema: vol.Schema = vol.Schema(
             {
-                vol.Required(
-                    CONF_NAME, default=values.get(CONF_NAME, NAME)
-                ): selector.TextSelector(),
-                vol.Required(
-                    CONF_LATITUDE, default=values.get(CONF_LATITUDE, default_lat)
-                ): _COORDINATE_SELECTOR,
-                vol.Required(
-                    CONF_LONGITUDE, default=values.get(CONF_LONGITUDE, default_lon)
-                ): _COORDINATE_SELECTOR,
+                vol.Required(CONF_NAME, default=NAME): selector.TextSelector(),
+                vol.Required(CONF_LATITUDE, default=default_lat): _COORDINATE_SELECTOR,
+                vol.Required(CONF_LONGITUDE, default=default_lon): _COORDINATE_SELECTOR,
                 vol.Optional(
-                    "notification_limit",
-                    default=values.get(
-                        "notification_limit", DEFAULT_NOTIFICATION_LIMIT
-                    ),
+                    "notification_limit", default=DEFAULT_NOTIFICATION_LIMIT
                 ): _NOTIFICATION_LIMIT_SCHEMA,
                 vol.Optional(
-                    "refresh_interval",
-                    default=values.get("refresh_interval", DEFAULT_REFRESH_INTERVAL),
+                    "refresh_interval", default=DEFAULT_REFRESH_INTERVAL
                 ): _REFRESH_INTERVAL_SCHEMA,
             }
         )
+        if user_input:
+            data_schema = self.add_suggested_values_to_schema(data_schema, user_input)
+
         return self.async_show_form(
             step_id="user",
             data_schema=data_schema,
