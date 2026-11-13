@@ -1,6 +1,7 @@
+from collections import UserDict
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone, tzinfo
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.const import STATE_UNKNOWN
@@ -2584,6 +2585,86 @@ async def test_get_precipitation_duration_when_currently_dry_and_rain_upcoming(
     }
 
     assert entity.get_precipitation_duration() == 15
+
+
+@pytest.mark.parametrize("point_type", [dict, UserDict])
+@pytest.mark.parametrize(
+    ("rates", "expected_duration", "expected_datetime_calls"),
+    [
+        pytest.param([0.0, 0.0, 0.0], 0, 0, id="all-dry"),
+        pytest.param([-2.0, 0.0], 0, 0, id="negative-rate-is-dry"),
+        pytest.param([0.0, "2,5", 3.0, 0.0], 10, 3, id="rain-after-dry"),
+        pytest.param([2.0, 0.0], 5, 2, id="active-rain-ends"),
+        pytest.param([0.0, "invalid", 2.0, 0.0], 5, 2, id="invalid-rate-is-dry"),
+    ],
+)
+def test_precipitation_duration_skips_leading_dry_datetimes(
+    point_type: type,
+    rates: list[float | str],
+    expected_duration: int,
+    expected_datetime_calls: int,
+) -> None:
+    """Avoid constructing datetime objects for initial dry forecast bins."""
+    from custom_components.buienalarm.entity import BuienalarmEntity
+
+    fixed_time = datetime(2026, 11, 13, 12, tzinfo=timezone.utc)
+    timestamp = fixed_time.timestamp()
+    coordinator = MagicMock()
+    coordinator.data = {
+        "data": [
+            point_type(
+                {
+                    "timestamp": timestamp + index * 300,
+                    "precipitationrate": rate,
+                }
+            )
+            for index, rate in enumerate(rates)
+        ]
+    }
+    entity = BuienalarmEntity(
+        coordinator,
+        MockConfigEntry(domain=DOMAIN, data={}),
+        "precipitation_duration",
+    )
+
+    with patch(
+        "custom_components.buienalarm.entity.datetime", wraps=datetime
+    ) as utc_dt:
+        utc_dt.now.return_value = fixed_time
+        assert entity.get_precipitation_duration() == expected_duration
+        assert utc_dt.fromtimestamp.call_count == expected_datetime_calls
+
+
+def test_precipitation_duration_skips_invalid_timestamps_before_rain() -> None:
+    """Reject invalid timestamps and retain the later valid rain duration."""
+    from custom_components.buienalarm.entity import BuienalarmEntity
+
+    fixed_time = datetime(2026, 11, 13, 12, tzinfo=timezone.utc)
+    timestamp = fixed_time.timestamp()
+    coordinator = MagicMock()
+    coordinator.data = {
+        "data": [
+            {"timestamp": True, "precipitationrate": 2.0},
+            {"timestamp": "not-a-timestamp", "precipitationrate": 2.0},
+            {"timestamp": 10**400, "precipitationrate": 2.0},
+            {"timestamp": 1e300, "precipitationrate": 2.0},
+            {"timestamp": timestamp, "precipitationrate": 0.0},
+            {"timestamp": timestamp + 300, "precipitationrate": 2.0},
+            {"timestamp": timestamp + 600, "precipitationrate": 0.0},
+        ]
+    }
+    entity = BuienalarmEntity(
+        coordinator,
+        MockConfigEntry(domain=DOMAIN, data={}),
+        "precipitation_duration",
+    )
+
+    with patch(
+        "custom_components.buienalarm.entity.datetime", wraps=datetime
+    ) as utc_dt:
+        utc_dt.now.return_value = fixed_time
+        assert entity.get_precipitation_duration() == 5
+        assert utc_dt.fromtimestamp.call_count == 3
 
 
 @pytest.mark.parametrize(
