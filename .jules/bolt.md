@@ -44,3 +44,8 @@ Critical learnings on performance optimizations for this repository.
 ## 2026-11-10 - Fast-path exact dict lookups in precipitation duration calculation
 **Learning:** In `BuienalarmEntity.get_precipitation_duration()`, iterating through forecast entries using `isinstance(entry, Mapping)` and dynamic `_safe_get()` repeatedly incurred ABC inheritance checks and method object allocations. Providing an exact `type(entry) is dict` fast path along with direct float/int type checks yields a ~1.44x speedup (~30.4% reduction in execution latency) for dry forecast scans and ~1.41x speedup (~28.9% reduction) during active event calculations.
 **Action:** Fast-path exact `type(entry) is dict` and exact float/int conversions in timeseries scanning loops before falling back to generic `Mapping` getters.
+
+## 2026-11-13 - Defer datetime creation for leading dry forecast bins
+**Learning:** When dry forecast bins precede rain, their timestamps need validation but do not need conversion into UTC datetime objects. After precipitation starts, the first dry bin still establishes the event end time.
+**Action:** Validate input timestamps and precipitation rates before creating datetime objects, and cover both dictionary and mapping-like inputs with deterministic duration regressions.
+
