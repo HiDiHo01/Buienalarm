@@ -30,7 +30,7 @@ _RECOGNIZED_PRECIPITATION_TYPES: Final[frozenset[str]] = frozenset(
 
 
 async def async_setup_entry(
-    hass: HomeAssistant,
+    _hass: HomeAssistant,
     config_entry: BuienalarmConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
