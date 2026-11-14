@@ -167,7 +167,6 @@ class BuienalarmConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle the Buienalarm config flow."""
 
     VERSION: Final[int] = 2
-    CONNECTION_CLASS: Final[str] = config_entries.CONN_CLASS_CLOUD_POLL
 
     # ---------------------------------------------------------------------
     # Initial step
