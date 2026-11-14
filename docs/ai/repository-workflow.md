@@ -17,6 +17,22 @@ When working on GitHub repositories:
 
 Do not assume that pushing, publishing, releasing, or merging is authorized merely because code changes were requested.
 
+### Safe pull request rebase
+
+GitHub reports `mergeable` and `rebaseable` independently: `mergeable: true` (even with `mergeable_state: clean`) does not imply `rebaseable: true`. A `null` value may mean GitHub is still calculating the status; recheck before acting. When `rebaseable: false`, inspect the commit graph and actual conflicts, including merge commits and changes already present on `main`. Merging `main` into the PR branch is not a substitute for rebasing.
+
+1. Record the current PR head SHA, remote branch name, current `main` SHA, and current diff. Inspect the local working tree and preserve unrelated changes. Confirm explicit authorization **before** rewriting history or force-pushing.
+2. Fetch `main` and rebase the PR changes onto its latest remote commit. Inspect `git log --graph` first; when merge commits or duplicate upstream changes prevent a straightforward `git rebase origin/main`, replay only the intended changes in a linear history, resolving conflicts deliberately. Use `git rebase --continue` after resolving conflicts or `git rebase --abort` if a correct resolution cannot be established. Do not drop required behavior or accidentally reintroduce already-merged code.
+3. Verify the complete resulting diff against `origin/main`, check that the resulting file tree preserves the intended PR content, run `git diff --check` and relevant tests/quality checks. Use `git range-diff` to inspect the rewritten commit series where applicable.
+4. Immediately before updating the remote branch, confirm that the remote PR head still matches the saved SHA. With explicit authorization, push using an exact SHA lease (substitute actual values):
+
+   ```bash
+   git push --force-with-lease=refs/heads/<pr-branch>:<old-remote-sha> origin HEAD:refs/heads/<pr-branch>
+   ```
+
+   Never use `--force` or an unguarded forced ref update. If the lease fails, fetch the newer branch state, investigate the intervening changes and reconcile them before attempting another update. For API-based operations, require an equivalent compare-and-swap head-SHA check.
+5. Confirm the new PR head and current `main` from GitHub, verify `rebaseable: true`, `mergeable: true` and that the branch is not behind `main`, and inspect the final PR diff. Rerun and verify required CI checks on the new head. `mergeable_state: blocked` while required checks or reviews are pending does not necessarily mean merge conflicts; investigate the specific blocker. If automation closes the PR during validation, verify whether it was **merged** and confirm the merge commit is in `main`. Do not merge without separate authorization.
+
 For formatter commands, corrective CI patches and version upgrades, use the
 canonical [formatting policy](../../AGENTS.md#formatting-policy).
 

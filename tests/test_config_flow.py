@@ -10,7 +10,13 @@ import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 import voluptuous as vol
 
+from custom_components.buienalarm.config_flow import BuienalarmConfigFlow
 from custom_components.buienalarm.const import DOMAIN
+
+
+def test_config_flow_does_not_declare_deprecated_connection_class() -> None:
+    """Prevent restoring the removed legacy config-flow connection class."""
+    assert "CONNECTION_CLASS" not in BuienalarmConfigFlow.__dict__
 
 
 @pytest.fixture(autouse=True)
