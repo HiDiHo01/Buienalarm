@@ -14,7 +14,7 @@ Deliver the single best, minimal, production-quality change. Preserve establishe
 - Configuration: config flow using latitude and longitude, with location metadata and options such as refresh interval and notification threshold.
 - Data source: Buienalarm/Infoplaza nowcast time-series endpoint, currently configured in `const.py`.
 - Architecture: asynchronous API client, `DataUpdateCoordinator`, config-entry setup/unload, coordinator-backed entities.
-- Current repository metadata declares Home Assistant `>=2026.1` and Python `>=3.14.2,<3.15` in `pyproject.toml`. Verify the current supported Home Assistant/Python versions and APIs before changing compatibility metadata.
+- Current repository metadata declares Home Assistant `>=2026.3.0` and Python `>=3.14.2,<3.15` in `pyproject.toml`. Home Assistant 2026.3.0 is the first stable release to require Python 3.14.2. Verify the current supported Home Assistant/Python versions and APIs before changing compatibility metadata.
 - The coordinator payload currently wraps the endpoint response in a mapping containing `timeseries`, `retrieval_time`, and `cache_age`. Trace the actual payload through the client, coordinator, and entity accessors before changing field paths.
 
 ## Required inspection before editing
