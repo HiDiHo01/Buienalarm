@@ -564,11 +564,11 @@ Do not implement irrelevant features solely to satisfy a checklist. Record justi
 
 Reference: https://developers.home-assistant.io/docs/core/integration-quality-scale/
 
-## 18. HACS and distribution
+## 18. Marketplace and HACS distribution
 
-For HACS-distributed custom integrations:
+For distribution through the Home Assistant Marketplace and HACS:
 
-* Keep the repository structure compatible with the current HACS requirements.
+* Keep the repository structure compatible with the current distribution requirements.
 * Maintain a valid integration manifest and supported version metadata.
 * Follow the applicable HACS action and validation requirements.
 * Keep `README.md` installation and configuration instructions accurate.
@@ -578,7 +578,14 @@ For HACS-distributed custom integrations:
 * Avoid committing secrets, local configuration files, caches, virtual environments, or generated artifacts.
 * Ensure that installation and upgrades preserve existing config entries and entity identities.
 
-Verify current HACS requirements rather than relying on old workflow examples.
+### Release and compatibility verification
+
+1. Identify the release selected by the reported install route and the candidate commit. Inspect the `hacs.json`, integration manifest, and packaged files at both refs. The Marketplace reads version-specific metadata from the artifact it installs. When a fix is available on the branch, record whether a published release includes it. [Marketplace version selection](https://contributors.home-assistant.io/marketplace/how-it-works/#versions) · [hacs.json reference](https://contributors.home-assistant.io/marketplace/reference/hacs-json/)
+2. Verify the exact repository's catalog entry before documenting installation. An unlisted repository uses **Add from link** and a GitHub connection on the default download source. Check the migration instructions and compatibility of the existing install badge before changing the README. [Marketplace installation](https://www.home-assistant.io/integrations/marketplace/#custom-repositories) · [Install links](https://contributors.home-assistant.io/marketplace/guides/catalog/#the-link-to-your-repository)
+3. Verify the minimum Home Assistant version against the Python syntax and dependencies the integration uses and the runtime shipped by the exact Core release. Exercise module imports and the config-entry lifecycle on the minimum and target Core/Python pairs. Align `hacs.json`, both Poetry projects, their lock metadata, and the documented minimum when the supported floor changes.
+4. Run the applicable HACS and hassfest checks. When investigating distribution or claiming fresh-install compatibility, use an isolated Home Assistant environment to register the repository, install the selected artifact, and load a config entry. This exposes undeclared dependencies that may be available on an existing installation. Mock the weather service where appropriate. Record the artifact, Core/Python versions, download and setup outcomes, and any unverified browser or GitHub device authorization steps.
+
+In [PR #222](https://github.com/HiDiHo01/Buienalarm/pull/222), the Marketplace installed `v2026.5.5` on a clean Home Assistant 2026.11.1 environment. Setup failed because the tag imported the undeclared `async_timeout` dependency. Commit `600538f` used `asyncio.timeout` and loaded successfully after install through the Marketplace backend with mocked forecast responses. The same investigation verified the compatibility floor by reproducing a Python 3.13 syntax error on Core 2026.1.0 and passing the lifecycle checks on Core 2026.3.0 with Python 3.14.2.
 
 ## 19. Refactoring and bug fixes
 
