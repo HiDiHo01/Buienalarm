@@ -15,13 +15,14 @@ Deliver the single best, smallest complete solution. Avoid speculative assumptio
 
 ## Load detailed requirements by task
 
-- [Engineering standards](docs/ai/engineering-standards.md) — **required** for implementation, refactoring, bug fixing, code review, Python/Home Assistant API use, data validation, asynchronous work, dependencies, tests, typing/linting, Quality Scale, HACS, or release compatibility.
+- [Engineering standards](docs/ai/engineering-standards.md) — **required** for implementation, refactoring, bug fixing, code review, Python/Home Assistant API use, data validation, asynchronous work, dependencies, tests, typing/linting, Quality Scale, Marketplace, HACS, or release compatibility.
 - [Repository workflow](docs/ai/repository-workflow.md) — **required** for Git/GitHub operations, pull requests, review feedback, diagnostics/log inspection, label maintenance, or changing instruction/policy files.
 - Read both references when a task spans both areas. Inspect the relevant `manifest.json`, `const.py`, `__init__.py`, `config_flow.py`, entity platforms, coordinators, tests/fixtures, translations, dependency configuration, `quality_scale.yaml`, and CI workflows before deciding on a change. Do not assume a particular endpoint, coordinator structure, update interval, or entity platform; verify it in current source. Instructions and prior summaries are not evidence of current behavior.
 
 ## Non-negotiable verification rules
 
 - Verify current Home Assistant APIs against official documentation or source for the target release; do not rely on memory, old examples, or generated claims.
+- For Marketplace or HACS compatibility claims, identify the published tag and candidate commit, and follow [release and compatibility verification](docs/ai/engineering-standards.md#release-and-compatibility-verification).
 - Trace relevant data through the actual path: external input → parsing/validation → coordinator/runtime data → entity calculation → exposed state/attributes. Do not claim compliance with `home-assistant.md` unless the relevant implementation and tests have actually been checked.
 - Treat external input as untrusted. Never convert missing, malformed, stale, or indeterminate data into a plausible zero, empty value, or confirmed binary-sensor `off` state unless the verified data contract explicitly requires it.
 - Never log sensitive information in clear text. Do not log credentials, API keys, access or refresh tokens, authorization headers, personal data, or raw request/response payloads that may contain sensitive information. Redact sensitive fields and log only the minimum sanitized context needed for diagnosis; apply this rule at every log level, including DEBUG.
