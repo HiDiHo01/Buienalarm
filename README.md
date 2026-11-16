@@ -13,6 +13,14 @@ This is a custom component for Home Assistant that integrates with Buienalarm to
 
 Buienalarm requires Home Assistant 2026.3.0 or later.
 
+> [!IMPORTANT]
+> On a clean Home Assistant installation, `v2026.5.5` can fail to load because
+> it imports the undeclared `async_timeout` dependency. Use the Marketplace or
+> HACS steps once a [published release](https://github.com/HiDiHo01/Buienalarm/releases)
+> includes the [`asyncio.timeout` fix](https://github.com/HiDiHo01/Buienalarm/commit/57a549a107f47cfa0ff923ed611be52ea554c219).
+> Until then, follow [Manual Installation](#manual-installation) using the tested
+> source archive.
+
 [![Open the Buienalarm repository in Home Assistant.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=HiDiHo01&repository=Buienalarm&category=integration)
 
 ### Marketplace (Home Assistant 2026.11 and later)
@@ -24,7 +32,8 @@ installation, custom repository, and update entity when you upgrade to 2026.11.
 1. Open **Settings > Marketplace** and select **Add from link**.
 2. Connect GitHub if prompted. Enter `https://github.com/HiDiHo01/Buienalarm`
    and select **Add**. If the Marketplace asks for a type, choose **Integration**.
-3. Open **Buienalarm** in the Marketplace and select **Install**.
+3. Open **Buienalarm**, select **Install**, and confirm the dialog shows a
+   release containing the timeout fix before proceeding.
 4. [Configure Buienalarm](#configuration-via-ui).
 
 ### HACS (Home Assistant versions before 2026.11)
@@ -32,17 +41,20 @@ installation, custom repository, and update entity when you upgrade to 2026.11.
 1. Open HACS and select **Custom repositories** from the three-dot menu.
 2. Enter `https://github.com/HiDiHo01/Buienalarm`, choose **Integration** as
    the category, and select **Add**.
-3. Open **Buienalarm** in HACS and select **Download**.
+3. Open **Buienalarm** in HACS and download a release containing the timeout fix.
 4. Restart Home Assistant and [configure Buienalarm](#configuration-via-ui).
 
 ### Manual Installation
 
-1. Download the latest version of this repository from [GitHub](https://github.com/HiDiHo01/Buienalarm).
-2. Extract the `buienalarm` folder into your Home Assistant `custom_components` directory:
+1. Download a [release](https://github.com/HiDiHo01/Buienalarm/releases) that
+   contains the timeout fix. While that release is pending, use the
+   [tested source archive](https://github.com/HiDiHo01/Buienalarm/archive/600538fcd0973bf14817dc38cb3a700bacd2dd2d.zip).
+2. Extract the archive and copy its `custom_components/buienalarm` folder into
+   your Home Assistant `custom_components` directory.
    ```
    <config>/custom_components/buienalarm/
    ```
-3. Restart Home Assistant.
+3. Restart Home Assistant and [configure Buienalarm](#configuration-via-ui).
 
 ## Configuration
 
