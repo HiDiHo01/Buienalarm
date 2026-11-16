@@ -66,7 +66,8 @@ def _translation_fields(
         if isinstance(value, dict):
             fields.update(_translation_fields(value, f"{path}."))
         else:
-            assert isinstance(value, str) and value.strip(), path
+            assert isinstance(value, str), path
+            assert value.strip(), path
             fields[path] = {
                 field
                 for _, field, _, _ in Formatter().parse(value)
