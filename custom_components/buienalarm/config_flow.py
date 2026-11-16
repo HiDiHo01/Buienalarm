@@ -27,7 +27,13 @@ from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
 import voluptuous as vol
 
-from .const import DOMAIN, NAME
+from .const import (
+    CONF_MESSAGE_LANGUAGE,
+    DEFAULT_MESSAGE_LANGUAGE,
+    DOMAIN,
+    MESSAGE_LANGUAGES,
+    NAME,
+)
 
 _LOGGER: Final[logging.Logger] = logging.getLogger(__name__)
 
@@ -61,6 +67,18 @@ _REFRESH_INTERVAL_SCHEMA: Final[selector.NumberSelector] = selector.NumberSelect
         step=1.0,
         mode=selector.NumberSelectorMode.BOX,
         unit_of_measurement="s",
+    )
+)
+
+_MESSAGE_LANGUAGE_OPTIONS: Final[tuple[str, ...]] = (
+    DEFAULT_MESSAGE_LANGUAGE,
+    *MESSAGE_LANGUAGES,
+)
+_MESSAGE_LANGUAGE_SELECTOR: Final[selector.SelectSelector] = selector.SelectSelector(
+    selector.SelectSelectorConfig(
+        options=list(_MESSAGE_LANGUAGE_OPTIONS),
+        mode=selector.SelectSelectorMode.DROPDOWN,
+        translation_key=CONF_MESSAGE_LANGUAGE,
     )
 )
 
@@ -277,6 +295,11 @@ class BuienalarmOptionsFlow(config_entries.OptionsFlow):
             errors, lat_float, lon_float, notif_limit, refresh_int = (
                 _validate_flow_input(user_input)
             )
+            message_language = user_input.get(
+                CONF_MESSAGE_LANGUAGE, DEFAULT_MESSAGE_LANGUAGE
+            )
+            if message_language not in _MESSAGE_LANGUAGE_OPTIONS:
+                errors[CONF_MESSAGE_LANGUAGE] = "invalid_message_language"
             if not errors:
                 _LOGGER.debug("Updating options for entry %s", self._entry.entry_id)
                 user_input[CONF_LATITUDE] = lat_float
@@ -296,6 +319,9 @@ class BuienalarmOptionsFlow(config_entries.OptionsFlow):
         """Return schema for the options form."""
         options = user_input if user_input is not None else self._entry.options
         data = self._entry.data
+        message_language = options.get(CONF_MESSAGE_LANGUAGE)
+        if message_language not in _MESSAGE_LANGUAGE_OPTIONS:
+            message_language = DEFAULT_MESSAGE_LANGUAGE
         return vol.Schema(
             {
                 vol.Required(
@@ -328,6 +354,10 @@ class BuienalarmOptionsFlow(config_entries.OptionsFlow):
                         data.get("refresh_interval", DEFAULT_REFRESH_INTERVAL),
                     ),
                 ): _REFRESH_INTERVAL_SCHEMA,
+                vol.Optional(
+                    CONF_MESSAGE_LANGUAGE,
+                    default=message_language,
+                ): _MESSAGE_LANGUAGE_SELECTOR,
             }
         )
 

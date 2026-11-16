@@ -45,21 +45,24 @@
                     "latitude": "Latitude",
                     "longitude": "Longitude",
                     "notification_limit": "Notification limit (mm/h)",
-                    "refresh_interval": "Refresh interval (sec)"
+                    "refresh_interval": "Refresh interval (sec)",
+                    "message_language": "Weather message language"
                 },
                 "data_description": {
                     "name": "Name for this location.",
                     "latitude": "Latitude coordinate of the location.",
                     "longitude": "Longitude coordinate of the location.",
                     "notification_limit": "Persistent notification when current or forecast precipitation intensity is above this value in mm/h. Set to 0 for any positive intensity.",
-                    "refresh_interval": "Data refresh interval in seconds (minimum 60 seconds, 300 seconds recommended)."
+                    "refresh_interval": "Data refresh interval in seconds (minimum 60 seconds, 300 seconds recommended).",
+                    "message_language": "Language for Buienalarm's weather text and notifications. Choose Home Assistant language to follow the system setting."
                 }
             }
         },
         "error": {
             "invalid_coordinates": "The provided coordinates are invalid. Please check latitude (-90 to 90) and longitude (-180 to 180) and try again.",
             "invalid_notification_limit": "The notification limit must be a non-negative whole number.",
-            "invalid_refresh_interval": "The refresh interval must be a whole number of at least 60 seconds."
+            "invalid_refresh_interval": "The refresh interval must be a whole number of at least 60 seconds.",
+            "invalid_message_language": "Choose Home Assistant language, English, Dutch, or German."
         }
     },
     "entity": {
@@ -118,6 +121,41 @@
         "precipitation_type_snow": "Snow",
         "precipitation_type_wet_snow": "Wet snow",
         "precipitation_type_mix": "Mixed rain and snow",
-        "precipitation_type_unknown": "Unknown type"
+        "precipitation_type_unknown": "Unknown type",
+        "unknown_time": "Unknown time",
+        "forecast_no_data": "No forecast data",
+        "forecast_continues": "Precipitation continues for another {duration} min",
+        "forecast_stops": "and ends around {time}",
+        "forecast_restarts": "and starts again at {time}",
+        "forecast_prolonged": "Prolonged precipitation starts at {start}",
+        "forecast_starts": "Precipitation starts at {start} and lasts {duration} min",
+        "forecast_expected": "Precipitation is expected at {start} and lasts {duration} min",
+        "precipitation_none": "No precipitation",
+        "precipitation_unknown": "Unknown",
+        "precipitation_desc_rain_very_heavy": "Very heavy rain",
+        "precipitation_desc_rain_heavy": "Heavy rain",
+        "precipitation_desc_rain_moderate": "Moderate rain",
+        "precipitation_desc_rain_light": "Light rain",
+        "precipitation_desc_rain_trace": "Drizzle",
+        "precipitation_desc_snow_very_heavy": "Very heavy snowfall",
+        "precipitation_desc_snow_heavy": "Heavy snowfall",
+        "precipitation_desc_snow_moderate": "Moderate snowfall",
+        "precipitation_desc_snow_light": "Light snowfall",
+        "precipitation_desc_snow_trace": "Snow flurries",
+        "precipitation_desc_mix_very_heavy": "Very heavy mixed rain and snow",
+        "precipitation_desc_mix_heavy": "Heavy mixed rain and snow",
+        "precipitation_desc_mix_moderate": "Moderate mixed rain and snow",
+        "precipitation_desc_mix_light": "Light mixed rain and snow",
+        "precipitation_desc_mix_trace": "Wet snow"
+    },
+    "selector": {
+        "message_language": {
+            "options": {
+                "auto": "Home Assistant language",
+                "en": "English",
+                "nl": "Dutch",
+                "de": "German"
+            }
+        }
     }
 }

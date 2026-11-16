@@ -5,25 +5,14 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from homeassistant.components import persistent_notification
-from homeassistant.const import CONF_NAME, EVENT_CORE_CONFIG_UPDATE
-from homeassistant.core import Event, HomeAssistant, callback
+from homeassistant.const import CONF_NAME
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.event import async_track_point_in_utc_time
-from homeassistant.helpers.translation import async_get_translations
 from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
 from .coordinator import BuienalarmConfigEntry, BuienalarmDataUpdateCoordinator
-from .entity import _as_float, _safe_get
-
-_KIND_KEYS = {
-    "rain": "rain",
-    "freezing rain": "freezing_rain",
-    "snow": "snow",
-    "wet snow": "wet_snow",
-    "mix": "mix",
-    "mix of rain and snow": "mix",
-}
-_TRANSLATION_PREFIX = f"component.{DOMAIN}.common."
+from .entity import _as_float, _precipitation_kind, _safe_get
 
 
 @dataclass(frozen=True)
@@ -64,12 +53,7 @@ def _next_precipitation(data: object, limit: float, now: datetime) -> _Forecast 
             end = datetime.fromtimestamp(timestamp + 300, tz=timezone.utc)
         except ValueError, OverflowError, OSError:
             continue
-        raw_kind = _safe_get(point, "precipitationtype")
-        kind = (
-            _KIND_KEYS.get(raw_kind.strip().lower(), "unknown")
-            if isinstance(raw_kind, str)
-            else "unknown"
-        )
+        kind = _precipitation_kind(_safe_get(point, "precipitationtype"))
         if result is None or start < result.start:
             result = _Forecast(start, end, rate, kind)
     return result
@@ -83,45 +67,16 @@ class PrecipitationNotifications:
         hass: HomeAssistant,
         entry: BuienalarmConfigEntry,
         coordinator: BuienalarmDataUpdateCoordinator,
-        translations: dict[str, str],
     ) -> None:
         """Subscribe to validated coordinator updates; cleanup belongs to the entry."""
         self._hass = hass
         self._entry = entry
         self._coordinator = coordinator
-        self._translations = translations
-        self._language = hass.config.language
         self._closed = False
         self._notification_id = f"{DOMAIN}_precipitation_{entry.entry_id}"
         self._last_notification: tuple[str, str] | None = None
         self._cancel_expiry: Callable[[], None] | None = None
         self._unsubscribe = coordinator.async_add_listener(self.async_update)
-        self._unsubscribe_config = hass.bus.async_listen(
-            EVENT_CORE_CONFIG_UPDATE, self._async_core_config_updated
-        )
-
-    @callback
-    def _async_core_config_updated(self, _event: Event) -> None:
-        """Refresh translations only when the configured language changes."""
-        language = self._hass.config.language
-        if self._closed or language == self._language:
-            return
-        self._entry.async_create_background_task(
-            self._hass,
-            self._async_update_language(language),
-            f"{DOMAIN} notification translations",
-        )
-
-    async def _async_update_language(self, language: str) -> None:
-        """Apply current translations without reviving an unloaded entry."""
-        translations = await async_get_translations(
-            self._hass, language, "common", {DOMAIN}
-        )
-        if self._closed or language != self._hass.config.language:
-            return
-        self._translations = translations
-        self._language = language
-        self.async_update()
 
     @callback
     def async_update(self) -> None:
@@ -153,15 +108,11 @@ class PrecipitationNotifications:
             or self._entry.data.get(CONF_NAME)
             or self._entry.title,
         )
-        title = self._translations[
-            f"{_TRANSLATION_PREFIX}precipitation_notification_title"
-        ].format(location=location)
-        message = self._translations[
-            f"{_TRANSLATION_PREFIX}precipitation_notification_message"
-        ].format(
-            precipitation_type=self._translations[
-                f"{_TRANSLATION_PREFIX}precipitation_type_{forecast.kind}"
-            ],
+        locale = self._coordinator.locale
+        title = locale.text("precipitation_notification_title", location=location)
+        message = locale.text(
+            "precipitation_notification_message",
+            precipitation_type=locale.text(f"precipitation_type_{forecast.kind}"),
             rate=f"{forecast.rate:g}",
             start=dt_util.as_local(forecast.start).strftime("%Y-%m-%d %H:%M %Z"),
         )
@@ -193,7 +144,6 @@ class PrecipitationNotifications:
     def async_close(self) -> None:
         """Release the coordinator subscription and expiry timer when unloading."""
         self._closed = True
-        self._unsubscribe_config()
         self._unsubscribe()
         if self._cancel_expiry is not None:
             self._cancel_expiry()
@@ -201,18 +151,13 @@ class PrecipitationNotifications:
         self._dismiss()
 
 
-async def async_setup_precipitation_notifications(
+@callback
+def async_setup_precipitation_notifications(
     hass: HomeAssistant,
     entry: BuienalarmConfigEntry,
     coordinator: BuienalarmDataUpdateCoordinator,
 ) -> None:
-    """Load translated messages and start notifications after successful setup."""
-    # A core language change can arrive while the initial resources are loading.
-    while True:
-        language = hass.config.language
-        translations = await async_get_translations(hass, language, "common", {DOMAIN})
-        if language == hass.config.language:
-            break
-    notifications = PrecipitationNotifications(hass, entry, coordinator, translations)
+    """Start notifications with the entry's loaded locale."""
+    notifications = PrecipitationNotifications(hass, entry, coordinator)
     entry.async_on_unload(notifications.async_close)
     notifications.async_update()

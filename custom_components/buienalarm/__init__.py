@@ -28,6 +28,7 @@ from .const import (
     VERSION,
 )
 from .coordinator import BuienalarmConfigEntry, BuienalarmDataUpdateCoordinator
+from .localization import async_setup_localization
 from .notifications import async_setup_precipitation_notifications
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
@@ -267,6 +268,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: BuienalarmConfigEntry) -
         raise ConfigEntryNotReady(f"Failed to fetch initial data for {entry.title}")
     # --------------------------------------------------
 
+    await async_setup_localization(hass, entry, coordinator)
+
     # Store coordinator in entry runtime_data and hass.data
     entry.runtime_data = coordinator
     hass.data[DOMAIN][entry.entry_id] = coordinator
@@ -288,7 +291,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: BuienalarmConfigEntry) -
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     _LOGGER.debug("[INIT_SETUP_ENTRY] Forwarded setup to platforms: %s", PLATFORMS)
 
-    await async_setup_precipitation_notifications(hass, entry, coordinator)
+    async_setup_precipitation_notifications(hass, entry, coordinator)
 
     # Register reload listener
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))

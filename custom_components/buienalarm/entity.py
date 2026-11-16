@@ -7,15 +7,11 @@ from datetime import datetime, timedelta, timezone
 import logging
 import math
 import re
-from typing import Callable, Final
+from typing import Final
 
-from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.device_registry import DeviceEntryType
-from homeassistant.helpers.update_coordinator import (
-    CoordinatorEntity,
-    DataUpdateCoordinator,
-)
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt
 
 from .const import API_CONF_URL, DOMAIN, NAME
@@ -27,6 +23,27 @@ _LOGGER: logging.Logger = logging.getLogger(__name__)
 
 # Bolt: Pre-compiled regex pattern for nowcast message timestamp placeholders to avoid re-compilation per call
 _NOWCAST_PLACEHOLDER_RE: Final[re.Pattern[str]] = re.compile(r"\{(\d+)\}")
+
+_PRECIPITATION_KINDS: Final[dict[str, str]] = {
+    "rain": "rain",
+    "freezing rain": "freezing_rain",
+    "snow": "snow",
+    "wet snow": "wet_snow",
+    "mix": "mix",
+    "mix of rain and snow": "mix",
+}
+_PRECIPITATION_LEVELS: Final[tuple[tuple[float, str], ...]] = (
+    (15.0, "very_heavy"),
+    (7.5, "heavy"),
+    (2.0, "moderate"),
+    (1.0, "light"),
+    (0.0, "trace"),
+)
+_DESCRIPTION_KINDS: Final[dict[str, str]] = {
+    "snow": "snow",
+    "wet_snow": "snow",
+    "mix": "mix",
+}
 
 _LOGGER.debug("[ENTITY] Start entity.py")
 
@@ -86,7 +103,14 @@ def _as_float(value: object) -> float | None:
     return None
 
 
-class BuienalarmEntity(CoordinatorEntity):
+def _precipitation_kind(value: object) -> str:
+    """Return a stable key for a provider precipitation type."""
+    if isinstance(value, str):
+        return _PRECIPITATION_KINDS.get(value.strip().lower(), "unknown")
+    return "unknown"
+
+
+class BuienalarmEntity(CoordinatorEntity[BuienalarmDataUpdateCoordinator]):
     """A Home Assistant entity that provides current
     and forecasted precipitation data from Buienalarm."""
 
@@ -110,7 +134,7 @@ class BuienalarmEntity(CoordinatorEntity):
 
     def __init__(
         self,
-        coordinator: DataUpdateCoordinator[dict[str, object]],
+        coordinator: BuienalarmDataUpdateCoordinator,
         config_entry: ConfigEntry,
         sensor_key: str,
     ) -> None:
@@ -360,21 +384,22 @@ class BuienalarmEntity(CoordinatorEntity):
         return results
 
     def get_nowcastmessage(self) -> str | None:
-        """Generate a user-friendly message for the current weather forecast."""
-        if not self.data:
-            return None
-
+        """Prefer the chosen provider language, with a local forecast fallback."""
         nowcastmessage = self.data.get("nowcastmessage")
-        if not isinstance(nowcastmessage, Mapping):
-            return None
+        if isinstance(nowcastmessage, Mapping):
+            message = nowcastmessage.get(self.coordinator.locale.language)
+            if isinstance(message, str) and message.strip():
+                return self._format_nowcastmessage(message)
+        rain_data = self.data.get("data")
+        if isinstance(rain_data, list) and rain_data:
+            return self._format_forecast_message(rain_data)
+        return None
 
-        nowcastmessage_data = nowcastmessage.get("nl")
-        if not isinstance(nowcastmessage_data, str) or not nowcastmessage_data:
-            return None
-
-        matches = _NOWCAST_PLACEHOLDER_RE.findall(nowcastmessage_data)
+    def _format_nowcastmessage(self, message: str) -> str:
+        """Format provider timestamp placeholders in Home Assistant's time zone."""
+        matches = _NOWCAST_PLACEHOLDER_RE.findall(message)
         if not matches:
-            return nowcastmessage_data
+            return message
 
         try:
             datetimes_local = [
@@ -383,19 +408,16 @@ class BuienalarmEntity(CoordinatorEntity):
             ]
         except (ValueError, OverflowError, OSError) as exc:
             _LOGGER.debug(
-                "[BUIENALARM ENTITY] Could not format timestamp in nowcastmessage '%s': %s",
-                nowcastmessage_data,
+                "[BUIENALARM ENTITY] Could not format timestamp in nowcastmessage: %s",
                 exc,
             )
-            return nowcastmessage_data
+            return message
 
         for timestamp, local_dt in zip(matches, datetimes_local):
             formatted_time = f"{local_dt.hour}:{local_dt.minute:02d}"
-            nowcastmessage_data = nowcastmessage_data.replace(
-                f"{{{timestamp}}}", formatted_time
-            )
+            message = message.replace(f"{{{timestamp}}}", formatted_time)
 
-        return nowcastmessage_data
+        return message
 
     def get_cache_age(self) -> int | None:
         """Return the HTTP response cache age in whole seconds, if valid."""
@@ -414,9 +436,9 @@ class BuienalarmEntity(CoordinatorEntity):
         return dt.as_local(utc_time)
 
     def format_time(self, timestamp: datetime | None) -> str:
-        """Geef lokale tijd als 'H:MM' (zonder voorloop-0)."""
+        """Return the local time in H:MM format."""
         if timestamp is None:
-            return "Unknown time"
+            return self.coordinator.locale.text("unknown_time")
 
         # Zet naar lokale Home-Assistant-tijdzone
         local = dt.as_local(timestamp)
@@ -429,62 +451,44 @@ class BuienalarmEntity(CoordinatorEntity):
         rain_data: object = self.data.get("data")
 
         if not isinstance(rain_data, list) or not rain_data:
-            return "Geen data"
+            return self.coordinator.locale.text("forecast_no_data")
+        return self._format_forecast_message(rain_data)
 
+    def _format_forecast_message(
+        self, rain_data: list[dict[str, object]]
+    ) -> str | None:
+        """Describe the existing forecast timing in the selected language."""
         rain_forecast = self.get_rain_start_time_and_duration(rain_data)
         if rain_forecast is None:
             return None
 
-        (
-            rain_start_time,
-            rain_stop_time,
-            rain_restart_time,
-            rain_duration,
-            rain_stopped,
-        ) = rain_forecast
-
-        if rain_start_time is None:
-            _LOGGER.debug("[BUIENALARM ENTITY] rain_start_time is None")
-            return "Geen neerslag"
-
-        if rain_duration is None:
-            _LOGGER.debug("[BUIENALARM ENTITY] rain_duration is None")
-            return "Ongeldige rain_duration tijd"
-
-        _LOGGER.debug(
-            "[BUIENALARM ENTITY] Neerslag start om: %s",
-            self.format_time(rain_start_time),
+        rain_start_time, rain_stop_time, rain_restart_time, rain_duration, _ = (
+            rain_forecast
         )
-        if rain_stop_time:
-            _LOGGER.debug(
-                "[BUIENALARM ENTITY] Neerslag stopt om: %s",
-                self.format_time(rain_stop_time),
-            )
-        _LOGGER.debug("[BUIENALARM ENTITY] Neerslag duurt: %s minuten", rain_duration)
-        _LOGGER.debug("[BUIENALARM ENTITY] Neerslag gestopt: %s", rain_stopped)
+        locale = self.coordinator.locale
+        if rain_start_time is None:
+            return locale.text("precipitation_none")
 
-        # current_precipitation_rate, current_precipitation_type = self.get_current_precipitation()
-        current_precipitation_rate = self.get_current_precipitation()
-
-        if current_precipitation_rate > 0:
-            message_parts = [f"Neerslag duurt nog {rain_duration} minuten"]
+        if self.get_current_precipitation() > 0:
+            message_parts = [locale.text("forecast_continues", duration=rain_duration)]
             if rain_stop_time:
                 message_parts.append(
-                    f"en stopt rond {self.format_time(rain_stop_time)}"
+                    locale.text("forecast_stops", time=self.format_time(rain_stop_time))
                 )
             if rain_restart_time:
                 message_parts.append(
-                    f"en begint weer om {self.format_time(rain_restart_time)}"
+                    locale.text(
+                        "forecast_restarts", time=self.format_time(rain_restart_time)
+                    )
                 )
             return " ".join(message_parts)
 
-        now_utc = datetime.now(timezone.utc)
-
-        if rain_start_time > now_utc:
+        start = self.format_time(rain_start_time)
+        if rain_start_time > datetime.now(timezone.utc):
             if rain_stop_time is None:
-                return f"Neerslag voor langere tijd begint om {self.format_time(rain_start_time)}"
-            return f"Neerslag begint om {self.format_time(rain_start_time)} en duurt {rain_duration} minuten"
-        return f"Er wordt regen verwacht om {self.format_time(rain_start_time)} en duurt {rain_duration} minuten"
+                return locale.text("forecast_prolonged", start=start)
+            return locale.text("forecast_starts", start=start, duration=rain_duration)
+        return locale.text("forecast_expected", start=start, duration=rain_duration)
 
     def get_precipitation_duration(self) -> int:
         """Return the duration of the current precipitation event in minutes."""
@@ -785,72 +789,40 @@ class BuienalarmEntity(CoordinatorEntity):
                 return rate
         return 0.0
 
-    NO_PRECIPITATION = "Geen neerslag"
-
-    PRECIPITATION_RAIN_CATEGORIES: Final[list[tuple[float, str]]] = [
-        (15.0, "Heel zware regen"),
-        (7.5, "Zware regen"),
-        (2.0, "Matige regen"),
-        (1.0, "Lichte regen"),
-        (0.0, "Motregen"),
-    ]
-
-    PRECIPITATION_SNOW_CATEGORIES: Final[list[tuple[float, str]]] = [
-        (15.0, "Heel zware sneeuw"),
-        (7.5, "Zware sneeuw"),
-        (2.0, "Matige sneeuw"),
-        (1.0, "Lichte sneeuw"),
-        (0.0, "Motsneeuw"),
-    ]
-
-    PRECIPITATION_RAIN_SNOW_CATEGORIES: Final[list[tuple[float, str]]] = [
-        (15.0, "Heel zware regen en sneeuw"),
-        (7.5, "Zware regen en sneeuw"),
-        (2.0, "Matige regen en sneeuw"),
-        (1.0, "Lichte regen en sneeuw"),
-        (0.0, "Natte sneeuw"),
-    ]
-
     def get_current_precipitation_rate_desc(self) -> str:
-        """Get the description of the current precipitation rate."""
+        """Translate the description of the current precipitation intensity."""
+        locale = self.coordinator.locale
         point = self._get_current_data_point()
         if point is not None:
             rate = _as_float(_safe_get(point, "precipitationrate")) or 0.0
-            raw_type = _safe_get(point, "precipitationtype")
-            ptype = raw_type.strip().lower() if isinstance(raw_type, str) else ""
-
-            categories = self.PRECIPITATION_RAIN_CATEGORIES
-            if ptype in ("snow", "wet snow"):
-                categories = self.PRECIPITATION_SNOW_CATEGORIES
-            elif ptype in ("mix", "mix of rain and snow"):
-                categories = self.PRECIPITATION_RAIN_SNOW_CATEGORIES
-
-            for threshold, category in categories:
+            kind = _precipitation_kind(_safe_get(point, "precipitationtype"))
+            description_kind = _DESCRIPTION_KINDS.get(kind, "rain")
+            for threshold, level in _PRECIPITATION_LEVELS:
                 if rate > threshold:
-                    return category
+                    return locale.text(f"precipitation_desc_{description_kind}_{level}")
 
-        return self.NO_PRECIPITATION
+        return locale.text("precipitation_none")
+
+    def _get_current_precipitation_kind(self) -> str | None:
+        """Return a stable kind for the current forecast, or None if unavailable."""
+        point = self._get_current_data_point()
+        if point is None:
+            return None
+        if not _as_float(_safe_get(point, "precipitationrate")):
+            return "none"
+        return _precipitation_kind(_safe_get(point, "precipitationtype"))
 
     def get_current_precipitation_type(self) -> str:
-        """Get the type of current precipitation (rain, snow, etc.)."""
-        point = self._get_current_data_point()
-        if point is not None:
-            rate = _as_float(_safe_get(point, "precipitationrate")) or 0.0
-            if rate > 0:
-                raw_type = _safe_get(point, "precipitationtype")
-                if isinstance(raw_type, str):
-                    current_type = raw_type.strip().lower()
-                    if current_type == "rain":
-                        return "Regen"
-                    elif current_type == "freezing rain":
-                        return "Ijzel"
-                    elif current_type in ("snow", "wet snow"):
-                        return "Sneeuw"
-                    elif current_type in ("mix", "mix of rain and snow"):
-                        return "Mix van regen en sneeuw"
-                return "Onbekend"
-
-        return self.NO_PRECIPITATION
+        """Translate the current precipitation type."""
+        kind = self._get_current_precipitation_kind()
+        locale = self.coordinator.locale
+        if kind in (None, "none"):
+            return locale.text("precipitation_none")
+        if kind == "unknown":
+            return locale.text("precipitation_unknown")
+        return locale.text(
+            f"precipitation_type_{'snow' if kind == 'wet_snow' else kind}"
+        )
 
     def get_next_precipitation(self) -> int | None:
         """

@@ -2,7 +2,10 @@
 
 import json
 from pathlib import Path
+from string import Formatter
+from typing import Any
 
+from custom_components.buienalarm.const import MESSAGE_LANGUAGES
 from custom_components.buienalarm.sensor_types import (
     BINARY_SENSOR_DESCRIPTIONS,
     SENSOR_DESCRIPTIONS,
@@ -11,9 +14,9 @@ from custom_components.buienalarm.sensor_types import (
 TRANSLATIONS_DIR = Path("custom_components/buienalarm/translations")
 
 
-def test_translation_files_exist_and_valid_json():
-    """Verify en.json and nl.json exist and are valid JSON."""
-    for lang in ["en", "nl"]:
+def test_translation_files_exist_and_valid_json() -> None:
+    """Verify every supported locale exists and has the required sections."""
+    for lang in MESSAGE_LANGUAGES:
         path = TRANSLATIONS_DIR / f"{lang}.json"
         assert path.exists(), f"{path} should exist"
 
@@ -53,36 +56,37 @@ def test_translation_files_exist_and_valid_json():
         assert "precipitationrate_now_desc" in data["entity"]["sensor"]
 
 
-def test_flow_translation_parity():
-    """Verify config and options flow translations have exact key parity between locales."""
-    with open(TRANSLATIONS_DIR / "en.json", "r", encoding="utf-8") as f:
-        en_data = json.load(f)
-    with open(TRANSLATIONS_DIR / "nl.json", "r", encoding="utf-8") as f:
-        nl_data = json.load(f)
-
-    # Config user step key parity
-    en_config_user = en_data["config"]["step"]["user"]
-    nl_config_user = nl_data["config"]["step"]["user"]
-    assert set(en_config_user["data"].keys()) == set(nl_config_user["data"].keys())
-    assert set(en_config_user["data_description"].keys()) == set(
-        nl_config_user["data_description"].keys()
-    )
-
-    # Options init step key parity
-    en_options_init = en_data["options"]["step"]["init"]
-    nl_options_init = nl_data["options"]["step"]["init"]
-    assert set(en_options_init["data"].keys()) == set(nl_options_init["data"].keys())
-    assert set(en_options_init["data_description"].keys()) == set(
-        nl_options_init["data_description"].keys()
-    )
-
-    # Options error key parity
-    assert set(en_data["options"]["error"].keys()) == set(
-        nl_data["options"]["error"].keys()
-    )
+def _translation_fields(
+    translations: dict[str, Any], prefix: str = ""
+) -> dict[str, set[str]]:
+    """Collect the full translation keys and their formatting placeholders."""
+    fields: dict[str, set[str]] = {}
+    for key, value in translations.items():
+        path = f"{prefix}{key}"
+        if isinstance(value, dict):
+            fields.update(_translation_fields(value, f"{path}."))
+        else:
+            assert isinstance(value, str) and value.strip(), path
+            fields[path] = {
+                field
+                for _, field, _, _ in Formatter().parse(value)
+                if field is not None
+            }
+    return fields
 
 
-def test_sensors_have_matching_translations():
+def test_translation_parity() -> None:
+    """Require the same keys and formatting placeholders in each locale."""
+    english = json.loads((TRANSLATIONS_DIR / "en.json").read_text(encoding="utf-8"))
+    expected_fields = _translation_fields(english)
+    for lang in MESSAGE_LANGUAGES:
+        translations = json.loads(
+            (TRANSLATIONS_DIR / f"{lang}.json").read_text(encoding="utf-8")
+        )
+        assert _translation_fields(translations) == expected_fields, lang
+
+
+def test_sensors_have_matching_translations() -> None:
     """Verify all sensors defined in SENSORS have matching translation keys."""
     import re
 
@@ -90,7 +94,7 @@ def test_sensors_have_matching_translations():
     content = const_path.read_text(encoding="utf-8")
     sensor_keys = re.findall(r'"key":\s*"([^"]+)"', content)
 
-    for lang in ["en", "nl"]:
+    for lang in MESSAGE_LANGUAGES:
         path = TRANSLATIONS_DIR / f"{lang}.json"
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)

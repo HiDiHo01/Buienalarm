@@ -64,6 +64,7 @@ async def test_options_flow_preserves_data_defaults(hass: HomeAssistant) -> None
     assert defaults[CONF_LONGITUDE] == 4.5
     assert defaults["notification_limit"] == 10
     assert defaults["refresh_interval"] == 450
+    assert defaults["message_language"] == "auto"
 
     # Save the options form without changing the values that were populated
     result2 = await hass.config_entries.options.async_configure(
@@ -83,6 +84,28 @@ async def test_options_flow_preserves_data_defaults(hass: HomeAssistant) -> None
     assert entry.options[CONF_NAME] == "Custom Spot"
     assert entry.options[CONF_LATITUDE] == 51.5
     assert entry.options[CONF_LONGITUDE] == 4.5
+
+
+@pytest.mark.asyncio
+async def test_options_flow_sets_weather_message_language(hass: HomeAssistant) -> None:
+    """Validate and save a per-location weather message language."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_NAME: "Home", CONF_LATITUDE: 52.0, CONF_LONGITUDE: 5.0},
+        options={"message_language": "nl"},
+    )
+    entry.add_to_hass(hass)
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert result["type"] == FlowResultType.FORM
+    assert result["data_schema"]({})["message_language"] == "nl"
+    with pytest.raises(vol.Invalid):
+        result["data_schema"]({"message_language": "fr"})
+
+    saved = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input=result["data_schema"]({"message_language": "de"})
+    )
+    assert saved["type"] == FlowResultType.CREATE_ENTRY
+    assert entry.options["message_language"] == "de"
 
 
 @pytest.mark.asyncio

@@ -1,0 +1,161 @@
+{
+    "title": "Buienalarm",
+    "config": {
+        "step": {
+            "user": {
+                "title": "Buienalarm",
+                "description": "Buienalarm einrichten",
+                "data": {
+                    "name": "Ort oder Name",
+                    "latitude": "Breitengrad",
+                    "longitude": "Längengrad",
+                    "notification_limit": "Grenzwert für Benachrichtigungen (mm/h)",
+                    "refresh_interval": "Aktualisierungsintervall (Sek.)"
+                },
+                "data_description": {
+                    "name": "Name für diesen Standort.",
+                    "latitude": "Breitengrad des Standorts.",
+                    "longitude": "Längengrad des Standorts.",
+                    "notification_limit": "Dauerhafte Benachrichtigung, wenn die aktuelle oder vorhergesagte Niederschlagsintensität diesen Wert in mm/h überschreitet. Der Wert 0 löst bei jeder positiven Intensität eine Benachrichtigung aus.",
+                    "refresh_interval": "Aktualisierungsintervall in Sekunden (mindestens 60 Sekunden, empfohlen sind 300 Sekunden)."
+                }
+            }
+        },
+        "error": {
+            "general": "Beim Abrufen der Wetterdaten ist ein unbekannter Fehler aufgetreten. Versuche es später erneut.",
+            "invalid_coordinates": "Die angegebenen Koordinaten sind ungültig. Prüfe den Breitengrad (−90 bis 90) und den Längengrad (−180 bis 180) und versuche es erneut.",
+            "invalid_notification_limit": "Der Grenzwert für Benachrichtigungen muss eine nicht negative ganze Zahl sein.",
+            "invalid_refresh_interval": "Das Aktualisierungsintervall muss eine ganze Zahl von mindestens 60 Sekunden sein.",
+            "cannot_connect": "Die Verbindung zur Buienalarm-API konnte nicht hergestellt werden. Prüfe die Internetverbindung und versuche es erneut."
+        },
+        "abort": {
+            "single_instance_allowed": "Es kann nur eine Instanz eingerichtet werden.",
+            "already_configured": "Ein Standort mit diesen Koordinaten ist bereits eingerichtet. Wähle einen anderen Standort oder ändere die Koordinaten.",
+            "invalid_coordinates": "Die angegebenen Koordinaten sind ungültig. Prüfe den Breitengrad (−90 bis 90) und den Längengrad (−180 bis 180) und versuche es erneut.",
+            "cannot_connect": "Die Verbindung zur Buienalarm-API konnte nicht hergestellt werden. Prüfe die Internetverbindung und versuche es erneut."
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "Einstellungen",
+                "description": "Einstellungen für Buienalarm ändern",
+                "data": {
+                    "name": "Ort oder Name",
+                    "latitude": "Breitengrad",
+                    "longitude": "Längengrad",
+                    "notification_limit": "Grenzwert für Benachrichtigungen (mm/h)",
+                    "refresh_interval": "Aktualisierungsintervall (Sek.)",
+                    "message_language": "Sprache der Wettermeldungen"
+                },
+                "data_description": {
+                    "name": "Name für diesen Standort.",
+                    "latitude": "Breitengrad des Standorts.",
+                    "longitude": "Längengrad des Standorts.",
+                    "notification_limit": "Dauerhafte Benachrichtigung, wenn die aktuelle oder vorhergesagte Niederschlagsintensität diesen Wert in mm/h überschreitet. Der Wert 0 löst bei jeder positiven Intensität eine Benachrichtigung aus.",
+                    "refresh_interval": "Aktualisierungsintervall in Sekunden (mindestens 60 Sekunden, empfohlen sind 300 Sekunden).",
+                    "message_language": "Sprache für Wettermeldungen und Benachrichtigungen von Buienalarm. Wähle die Sprache von Home Assistant, um der Systemeinstellung zu folgen."
+                }
+            }
+        },
+        "error": {
+            "invalid_coordinates": "Die angegebenen Koordinaten sind ungültig. Prüfe den Breitengrad (−90 bis 90) und den Längengrad (−180 bis 180) und versuche es erneut.",
+            "invalid_notification_limit": "Der Grenzwert für Benachrichtigungen muss eine nicht negative ganze Zahl sein.",
+            "invalid_refresh_interval": "Das Aktualisierungsintervall muss eine ganze Zahl von mindestens 60 Sekunden sein.",
+            "invalid_message_language": "Wähle die Sprache von Home Assistant, Englisch, Niederländisch oder Deutsch."
+        }
+    },
+    "entity": {
+        "binary_sensor": {
+            "precipitation_expected": {
+                "name": "Niederschlag erwartet"
+            },
+            "currently_raining": {
+                "name": "Es regnet gerade"
+            },
+            "currently_snowing": {
+                "name": "Es schneit gerade"
+            }
+        },
+        "sensor": {
+            "nowcastmessage": {
+                "name": "Wettermeldung"
+            },
+            "mycastmessage": {
+                "name": "Meine Wettermeldung"
+            },
+            "precipitation_duration": {
+                "name": "Niederschlagsdauer"
+            },
+            "precipitationrate_total": {
+                "name": "Erwarteter Niederschlag"
+            },
+            "precipitationrate_hour": {
+                "name": "Niederschlag pro Stunde"
+            },
+            "precipitationrate_now": {
+                "name": "Aktueller Niederschlag"
+            },
+            "precipitationrate_now_desc": {
+                "name": "Niederschlagsbeschreibung"
+            },
+            "precipitationtype_now": {
+                "name": "Aktuelle Niederschlagsart"
+            },
+            "next_precipitation": {
+                "name": "Zeit bis zum nächsten Niederschlag"
+            },
+            "precipitation_periods": {
+                "name": "Niederschlagsperioden"
+            },
+            "cache_age": {
+                "name": "Cache-Alter"
+            }
+        }
+    },
+    "common": {
+        "precipitation_notification_title": "Buienalarm – {location}",
+        "precipitation_notification_message": "Niederschlag: {precipitation_type}\nIntensität: {rate} mm/h\nBeginn des Vorhersageintervalls: {start}.",
+        "precipitation_type_rain": "Regen",
+        "precipitation_type_freezing_rain": "Gefrierender Regen",
+        "precipitation_type_snow": "Schnee",
+        "precipitation_type_wet_snow": "Nassschnee",
+        "precipitation_type_mix": "Schneeregen",
+        "precipitation_type_unknown": "Unbekannte Niederschlagsart",
+        "unknown_time": "Unbekannte Uhrzeit",
+        "forecast_no_data": "Keine Vorhersagedaten",
+        "forecast_continues": "Der Niederschlag hält noch {duration} Min. an",
+        "forecast_stops": "und endet gegen {time} Uhr",
+        "forecast_restarts": "und setzt um {time} Uhr wieder ein",
+        "forecast_prolonged": "Länger anhaltender Niederschlag setzt um {start} Uhr ein",
+        "forecast_starts": "Niederschlag setzt um {start} Uhr ein und hält {duration} Min. an",
+        "forecast_expected": "Für {start} Uhr wird Niederschlag erwartet, der {duration} Min. anhält",
+        "precipitation_none": "Kein Niederschlag",
+        "precipitation_unknown": "Unbekannt",
+        "precipitation_desc_rain_very_heavy": "Sehr starker Regen",
+        "precipitation_desc_rain_heavy": "Starker Regen",
+        "precipitation_desc_rain_moderate": "Mäßiger Regen",
+        "precipitation_desc_rain_light": "Leichter Regen",
+        "precipitation_desc_rain_trace": "Nieselregen",
+        "precipitation_desc_snow_very_heavy": "Sehr starker Schneefall",
+        "precipitation_desc_snow_heavy": "Starker Schneefall",
+        "precipitation_desc_snow_moderate": "Mäßiger Schneefall",
+        "precipitation_desc_snow_light": "Leichter Schneefall",
+        "precipitation_desc_snow_trace": "Schneegriesel",
+        "precipitation_desc_mix_very_heavy": "Sehr starker Schneeregen",
+        "precipitation_desc_mix_heavy": "Starker Schneeregen",
+        "precipitation_desc_mix_moderate": "Mäßiger Schneeregen",
+        "precipitation_desc_mix_light": "Leichter Schneeregen",
+        "precipitation_desc_mix_trace": "Nassschnee"
+    },
+    "selector": {
+        "message_language": {
+            "options": {
+                "auto": "Sprache von Home Assistant",
+                "en": "Englisch",
+                "nl": "Niederländisch",
+                "de": "Deutsch"
+            }
+        }
+    }
+}
