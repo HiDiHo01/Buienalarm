@@ -24,6 +24,9 @@ ATTR_ATTRIBUTION: Final[str] = "Data provided by Buienalarm"
 
 # Default configuration
 DEFAULT_NAME: Final[str] = NAME
+CONF_MESSAGE_LANGUAGE: Final[str] = "message_language"
+DEFAULT_MESSAGE_LANGUAGE: Final[str] = "auto"
+MESSAGE_LANGUAGES: Final[tuple[str, ...]] = ("en", "nl", "de")
 
 # API and Data Update intervals
 SCAN_INTERVAL: Final[timedelta] = timedelta(minutes=5)

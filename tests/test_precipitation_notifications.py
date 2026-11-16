@@ -8,7 +8,9 @@ from unittest.mock import AsyncMock, patch
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.components import persistent_notification
 from homeassistant.components.persistent_notification import Notification, UpdateType
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.const import STATE_UNAVAILABLE
+from homeassistant.core import HomeAssistant, State, callback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.translation import async_get_translations
 from homeassistant.helpers.update_coordinator import UpdateFailed
 import pytest
@@ -63,9 +65,12 @@ async def _setup(
     options: dict[str, object] | None = None,
     latitude: float = 52.0,
     wrapped: bool = True,
+    nowcast: dict[str, str] | None = None,
 ) -> MockConfigEntry:
     """Set up actual platforms and notification subscriptions for one location."""
-    payload = {"data": points}
+    payload: dict[str, object] = {"data": points}
+    if nowcast is not None:
+        payload["nowcastmessage"] = nowcast
     forecast_api.return_value = {"timeseries": payload} if wrapped else payload
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -152,6 +157,7 @@ async def test_notification_threshold_is_strict(
         ("nl", "rain", "Regen", "mm/u"),
         ("nl", "snow", "Sneeuw", "mm/u"),
         ("nl", "mix", "Mix van regen en sneeuw", "mm/u"),
+        ("de", "wet snow", "Nassschnee", "mm/h"),
         ("fr", "rain", "Rain", "mm/h"),
     ],
 )
@@ -363,6 +369,7 @@ async def test_notifications_follow_core_language_changes(
 
     for language, expected_kind, expected_units in (
         ("nl", "Regen", "mm/u"),
+        ("de", "Regen", "mm/h"),
         ("fr", "Rain", "mm/h"),
     ):
         await hass.config.async_update(language=language)
@@ -379,6 +386,79 @@ async def test_notifications_follow_core_language_changes(
     await hass.async_block_till_done(wait_background_tasks=True)
     assert len(notifications) == count
     forecast_api.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_german_entities_and_location_language_override(
+    hass: HomeAssistant,
+    freezer: FrozenDateTimeFactory,
+    forecast_api: AsyncMock,
+    notifications: NotificationEvents,
+) -> None:
+    """Apply German labels and weather text, and let a location pin its messages."""
+    freezer.move_to("2026-11-01T12:00:00Z")
+    hass.config.language = "de"
+    await hass.config.async_set_time_zone("Europe/Berlin")
+    points = [_point(), _point(rate=0.0, offset=300)]
+    stop = int(datetime.now(timezone.utc).timestamp()) + 300
+    entry = await _setup(
+        hass,
+        forecast_api,
+        points,
+        nowcast={"de": f"Regen bis {{{stop}}} Uhr", "en": f"Rain until {{{stop}}}"},
+    )
+    registry = er.async_get(hass)
+
+    def entity_state(key: str, platform: str = "sensor") -> State:
+        """Return the registered state for this entry and entity key."""
+        entity_id = registry.async_get_entity_id(
+            platform, DOMAIN, f"{entry.entry_id}_{key}"
+        )
+        assert entity_id is not None
+        state = hass.states.get(entity_id)
+        assert state is not None
+        return state
+
+    nowcast_id = entity_state("nowcastmessage").entity_id
+    assert entity_state("nowcastmessage").state == "Regen bis 13:05 Uhr"
+    assert entity_state("mycastmessage").state == (
+        "Der Niederschlag hält noch 5 Min. an und endet gegen 13:05 Uhr"
+    )
+    assert entity_state("precipitation_duration").name.endswith("Niederschlagsdauer")
+    assert entity_state("currently_raining", "binary_sensor").name.endswith(
+        "Es regnet gerade"
+    )
+    description = entity_state("precipitationrate_now_desc")
+    assert description.state == "Mäßiger Regen"
+    assert description.attributes["icon"] == "mdi:weather-pouring"
+    assert entity_state("precipitationtype_now").state == "Regen"
+    raw_points = entity_state("precipitationrate_total").attributes[
+        "precipitation_data"
+    ]
+    assert raw_points[0]["precipitationtype"] == "rain"
+
+    await hass.config.async_update(language="en")
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert entity_state("nowcastmessage").state == "Rain until 13:05"
+    assert entity_state("precipitationtype_now").state == "Rain"
+    forecast_api.assert_awaited_once()
+
+    hass.config_entries.async_update_entry(entry, options={"message_language": "de"})
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert entity_state("nowcastmessage").entity_id == nowcast_id
+    assert entity_state("nowcastmessage").state == "Regen bis 13:05 Uhr"
+    assert "Niederschlag: Regen" in next(iter(notifications[-1][1].values()))["message"]
+
+    entry.runtime_data.async_set_updated_data(
+        {"data": points, "nowcastmessage": {"en": "Rain"}}
+    )
+    assert entity_state("nowcastmessage").state == entity_state("mycastmessage").state
+    assert entity_state("nowcastmessage").state.startswith("Der Niederschlag")
+
+    entry.runtime_data.async_set_updated_data(
+        {"data": [], "nowcastmessage": {"en": "Rain"}}
+    )
+    assert entity_state("nowcastmessage").state == STATE_UNAVAILABLE
 
 
 @pytest.mark.asyncio
@@ -405,7 +485,7 @@ async def test_initial_notification_uses_language_changed_during_setup(
         )
 
     with patch(
-        "custom_components.buienalarm.notifications.async_get_translations",
+        "custom_components.buienalarm.localization.async_get_translations",
         side_effect=change_language_during_load,
     ):
         await _setup(hass, forecast_api, [_point()])
@@ -447,7 +527,7 @@ async def test_unload_cancels_translation_refresh_and_removes_language_listener(
         )
 
     with patch(
-        "custom_components.buienalarm.notifications.async_get_translations",
+        "custom_components.buienalarm.localization.async_get_translations",
         side_effect=delayed_translations,
     ) as translations:
         await hass.config.async_update(language="nl")
@@ -497,7 +577,7 @@ async def test_outdated_translation_load_cannot_restore_previous_language(
         return result
 
     with patch(
-        "custom_components.buienalarm.notifications.async_get_translations",
+        "custom_components.buienalarm.localization.async_get_translations",
         side_effect=reordered_translations,
     ):
         await hass.config.async_update(language="nl")

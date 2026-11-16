@@ -3,7 +3,6 @@ from collections.abc import Mapping
 from datetime import datetime, timezone
 import logging
 import math
-from typing import Final
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.const import CONF_NAME
@@ -13,20 +12,9 @@ from homeassistant.helpers.typing import StateType
 
 from .const import ATTR_ATTRIBUTION, SENSORS
 from .coordinator import BuienalarmConfigEntry, BuienalarmDataUpdateCoordinator
-from .entity import BuienalarmEntity, _as_float, _safe_get
+from .entity import BuienalarmEntity, _as_float, _precipitation_kind, _safe_get
 
 _LOGGER = logging.getLogger(__name__)
-
-_RECOGNIZED_PRECIPITATION_TYPES: Final[frozenset[str]] = frozenset(
-    {
-        "rain",
-        "freezing rain",
-        "snow",
-        "wet snow",
-        "mix",
-        "mix of rain and snow",
-    }
-)
 
 
 async def async_setup_entry(
@@ -130,24 +118,13 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
             return False
 
         if self._key == "nowcastmessage":
-            nowcastmessage = self.data.get("nowcastmessage")
-            if (
-                not isinstance(nowcastmessage, Mapping)
-                or not isinstance(nowcastmessage.get("nl"), str)
-                or not nowcastmessage["nl"]
-            ):
-                _LOGGER.debug(
-                    "[SENSOR ENTITY] Payload missing usable 'nowcastmessage.nl' for key %s",
-                    self._key,
-                )
-                return False
-        else:
-            if not isinstance(self.data.get("data"), list):
-                _LOGGER.debug(
-                    "[SENSOR ENTITY] Payload missing 'data' list for key %s",
-                    self._key,
-                )
-                return False
+            return self.get_nowcastmessage() is not None
+        if not isinstance(self.data.get("data"), list):
+            _LOGGER.debug(
+                "[SENSOR ENTITY] Payload missing 'data' list for key %s",
+                self._key,
+            )
+            return False
 
         if self._key == "mycastmessage":
             return self.get_rain_start_time_and_duration(self.data["data"]) is not None
@@ -194,11 +171,9 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
             rate = _as_float(_safe_get(current_point, "precipitationrate"))
             if rate is None or rate <= 0:
                 return True
-            precipitation_type = _safe_get(current_point, "precipitationtype")
             return (
-                isinstance(precipitation_type, str)
-                and precipitation_type.strip().lower()
-                in _RECOGNIZED_PRECIPITATION_TYPES
+                _precipitation_kind(_safe_get(current_point, "precipitationtype"))
+                != "unknown"
             )
 
         if self._key in (
@@ -319,17 +294,23 @@ class BuienalarmSensor(BuienalarmEntity, SensorEntity):
                 return "mdi:weather-pouring" if val == 0 else "mdi:clock-start"
             return "mdi:weather-pouring" if val > 0 else "mdi:weather-sunny"
         elif self._key in ("precipitationtype_now", "precipitationrate_now_desc"):
-            val = self.native_value
-            if isinstance(val, str):
-                val_lower = val.lower()
-                if "snow" in val_lower or "sneeuw" in val_lower:
-                    return "mdi:weather-snowy"
-                if any(k in val_lower for k in ("rain", "regen", "mix", "motregen")):
-                    return "mdi:weather-pouring"
-                if any(k in val_lower for k in ("geen", "none", "droog")):
-                    # The text also defaults to dry when no current reading exists.
-                    if self._get_current_data_point() is not None:
-                        return "mdi:weather-sunny"
+            return self._precipitation_icon()
+        return self._icon
+
+    def _precipitation_icon(self) -> str | None:
+        """Choose the icon from forecast data independently of the displayed text."""
+        if not self.coordinator.last_update_success:
+            return self._icon
+        kind = self._get_current_precipitation_kind()
+        if kind == "none":
+            return "mdi:weather-sunny"
+        if kind in ("snow", "wet_snow", "mix"):
+            return "mdi:weather-snowy"
+        if kind == "rain" or (
+            self._key == "precipitationrate_now_desc"
+            and kind in ("freezing_rain", "unknown")
+        ):
+            return "mdi:weather-pouring"
         return self._icon
 
     @property

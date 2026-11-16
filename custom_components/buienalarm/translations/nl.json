@@ -45,21 +45,24 @@
                     "latitude": "Breedtegraad",
                     "longitude": "Lengtegraad",
                     "notification_limit": "Limiet voor meldingen (mm/u)",
-                    "refresh_interval": "Interval voor verversen van data (sec)"
+                    "refresh_interval": "Interval voor verversen van data (sec)",
+                    "message_language": "Taal van weerberichten"
                 },
                 "data_description": {
                     "name": "Naam voor deze locatie.",
                     "latitude": "Breedtegraad van de locatie.",
                     "longitude": "Lengtegraad van de locatie.",
                     "notification_limit": "Blijvende melding als de actuele of verwachte neerslagintensiteit boven deze waarde in mm/u ligt. Stel in op 0 voor elke positieve intensiteit.",
-                    "refresh_interval": "Dataverversingsinterval in seconden (minimaal 60 seconden, 300 seconden aanbevolen)."
+                    "refresh_interval": "Dataverversingsinterval in seconden (minimaal 60 seconden, 300 seconden aanbevolen).",
+                    "message_language": "Taal voor weerberichten en meldingen van Buienalarm. Kies Taal van Home Assistant om de systeeminstelling te volgen."
                 }
             }
         },
         "error": {
             "invalid_coordinates": "De opgegeven coördinaten zijn ongeldig. Controleer de breedte- en lengtegraad en probeer het opnieuw.",
             "invalid_notification_limit": "De limiet voor meldingen moet een niet-negatief geheel getal zijn.",
-            "invalid_refresh_interval": "De verversingsinterval moet een geheel getal zijn van minimaal 60 seconden."
+            "invalid_refresh_interval": "De verversingsinterval moet een geheel getal zijn van minimaal 60 seconden.",
+            "invalid_message_language": "Kies de taal van Home Assistant, Engels, Nederlands of Duits."
         }
     },
     "entity": {
@@ -118,6 +121,41 @@
         "precipitation_type_snow": "Sneeuw",
         "precipitation_type_wet_snow": "Natte sneeuw",
         "precipitation_type_mix": "Mix van regen en sneeuw",
-        "precipitation_type_unknown": "Onbekend type"
+        "precipitation_type_unknown": "Onbekend type",
+        "unknown_time": "Onbekende tijd",
+        "forecast_no_data": "Geen data",
+        "forecast_continues": "Neerslag duurt nog {duration} minuten",
+        "forecast_stops": "en stopt rond {time}",
+        "forecast_restarts": "en begint weer om {time}",
+        "forecast_prolonged": "Neerslag voor langere tijd begint om {start}",
+        "forecast_starts": "Neerslag begint om {start} en duurt {duration} minuten",
+        "forecast_expected": "Er wordt regen verwacht om {start} en duurt {duration} minuten",
+        "precipitation_none": "Geen neerslag",
+        "precipitation_unknown": "Onbekend",
+        "precipitation_desc_rain_very_heavy": "Heel zware regen",
+        "precipitation_desc_rain_heavy": "Zware regen",
+        "precipitation_desc_rain_moderate": "Matige regen",
+        "precipitation_desc_rain_light": "Lichte regen",
+        "precipitation_desc_rain_trace": "Motregen",
+        "precipitation_desc_snow_very_heavy": "Heel zware sneeuw",
+        "precipitation_desc_snow_heavy": "Zware sneeuw",
+        "precipitation_desc_snow_moderate": "Matige sneeuw",
+        "precipitation_desc_snow_light": "Lichte sneeuw",
+        "precipitation_desc_snow_trace": "Motsneeuw",
+        "precipitation_desc_mix_very_heavy": "Heel zware regen en sneeuw",
+        "precipitation_desc_mix_heavy": "Zware regen en sneeuw",
+        "precipitation_desc_mix_moderate": "Matige regen en sneeuw",
+        "precipitation_desc_mix_light": "Lichte regen en sneeuw",
+        "precipitation_desc_mix_trace": "Natte sneeuw"
+    },
+    "selector": {
+        "message_language": {
+            "options": {
+                "auto": "Taal van Home Assistant",
+                "en": "Engels",
+                "nl": "Nederlands",
+                "de": "Duits"
+            }
+        }
     }
 }

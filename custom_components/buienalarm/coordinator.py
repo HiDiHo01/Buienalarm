@@ -12,6 +12,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from .api import BuienalarmApiClient
 from .const import API_ENDPOINT, DEFAULT_UPDATE_INTERVAL
+from .localization import BuienalarmLocale
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -27,6 +28,7 @@ class BuienalarmDataUpdateCoordinator(DataUpdateCoordinator[dict[str, object]]):
     """Class to manage fetching data from the Buienalarm API."""
 
     options: dict[str, object] | None = None
+    locale: BuienalarmLocale
 
     def __init__(
         self,

@@ -5,6 +5,7 @@ from datetime import datetime, timezone, tzinfo
 import logging
 from unittest.mock import MagicMock
 
+from common import mock_sensor_coordinator
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.const import STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant
@@ -50,7 +51,7 @@ async def test_period_and_point_attributes_agree_on_numeric_timestamps(
         )
         for offset, rate in ((0, 2.0), (300, 4.0), (600, 0.0))
     ]
-    coordinator = MagicMock()
+    coordinator = mock_sensor_coordinator()
     coordinator.last_update_success = True
     coordinator.device_info = {}
     coordinator.api_last_updated = None
@@ -85,7 +86,7 @@ async def test_out_of_range_period_timestamp_is_unavailable(
 ) -> None:
     """Out-of-range forecast timestamps make the sensor unavailable."""
     freezer.move_to("2026-11-01T12:00:00Z")
-    coordinator = MagicMock()
+    coordinator = mock_sensor_coordinator()
     coordinator.last_update_success = True
     coordinator.device_info = {}
     coordinator.api_last_updated = None
@@ -117,7 +118,7 @@ async def test_out_of_range_period_does_not_discard_valid_forecast(
         {"timestamp": now_ts + 300, "precipitationrate": 0.0},
         {"timestamp": 1e20, "precipitationrate": 1.0},
     ]
-    coordinator = MagicMock()
+    coordinator = mock_sensor_coordinator()
     coordinator.last_update_success = True
     coordinator.data = (
         {"timeseries": {"data": periods}} if wrapped else {"data": periods}
@@ -140,7 +141,7 @@ async def test_period_timestamp_platform_failures_preserve_unknown(
     """Platform-specific conversion errors follow the documented helper contract."""
     freezer.move_to("2026-11-01T12:00:00Z")
     timestamp = datetime.now(timezone.utc).timestamp() + 300
-    coordinator = MagicMock()
+    coordinator = mock_sensor_coordinator()
     coordinator.last_update_success = True
     coordinator.device_info = {}
     coordinator.data = {"data": [{"timestamp": timestamp, "precipitationrate": 1.0}]}

@@ -8,6 +8,7 @@ Translations are stored in `custom_components/buienalarm/translations/`:
 
 - `en.json` — English.
 - `nl.json` — Dutch.
+- `de.json` — German.
 
 These are Home Assistant integration translation files. Keep translation keys and JSON structure compatible across supported languages. Do not place user-facing integration translations in README or Python source when they belong in these files.
 
@@ -18,17 +19,21 @@ The translation files currently contain strings for:
 - The integration title and configuration flow.
 - Configuration errors and abort reasons.
 - Options flow labels, descriptions, and validation errors.
+- Weather message language choices under `selector.message_language.options`.
 - Sensor names under `entity.sensor`.
 - Binary sensor names under `entity.binary_sensor`.
+- Forecast messages, precipitation descriptions and types, and persistent notifications under `common`.
 
 When adding or changing a user-facing label, first determine whether it is supplied by Home Assistant's translation system or explicitly defined by the integration. Follow the existing implementation and translation-key conventions.
+
+Home Assistant resolves entity and form labels. The integration loads `common` for the location's selected weather message language. For the provider's nowcast, use the matching language from the API payload and generate a localized summary from usable forecast data when that text is missing.
 
 ## Translation workflow
 
 1. **Identify the source key.** Inspect the relevant config-flow or options-flow code, entity description, and existing translation file. For entity names, check the entity's `translation_key` and key definitions in the integration; do not assume the Python class name is the translation key.
-2. **Update every supported locale.** Add or update the same logical key in both `en.json` and `nl.json`. Preserve the existing JSON nesting and key names. Translate the displayed text, not the key.
+2. **Update every supported locale.** Add or update the same logical key in `en.json`, `nl.json`, and `de.json`. Preserve the existing JSON nesting and key names. Translate the displayed text.
 3. **Keep locale structures aligned.** Do not remove keys from one locale while leaving them in another. In particular, configuration-flow and options-flow labels, descriptions, and error keys must retain matching key sets.
-4. **Use natural, consistent wording.** English text belongs in `en.json`; Dutch text belongs in `nl.json`. Preserve the meaning of the source text, including validation rules, units, and technical distinctions. Use the same terminology for the same concept throughout the integration.
+4. **Use natural, consistent wording.** Use the language of the translation file. Preserve the meaning of the source text, including validation rules, units, and technical distinctions. Use the same terminology for the same concept throughout the integration.
 5. **Preserve formatting and placeholders.** Keep JSON valid, retain any required placeholders exactly, and do not change a key's meaning as a way to improve its wording.
 6. **Review the result.** Check the diff for missing keys, accidental key renames, inconsistent terminology, and unrelated changes.
 
@@ -48,7 +53,7 @@ Run the focused translation tests from the repository root:
 pytest tests/test_translations.py
 ```
 
-These tests check that the supported translation files exist and contain valid JSON, that expected sections and entity names are present, and that selected configuration/options keys remain aligned between English and Dutch.
+These tests check valid JSON, required sections and entity names, and exact translation key and placeholder parity across all three languages. The Home Assistant lifecycle tests also verify German entity labels, translated weather text and notifications, and language changes with cached forecast data.
 
 For broader changes, run the full test suite as described in [CONTRIBUTING.md](CONTRIBUTING.md):
 
@@ -62,9 +67,9 @@ A passing structural test does not prove that a translation is linguistically co
 
 Before submitting a localization change:
 
-- [ ] Updated all affected supported locales (`en.json` and `nl.json`).
+- [ ] Updated all affected supported locales (`en.json`, `nl.json`, and `de.json`).
 - [ ] Preserved JSON structure and translation keys.
-- [ ] Checked configuration-flow and options-flow key parity where relevant.
+- [ ] Checked translation keys and formatting placeholders across all locales.
 - [ ] Checked sensor and binary sensor translation keys against the implementation.
 - [ ] Ran `pytest tests/test_translations.py` and recorded the actual result.
 - [ ] Reviewed spelling, grammar, terminology, units, and placeholders.

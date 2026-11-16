@@ -64,6 +64,21 @@ installation, custom repository, and update entity when you upgrade to 2026.11.
 2. Click **Add Integration**.
 3. Search for **Buienalarm** and follow the configuration prompts.
 
+### Language
+
+Buienalarm provides entity names and setup screens in English, Dutch, and German.
+Home Assistant selects the language of those labels. Weather messages,
+precipitation descriptions and types, and notifications follow Home Assistant's
+configured language, with English as the fallback. To set a different language
+for these texts at one location, open its integration options and choose
+**Weather message language**.
+
+The nowcast uses the selected language from the Buienalarm forecast when it is
+available. If that text is missing, the integration summarizes the usable forecast
+in the selected language. Entity IDs and raw forecast type codes are stable. If an
+automation matches a Dutch text state, choose **Dutch** for that location or update
+the comparison to match the selected language.
+
 ### Precipitation notifications
 
 `notification_limit` sets the precipitation-intensity threshold in **mm/h**.
@@ -75,9 +90,9 @@ The notification shows the precipitation type (including snow or mixed
 precipitation), intensity and forecast-bin start time in Home Assistant's local
 time zone. Intensity is a rate, not accumulated rainfall in millimetres. The
 earliest qualifying, unexpired five-minute bin is selected, including upcoming
-precipitation. Notification text follows Home Assistant's configured language
-(English or Dutch, with English fallback). Changing Home Assistant's language
-updates the notification without reloading the integration.
+precipitation. Notifications use the location's [weather message language](#language).
+Locations that follow Home Assistant's configured language update their messages
+and notifications without reloading the integration or refreshing the forecast.
 
 There is one notification per location. Forecast changes update that notification
 instead of adding more. An unchanged forecast does not recreate a dismissed

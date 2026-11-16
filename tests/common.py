@@ -1,5 +1,9 @@
 # tests/common.py
+from functools import cache
+import json
+from pathlib import Path
 from typing import Any
+from unittest.mock import MagicMock
 from uuid import uuid4
 
 from homeassistant.config_entries import ConfigEntry
@@ -8,6 +12,27 @@ from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import entity_registry as er
 
 from custom_components.buienalarm.const import DOMAIN
+from custom_components.buienalarm.localization import BuienalarmLocale
+
+
+@cache
+def _dutch_locale() -> BuienalarmLocale:
+    """Read the bundled Dutch text for isolated entity tests."""
+    path = (
+        Path(__file__).resolve().parents[1]
+        / "custom_components"
+        / DOMAIN
+        / "translations/nl.json"
+    )
+    common = json.loads(path.read_text(encoding="utf-8"))["common"]
+    return BuienalarmLocale(
+        "nl", {f"component.{DOMAIN}.common.{key}": text for key, text in common.items()}
+    )
+
+
+def mock_sensor_coordinator() -> MagicMock:
+    """Mock the coordinator while keeping the real strings used by legacy tests."""
+    return MagicMock(locale=_dutch_locale())
 
 
 class MockConfigEntry(ConfigEntry):
